@@ -1,0 +1,11 @@
+[package]
+name = "scoundrel"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+scoundrel-common = { path = "../scoundrel-common" }
+scoundrel-core = { path = "../scoundrel-core" }
+scoundrel-windowing = { path = "../scoundrel-windowing" }

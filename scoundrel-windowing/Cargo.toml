@@ -1,0 +1,12 @@
+[package]
+name = "scoundrel-windowing"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+scoundrel-common = { path = "../scoundrel-common" }
+glutin = "0.20"
+gl = "*"
+libc = "*"
+
+crow = "0.7.2"
