@@ -1,0 +1,2 @@
+[workspace]
+members = ["scoundrel-common", "scoundrel-core", "scoundrel-windowing", "scoundrel"]
