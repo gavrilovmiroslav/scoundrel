@@ -5,13 +5,13 @@ use crow::glutin::event_loop::{ControlFlow, EventLoop};
 use crow::glutin::platform::windows::EventLoopExtWindows;
 use crow::glutin::window::WindowBuilder;
 use scoundrel_common::keycodes::KeyCode;
-use scoundrel_common::shared_data::SharedData;
+use scoundrel_common::engine_context::EngineContext;
 
 fn transmute_keycode(vk: VirtualKeyCode) -> KeyCode {
     unsafe { std::mem::transmute(vk) }
 }
 
-pub fn window_event_loop(shared_data: SharedData) {
+pub fn window_event_loop(shared_data: EngineContext) {
     let mut event_loop = EventLoop::new_any_thread();
 
     let mut context = Context::new(WindowBuilder::new(), &event_loop).unwrap();
@@ -19,22 +19,19 @@ pub fn window_event_loop(shared_data: SharedData) {
     let p = std::path::Path::new("./textures/Full-no-bg.png");
     let texture = Texture::load(&mut context, "./textures/Full-no-bg.png").unwrap();
 
-    let mut done = false;
-
     event_loop.run(move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| match event {
         Event::WindowEvent {
-            event: WindowEvent::CloseRequested,
-            ..
+            event: WindowEvent::CloseRequested, ..
         } => {
             *control_flow = ControlFlow::Exit;
-            *shared_data.should_quit.lock().unwrap() = true;
-            done = true;
-            println!("|= Quitting main thread!");
+            shared_data.should_quit.store(true, Ordering::SeqCst);
+
+            println!("|= Quitting!");
         },
 
         Event::MainEventsCleared => {
             context.window().request_redraw();
-            shared_data.frame_counter.lock().unwrap().fetch_add(1, Ordering::Relaxed);
+            shared_data.frame_counter.fetch_add(1, Ordering::Relaxed);
         },
 
         Event::RedrawRequested(_) => {

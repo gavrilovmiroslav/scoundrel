@@ -1,13 +1,13 @@
-
+use std::sync::atomic::Ordering;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use scoundrel_common::shared_data::SharedData;
+use scoundrel_common::engine_context::EngineContext;
 
 pub type ThreadState = JoinHandle<()>;
 
 pub struct Engine {
-    pub shared_data: SharedData,
+    pub engine_context: EngineContext,
     pub window_thread: Option<ThreadState>,
     pub logic_threads: Vec<ThreadState>,
 }
@@ -15,23 +15,23 @@ pub struct Engine {
 impl Engine {
     pub fn new() -> Engine {
         Engine {
-            shared_data: SharedData::default(),
+            engine_context: EngineContext::default(),
             window_thread: None,
             logic_threads: Vec::new(),
         }
     }
 
-    pub fn run(&mut self, main_loop: fn(SharedData)) {
+    pub fn run(&mut self, main_loop: fn(EngineContext)) {
         self.window_thread = Some({
-            let data = self.shared_data.clone();
+            let data = self.engine_context.clone();
             thread::spawn(move || main_loop(data))
         });
     }
 
     pub fn wait_until_shutdown(mut self) {
-        self.window_thread.unwrap().join();
+        self.window_thread.unwrap().join().unwrap();
         println!("=| Killing main thread");
-        *self.shared_data.should_quit.lock().unwrap() = true;
+        self.engine_context.should_quit.store(true, Ordering::SeqCst);
 
         while let Some(thread) = self.logic_threads.pop() {
             let id = thread.thread().id();
@@ -41,16 +41,16 @@ impl Engine {
         }
     }
 
-    pub fn add_logic(&mut self, name: &'static str, logic: fn(&SharedData)) {
-        let kill_switch = self.shared_data.should_quit.clone();
-        let data = self.shared_data.clone();
+    pub fn add_logic(&mut self, name: &'static str, logic: fn(&EngineContext)) {
+        let kill_switch = self.engine_context.should_quit.clone();
+        let data = self.engine_context.clone();
 
         let thread = thread::spawn(move || {
             loop {
                 logic(&data);
                 thread::sleep(Duration::from_millis(16));
 
-                if *kill_switch.lock().unwrap() {
+                if kill_switch.load(Ordering::SeqCst) {
                     println!("|> Kill switch caught in {}", name);
                     break;
                 }
