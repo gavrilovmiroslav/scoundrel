@@ -16,8 +16,7 @@ pub fn window_event_loop(shared_data: EngineContext) {
 
     let mut context = Context::new(WindowBuilder::new(), &event_loop).unwrap();
 
-    let p = std::path::Path::new("./textures/Full-no-bg.png");
-    let texture = Texture::load(&mut context, "./textures/Full-no-bg.png").unwrap();
+    let texture = Texture::load(&mut context, "./textures/8x8glyphs.png").unwrap();
 
     event_loop.run(move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| match event {
         Event::WindowEvent {
@@ -37,7 +36,8 @@ pub fn window_event_loop(shared_data: EngineContext) {
         Event::RedrawRequested(_) => {
             let mut surface = context.surface();
             context.clear_color(&mut surface, (0.4, 0.4, 0.8, 1.0));
-            context.draw(&mut surface, &texture, (100, 150), &DrawConfig::default());
+
+            context.draw(&mut surface, &texture, (0, 0), &DrawConfig::default());
             context.present(surface).unwrap();
         },
 
