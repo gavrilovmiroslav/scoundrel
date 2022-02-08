@@ -1,7 +1,7 @@
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[repr(u32)]
-pub enum KeyCode {
+pub enum KeyState {
     /// The '1' key over the letters.
     Key1,
     /// The '2' key over the letters.
@@ -183,7 +183,7 @@ pub enum KeyCode {
     Yen,
 }
 
-unsafe impl Send for KeyCode {}
+unsafe impl Send for KeyState {}
 
 /// Represents the current state of the keyboard modifiers
 ///
@@ -200,4 +200,31 @@ pub struct ModifiersState {
     ///
     /// This is the "windows" key on PC and "command" key on Mac.
     pub logo: bool
+}
+
+/// Describes the input state of a key.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum ElementState {
+    Pressed,
+    Released,
+}
+
+/// Describes a button of a mouse controller.
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum MouseButton {
+    Left,
+    Right,
+    Middle,
+    Other(u8),
+}
+
+pub struct MouseState {
+    pub button: MouseButton,
+    pub state: ElementState,
+}
+
+impl MouseState {
+    pub fn new(bt: MouseButton, st: ElementState) -> MouseState {
+        MouseState{ button: bt, state: st }
+    }
 }

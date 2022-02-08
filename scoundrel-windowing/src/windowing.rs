@@ -1,14 +1,20 @@
+use std::borrow::BorrowMut;
+use std::collections::HashMap;
 use std::sync::atomic::Ordering;
-use crow::{Context, DrawConfig, Texture};
-use crow::glutin::event::{Event, VirtualKeyCode, WindowEvent};
+use crow::{BlendMode, Context, DrawConfig, DrawTarget, Texture};
+use crow::glutin::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
 use crow::glutin::event_loop::{ControlFlow, EventLoop};
 use crow::glutin::platform::windows::EventLoopExtWindows;
 use crow::glutin::window::WindowBuilder;
-use scoundrel_common::keycodes::KeyCode;
+use scoundrel_common::keycodes::{KeyState, MouseState};
 use scoundrel_common::engine_context::EngineContext;
 
-fn transmute_keycode(vk: VirtualKeyCode) -> KeyCode {
+fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
     unsafe { std::mem::transmute(vk) }
+}
+
+fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
+    MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
 }
 
 pub fn window_event_loop(shared_data: EngineContext) {
@@ -17,6 +23,20 @@ pub fn window_event_loop(shared_data: EngineContext) {
     let mut context = Context::new(WindowBuilder::new(), &event_loop).unwrap();
 
     let texture = Texture::load(&mut context, "./textures/8x8glyphs.png").unwrap();
+    let textures_by_char = {
+        let mut map_index = HashMap::new();
+        let mut index = 0u16;
+        for i in 0..16 {
+            for j in 0..16 {
+                map_index.insert(index, texture.get_section((8 * j, texture.height() - 8 * (i + 1)), (8, 8)));
+                index += 1;
+            }
+        }
+        map_index
+    };
+
+    let mut frame = 0;
+
 
     event_loop.run(move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| match event {
         Event::WindowEvent {
@@ -29,21 +49,40 @@ pub fn window_event_loop(shared_data: EngineContext) {
         },
 
         Event::MainEventsCleared => {
+            frame += 1;
             context.window().request_redraw();
             shared_data.frame_counter.fetch_add(1, Ordering::Relaxed);
         },
 
         Event::RedrawRequested(_) => {
             let mut surface = context.surface();
-            context.clear_color(&mut surface, (0.4, 0.4, 0.8, 1.0));
+            context.clear_color(&mut surface, (0.0, 0.0, 0.0, 1.0));
 
-            context.draw(&mut surface, &texture, (0, 0), &DrawConfig::default());
+            let mut config = DrawConfig::default();
+            config.scale = (2, 2);
+            for i in (0..1024).step_by(16) {
+                for j in (0..768).step_by(16) {
+                    context.draw(&mut surface, &textures_by_char[&('.' as u16)], (i, j), &config);
+                }
+            }
             context.present(surface).unwrap();
         },
 
         Event::WindowEvent { event: WindowEvent::KeyboardInput {input, .. }, .. } => {
-            shared_data.keyboard_events.lock().unwrap().push_back(transmute_keycode(input.virtual_keycode.unwrap()));
+            if let Some(key) = input.virtual_keycode {
+                shared_data.keyboard_events.lock().unwrap().push_back(transmute_keycode(key));
+            }
         },
+
+        Event::WindowEvent { event: WindowEvent::MouseInput{ button, state, .. }, .. } => {
+            shared_data.mouse_events.lock().unwrap().push_back(transmute_mouse(button, state))
+        },
+
+        Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
+            let mut xy = shared_data.mouse_position.lock().unwrap();
+            xy.borrow_mut().x = position.x as i32 / 16;
+            xy.borrow_mut().y = position.y as i32 / 16;
+        }
 
         _ => {},
     });

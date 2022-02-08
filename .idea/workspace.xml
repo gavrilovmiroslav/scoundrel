@@ -9,8 +9,13 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Erased old name (shared_data)">
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Rendering basic stuff at 1500fps!">
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/point.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/keycodes.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/keycodes.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -20,6 +25,13 @@
   </component>
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Rust File" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -36,6 +48,9 @@
     <option name="directoryName" value="94jeg4pd" />
   </component>
   <component name="ProjectId" id="24mkYsQl2bXR6AUnLdEA9fMlMVN" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -51,11 +66,6 @@
     <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RunManager">
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command" nameIsGenerated="true">
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -70,6 +80,11 @@
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
   </component>
@@ -118,6 +133,7 @@
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Updated data access" />

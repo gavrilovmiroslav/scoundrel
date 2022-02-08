@@ -48,7 +48,7 @@ impl Engine {
         let thread = thread::spawn(move || {
             loop {
                 logic(&data);
-                thread::sleep(Duration::from_millis(16));
+                thread::sleep(Duration::from_millis(1));
 
                 if kill_switch.load(Ordering::SeqCst) {
                     println!("|> Kill switch caught in {}", name);
