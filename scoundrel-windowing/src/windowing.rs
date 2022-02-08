@@ -10,6 +10,12 @@ use rand::Rng;
 use scoundrel_common::keycodes::{KeyState, MouseState};
 use scoundrel_common::engine_context::EngineContext;
 
+#[no_mangle]
+pub static NvOptimusEnablement: u64 = 0x00000001;
+
+#[no_mangle]
+pub static AmdPowerXpressRequestHighPerformance: u64 = 0x00000001;
+
 const SKIP_FRAME: u64 = 10;
 
 fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {

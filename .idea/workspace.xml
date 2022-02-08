@@ -9,10 +9,8 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added mouse events and glyph rendering">
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added frame skipping and random color changes to test out speed bumps.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -121,7 +119,14 @@
       <option name="project" value="LOCAL" />
       <updated>1644283145074</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Added frame skipping and random color changes to test out speed bumps.">
+      <created>1644338080297</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1644338080297</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -143,6 +148,7 @@
     <MESSAGE value="Updated data access" />
     <MESSAGE value="Erased old name (shared_data)" />
     <MESSAGE value="Added mouse events and glyph rendering" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added mouse events and glyph rendering" />
+    <MESSAGE value="Added frame skipping and random color changes to test out speed bumps." />
+    <option name="LAST_COMMIT_MESSAGE" value="Added frame skipping and random color changes to test out speed bumps." />
   </component>
 </project>
