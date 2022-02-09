@@ -1326,6 +1326,7 @@ dependencies = [
  "crow",
  "gl",
  "glutin 0.20.1",
+ "image",
  "libc",
  "rand",
  "scoundrel-common",

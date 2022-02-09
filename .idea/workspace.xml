@@ -9,7 +9,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Adding crow to implement a renderer that batches glyph draws per frame.">
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Actually, on second thought...">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/Cargo.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -96,7 +98,7 @@
       <updated>1644243200462</updated>
       <workItem from="1644243202406" duration="1358000" />
       <workItem from="1644244581011" duration="10396000" />
-      <workItem from="1644365485221" duration="3012000" />
+      <workItem from="1644365485221" duration="3277000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -140,7 +142,14 @@
       <option name="project" value="LOCAL" />
       <updated>1644368460252</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="Actually, on second thought...">
+      <created>1644368629317</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1644368629317</updated>
+    </task>
+    <option name="localTasksCounter" value="8" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -165,6 +174,7 @@
     <MESSAGE value="Added frame skipping and random color changes to test out speed bumps." />
     <MESSAGE value="Added NVidia and AMD high performance flags" />
     <MESSAGE value="Adding crow to implement a renderer that batches glyph draws per frame." />
-    <option name="LAST_COMMIT_MESSAGE" value="Adding crow to implement a renderer that batches glyph draws per frame." />
+    <MESSAGE value="Actually, on second thought..." />
+    <option name="LAST_COMMIT_MESSAGE" value="Actually, on second thought..." />
   </component>
 </project>
