@@ -6,6 +6,9 @@
       <sourceFolder url="file://$MODULE_DIR$/scoundrel-core/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/scoundrel-windowing/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/scoundrel/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crow/examples" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crow/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crow/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

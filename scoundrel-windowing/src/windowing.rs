@@ -1,5 +1,6 @@
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::mem::transmute;
 use std::sync::atomic::Ordering;
 use crow::{BlendMode, Context, DrawConfig, DrawTarget, Texture};
 use crow::glutin::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
@@ -16,7 +17,7 @@ pub static NvOptimusEnablement: u64 = 0x00000001;
 #[no_mangle]
 pub static AmdPowerXpressRequestHighPerformance: u64 = 0x00000001;
 
-const SKIP_FRAME: u64 = 10;
+const RENDER_FRAME_DISTANCE: u64 = 20;
 
 fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
     unsafe { std::mem::transmute(vk) }
@@ -46,58 +47,59 @@ pub fn window_event_loop(shared_data: EngineContext) {
         map_index
     };
 
-    event_loop.run(move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| match event {
-        Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-            *control_flow = ControlFlow::Exit;
-            shared_data.should_quit.store(true, Ordering::SeqCst);
+    event_loop.run(move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| {
+        match event {
+            Event::MainEventsCleared => {
+                if frame % RENDER_FRAME_DISTANCE == 0 {
+                    let mut surface = context.surface();
+                    context.clear_color(&mut surface, (0.0, 0.0, 0.0, 1.0));
 
-            println!("|= Quitting!");
-        },
+                    let mut config = DrawConfig::default();
+                    config.scale = (2, 2);
+                    for i in (0..1024).step_by(16) {
+                        for j in (0..768).step_by(16) {
 
-        Event::MainEventsCleared => {
-            if frame % SKIP_FRAME == 0 {
-                let mut surface = context.surface();
-                context.clear_color(&mut surface, (0.0, 0.0, 0.0, 1.0));
+                            config.color_modulation = [
+                                [rng.gen::<f32>(), 0.0, 0.0, 0.0],
+                                [0.0, rng.gen::<f32>(), 0.0, 0.0],
+                                [0.0, 0.0, rng.gen::<f32>(), 0.0],
+                                [0.0, 0.0, 0.0, 1.0],
+                            ];
 
-                let mut config = DrawConfig::default();
-                config.scale = (2, 2);
-                for i in (0..1024).step_by(16) {
-                    for j in (0..768).step_by(16) {
-
-                        config.color_modulation = [
-                            [rng.gen::<f32>(), 0.0, 0.0, 0.0],
-                            [0.0, rng.gen::<f32>(), 0.0, 0.0],
-                            [0.0, 0.0, rng.gen::<f32>(), 0.0],
-                            [0.0, 0.0, 0.0, 1.0],
-                        ];
-
-                        context.draw(&mut surface, &textures_by_char[&(rng.gen_range(1u16..128u16))], (i, j), &config);
+                            context.draw(&mut surface, &textures_by_char[&(rng.gen_range(1u16..128u16))], (i, j), &config);
+                        }
                     }
+                    context.present(surface).unwrap();
                 }
-                context.present(surface).unwrap();
 
-            }
+                frame += 1;
+                shared_data.frame_counter.fetch_add(1, Ordering::SeqCst);
+            },
 
-            frame += 1;
-            shared_data.frame_counter.fetch_add(1, Ordering::SeqCst);
-        },
+            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                *control_flow = ControlFlow::Exit;
+                shared_data.should_quit.store(true, Ordering::SeqCst);
 
-        Event::WindowEvent { event: WindowEvent::KeyboardInput {input, .. }, .. } => {
-            if let Some(key) = input.virtual_keycode {
-                shared_data.keyboard_events.lock().unwrap().push_back(transmute_keycode(key));
-            }
-        },
+                println!("|= Quitting!");
+            },
 
-        Event::WindowEvent { event: WindowEvent::MouseInput{ button, state, .. }, .. } => {
-            shared_data.mouse_events.lock().unwrap().push_back(transmute_mouse(button, state))
-        },
+            Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
+                if let Some(key) = input.virtual_keycode {
+                    shared_data.keyboard_events.lock().unwrap().push_back(transmute_keycode(key));
+                }
+            },
 
-        Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
-            let mut xy = shared_data.mouse_position.lock().unwrap();
-            xy.borrow_mut().x = position.x as i32 / 16;
-            xy.borrow_mut().y = position.y as i32 / 16;
+            Event::WindowEvent { event: WindowEvent::MouseInput{ button, state, .. }, .. } => {
+                shared_data.mouse_events.lock().unwrap().push_back(transmute_mouse(button, state));
+            },
+
+            Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
+                let mut xy = shared_data.mouse_position.lock().unwrap();
+                xy.borrow_mut().x = position.x as i32 / 16;
+                xy.borrow_mut().y = position.y as i32 / 16;
+            },
+
+            _ => {},
         }
-
-        _ => {},
     });
 }
