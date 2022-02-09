@@ -8,6 +8,6 @@ scoundrel-common = { path = "../scoundrel-common" }
 glutin = "0.20"
 gl = "*"
 libc = "*"
-crow = { path = "../crow" }
+crow = "0.7.2"
 rand = "0.8.4"
 static_assertions = "1.1.0"
