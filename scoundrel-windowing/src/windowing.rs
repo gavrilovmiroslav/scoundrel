@@ -12,7 +12,7 @@ use scoundrel_common::engine_context::EngineContext;
 use scoundrel_common::keycodes::{KeyState, MouseState};
 
 use crate::gl_state::GlState;
-use crate::shader_pipeline::{GLYPHS_BUFFER_SIZE, QUAD_VERTEX_TEX_COORDS_COUNT, ShaderPipeline};
+use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, ShaderPipeline};
 
 #[no_mangle]
 pub static NvOptimusEnablement: u64 = 0x00000001;
@@ -82,8 +82,8 @@ pub fn window_event_loop(engine_context: EngineContext) {
 
                 Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
                     let mut xy = engine_context.mouse_position.lock().unwrap();
-                    xy.borrow_mut().x = position.x as i32 / 16;
-                    xy.borrow_mut().y = position.y as i32 / 16;
+                    xy.borrow_mut().x = position.x as i32 / engine_context.get_glyph_size() as i32;
+                    xy.borrow_mut().y = position.y as i32 / engine_context.get_glyph_size() as i32;
                 },
 
                 _ => {}
@@ -102,8 +102,8 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
     unsafe { gl_context.make_current().unwrap() };
     gl::load_with(|symbol| gl_context.get_proc_address(symbol) as *const c_void);
 
-    let scale = 16.0f32; // #TODO: expose this as either zoom level or font size
-    let pipeline = ShaderPipeline::new();
+    let scale =  engine_context.get_glyph_size() as f32;
+    let pipeline = ShaderPipeline::new(gl_context.window().get_inner_size().unwrap(), scale);
     let size = gl_context.window().get_inner_size().unwrap();
     let gl_state = unsafe {
         gl::UseProgram(pipeline.id);
@@ -157,7 +157,7 @@ fn render_frame(gl_context: &WindowedContext,
         gl::DrawArraysInstanced(
             gl::TRIANGLES, 0,
             QUAD_VERTEX_TEX_COORDS_COUNT as _,
-        64 * 48); //(QUAD_VERTEX_TEX_COORDS_COUNT) as _); //GLYPHS_BUFFER_SIZE as _);
+        pipeline.glyph_buffer_size as i32);
     }
     gl_context.swap_buffers().unwrap();
 }

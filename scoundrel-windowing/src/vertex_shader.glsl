@@ -9,11 +9,13 @@ uniform vec2 u_WindowSize;
 uniform vec2 u_GlyphSize;
 
 out highp vec2 v_TextureCoord;
-out float id;
+out vec2 v_GlyphSize;
+out float v_InstanceId;
 
 void main() {
-    id = gl_InstanceID;
+    v_GlyphSize = u_GlyphSize;
+    v_InstanceId = gl_InstanceID;
     v_TextureCoord = u_GlyphSize + u_WindowSize + a_TextureCoord;
     gl_Position = u_Projection * u_Viewport * u_Camera * vec4(a_VertexPosition +
-        vec2(mod(gl_InstanceID, u_GlyphSize.x), floor(gl_InstanceID / u_GlyphSize.x)), 0.0, 1.0);
+        vec2(mod(v_InstanceId, u_GlyphSize.x), floor(v_InstanceId / u_GlyphSize.x)), 0.0, 1.0);
 }

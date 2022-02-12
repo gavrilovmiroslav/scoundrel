@@ -9,28 +9,13 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
-      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-windowing/src/gl_state.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-windowing/src/uniforms.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/colors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/glyphs.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -131,7 +116,7 @@
       <workItem from="1644493915628" duration="2327000" />
       <workItem from="1644517107085" duration="607000" />
       <workItem from="1644535817424" duration="46000" />
-      <workItem from="1644619834463" duration="8841000" />
+      <workItem from="1644619834463" duration="11885000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -189,7 +174,14 @@
       <option name="project" value="LOCAL" />
       <updated>1644369166651</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
+      <created>1644628781735</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1644628781735</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -221,5 +213,6 @@
     <MESSAGE value="Starting up a raw gl renderer to have batched rendering." />
     <MESSAGE value="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next." />
     <option name="LAST_COMMIT_MESSAGE" value="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next." />
+    <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
 </project>

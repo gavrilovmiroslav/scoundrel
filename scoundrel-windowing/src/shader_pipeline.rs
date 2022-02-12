@@ -5,6 +5,7 @@ use std::{
 use std::mem::size_of;
 
 use gl::types::*;
+use glutin::dpi::LogicalSize;
 
 use scoundrel_common::colors::Color;
 use scoundrel_common::glyphs::Glyph;
@@ -37,8 +38,6 @@ pub const QUAD_VERTEX_AND_TEX_COORDS: [f32; QUAD_VERTEX_TEX_COORDS_COUNT] = [
 ];
 
 pub const GLYPH_SIZE: usize = unsafe { size_of::<Glyph>() };
-pub const GLYPH_BUFFER_LENGTH: usize = (1024 * 768) / 16;
-pub const GLYPHS_BUFFER_SIZE: usize = GLYPH_BUFFER_LENGTH * GLYPH_SIZE;
 
 const VERTEX: &str = include_str!("vertex_shader.glsl");
 const FRAGMENT: &str = include_str!("fragment_shader.glsl");
@@ -217,6 +216,7 @@ fn init_vertex_buffer(vbo: GLuint, data: VertexBufferInitProfile) {
 pub struct ShaderPipeline {
     pub id: GLuint,
     pub vao: GLuint,
+    pub glyph_buffer_size: usize,
     static_quad_vbo: GLuint,
     instance_glyphs_vbo: GLuint,
 }
@@ -246,11 +246,12 @@ fn set_attributes(size: i32, divisor: bool, attribs: &[Attribute]) {
 }
 
 impl ShaderPipeline {
-    pub fn new() -> ShaderPipeline {
+    pub fn new(window_size: LogicalSize, scale: f32) -> ShaderPipeline {
         let id = compile_program(VERTEX, FRAGMENT);
         let mut vao = 0;
         let mut static_quad_vbo = 0;
         let mut instance_glyphs_vbo = 0;
+        let mut glyph_buffer_size = 0;
 
         unsafe {
             // SAFETY: `n` is positive
@@ -267,7 +268,13 @@ impl ShaderPipeline {
                 VERTEX_TEX_COORD_ATTRIBUTE,
             ]);
 
-            init_vertex_buffer(instance_glyphs_vbo, Size(GLYPHS_BUFFER_SIZE));
+            println!("WINDOW: {} x {}", window_size.width, window_size.height);
+            println!("GLYPH SCALE: {}", scale);
+            let glyph_width = window_size.width as i32 / scale as i32;
+            let glyph_height = window_size.height as i32 / scale as i32;
+            glyph_buffer_size = GLYPH_SIZE * glyph_width as usize * glyph_height as usize;
+            println!("BUFFER: {} x {} = {}", glyph_width, glyph_height, glyph_buffer_size);
+            init_vertex_buffer(instance_glyphs_vbo, Size(glyph_buffer_size));
             set_attributes(3, true, &[
                 GLYPH_SYMBOL_ATTRIBUTE,
                 GLYPH_FOREGROUND_ATTRIBUTE,
@@ -275,7 +282,7 @@ impl ShaderPipeline {
             ]);
         }
 
-        ShaderPipeline { id, vao, static_quad_vbo, instance_glyphs_vbo }
+        ShaderPipeline { id, vao, static_quad_vbo, instance_glyphs_vbo, glyph_buffer_size  }
     }
 
     pub fn get_uniforms(&self) -> Uniforms {
