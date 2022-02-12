@@ -1,5 +1,6 @@
 use std::sync::atomic::Ordering;
 use std::time::Instant;
+
 use scoundrel_common::engine_context::EngineContext;
 
 pub fn create_input_checker(data: &EngineContext) {
@@ -16,7 +17,7 @@ pub fn create_fps_tracker(data: &EngineContext) {
 
     if time >= 1000 {
         *stopwatch = Instant::now();
-        let frames = data.frame_counter.fetch_min(0u64, Ordering::Relaxed);
-        println!("FPS: {:.0}", frames as f64 / time as f64 * 1000.0);
+        println!("FPS: {:.0}", *data.frame_counter.read().unwrap() as f64 / time as f64 * 1000.0);
+        *data.frame_counter.write().unwrap() = 0;
     }
 }

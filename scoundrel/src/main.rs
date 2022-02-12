@@ -1,9 +1,10 @@
-use scoundrel_core::engine::Engine;
+use scoundrel_common::engine_options::EngineOptions;
 use scoundrel_core::core_logic;
+use scoundrel_core::engine::Engine;
 use scoundrel_windowing::windowing;
 
 fn main() {
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(EngineOptions::get_from_command_line());
 
     engine.add_logic("core_logic::create_input_checker", core_logic::create_input_checker);
     engine.add_logic("core_logic::create_fps_tracker", core_logic::create_fps_tracker);

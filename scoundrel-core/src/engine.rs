@@ -2,7 +2,9 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+
 use scoundrel_common::engine_context::EngineContext;
+use scoundrel_common::engine_options::EngineOptions;
 
 pub type ThreadState = JoinHandle<()>;
 
@@ -13,9 +15,9 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new() -> Engine {
+    pub fn new(options: EngineOptions) -> Engine {
         Engine {
-            engine_context: EngineContext::default(),
+            engine_context: EngineContext::default_with_opts(options),
             window_thread: None,
             logic_threads: Vec::new(),
         }
