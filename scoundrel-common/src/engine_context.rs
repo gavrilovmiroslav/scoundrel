@@ -20,7 +20,6 @@ pub struct EngineContext {
     pub keyboard_events: Arc<Mutex<VecDeque<KeyState>>>,
     pub mouse_events: Arc<Mutex<VecDeque<MouseState>>>,
     pub mouse_position: Arc<Mutex<Point>>,
-    glyph_size: u8,
 }
 
 impl Default for EngineContext {
@@ -33,7 +32,6 @@ impl Default for EngineContext {
             keyboard_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_position: Arc::new(Mutex::new((0, 0).into())),
-            glyph_size: 16,
         }
     }
 }
@@ -43,9 +41,5 @@ impl EngineContext {
         let mut context = EngineContext::default();
         context.options = opts;
         context
-    }
-
-    pub fn get_glyph_size(&self) -> u8 {
-        self.glyph_size
     }
 }

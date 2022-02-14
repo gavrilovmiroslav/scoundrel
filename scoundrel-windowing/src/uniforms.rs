@@ -1,10 +1,13 @@
 use std::ffi::CString;
 
-use gl::types::{GLint, GLuint};
+use gl::types::{GLfloat, GLint, GLuint};
+
+use crate::common::gl_error_check;
 
 fn get_uniform_id(program: GLuint, name_str: &str) -> GLint {
     let name = CString::new(name_str).unwrap();
     let id = unsafe { gl::GetUniformLocation(program, name.as_ptr()) };
+    gl_error_check();
 
     if id == -1 {
         panic!("Unknown uniform in program {}: {}", program, name_str)
@@ -12,6 +15,8 @@ fn get_uniform_id(program: GLuint, name_str: &str) -> GLint {
         id
     }
 }
+
+type Uniform = GLint;
 
 pub struct Uniforms {
     pub projection: GLint,
@@ -27,8 +32,8 @@ impl Uniforms {
             projection: get_uniform_id(id, "u_Projection"),
             viewport: get_uniform_id(id, "u_Viewport"),
             camera: get_uniform_id(id, "u_Camera"),
-            window_size: get_uniform_id(id, "u_WindowSize"),
             glyph_size: get_uniform_id(id, "u_GlyphSize"),
+            window_size: get_uniform_id(id, "u_WindowSize"),
         }
     }
 }

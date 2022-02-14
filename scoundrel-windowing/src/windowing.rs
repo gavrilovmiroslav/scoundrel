@@ -12,7 +12,9 @@ use scoundrel_common::engine_context::EngineContext;
 use scoundrel_common::keycodes::{KeyState, MouseState};
 
 use crate::gl_state::GlState;
+use crate::render_options::RenderOptions;
 use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, ShaderPipeline};
+use crate::texture::Texture;
 
 #[no_mangle]
 pub static NvOptimusEnablement: u64 = 0x00000001;
@@ -41,23 +43,6 @@ pub fn window_event_loop(engine_context: EngineContext) {
 
     let (pipeline, gl_state) = render_prepare(&gl_context, &engine_context);
 
-/*
-    let mut rng = rand::thread_rng();
-
-    let texture = Texture::load(&mut context, "./textures/8x8glyphs.png").unwrap();
-    let textures_by_char = {
-        let mut map_index = HashMap::new();
-        let mut index = 0u16;
-        for i in 0..16 {
-            for j in 0..16 {
-                map_index.insert(index, texture.get_section((8 * j, texture.height() - 8 * (i + 1)), (8, 8)));
-                index += 1;
-            }
-        }
-        map_index
-    };
-*/
-
     let mut done = false;
     while !done {
         let mut frame = 0u64;
@@ -82,8 +67,8 @@ pub fn window_event_loop(engine_context: EngineContext) {
 
                 Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
                     let mut xy = engine_context.mouse_position.lock().unwrap();
-                    xy.borrow_mut().x = position.x as i32 / engine_context.get_glyph_size() as i32;
-                    xy.borrow_mut().y = position.y as i32 / engine_context.get_glyph_size() as i32;
+                    xy.borrow_mut().x = position.x as i32 / 16 as i32;
+                    xy.borrow_mut().y = position.y as i32 / 16 as i32;
                 },
 
                 _ => {}
@@ -100,12 +85,18 @@ pub fn window_event_loop(engine_context: EngineContext) {
 #[inline(always)]
 fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) -> (ShaderPipeline, GlState) {
     unsafe { gl_context.make_current().unwrap() };
+
+    let render_options = RenderOptions{
+        font: ("./textures/Full-no-bg.png".to_string(), (8, 8)), // TODO:
+        scale: 2.0f32,
+    };
+
     gl::load_with(|symbol| gl_context.get_proc_address(symbol) as *const c_void);
 
-    let scale =  engine_context.get_glyph_size() as f32;
-    let pipeline = ShaderPipeline::new(gl_context.window().get_inner_size().unwrap(), scale);
+    let pipeline = ShaderPipeline::new(gl_context.window().get_inner_size().unwrap(), render_options.scale);
     let size = gl_context.window().get_inner_size().unwrap();
     let gl_state = unsafe {
+        let scale = render_options.scale;
         gl::UseProgram(pipeline.id);
         gl::BindVertexArray(pipeline.vao);
 
@@ -114,15 +105,14 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
         let framebuffer = 0;
         gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer);
 
-        let texture = 0;
-        gl::BindTexture(gl::TEXTURE_2D, texture);
-        assert_eq!(gl::NO_ERROR, gl::GetError());
+        let mut texture = Texture::load(render_options.font.0.as_str(), render_options.font.1).unwrap();
+        texture.bind();
 
         use nalgebra_glm::{ identity, ortho, translation, vec3, scaling, look_at };
         let projection = ortho(0.0f32, size.width as f32, size.height as f32, 0.0f32, 0.0f32, 100.0f32);
         let viewport = {
-            let half_scale = scale * 0.5f32;
-            translation(&vec3(half_scale, half_scale, 0.0f32))
+            let half = scale;
+            translation(&vec3(half, half, 0.0f32))
         };
 
         let camera = {
@@ -135,11 +125,17 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
 
     let uniforms = pipeline.get_uniforms();
     unsafe {
+        let original_glyph_size = render_options.font.1;
+        let rescaled_glyph_size = (original_glyph_size.0 as f32 * render_options.scale,
+                                   original_glyph_size.1 as f32 * render_options.scale);
         gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.projection).as_ptr());
         gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.viewport).as_ptr());
         gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.camera).as_ptr());
         gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
-        gl::Uniform2f(uniforms.glyph_size, size.width as f32 / scale as f32, size.height as f32 / scale as f32);
+        println!("{} {}", size.width as f32, size.height as f32);
+        gl::Uniform2f(uniforms.glyph_size, rescaled_glyph_size.0, rescaled_glyph_size.1);
+        println!("{} {}", rescaled_glyph_size.0, rescaled_glyph_size.1);
+        println!("{} {}", size.width as f32 / rescaled_glyph_size.0, size.height as f32 / rescaled_glyph_size.1);
     }
 
     (pipeline, gl_state)
@@ -157,7 +153,7 @@ fn render_frame(gl_context: &WindowedContext,
         gl::DrawArraysInstanced(
             gl::TRIANGLES, 0,
             QUAD_VERTEX_TEX_COORDS_COUNT as _,
-        pipeline.glyph_buffer_size as i32);
+        1); // pipeline.glyph_buffer_size as i32);
     }
     gl_context.swap_buffers().unwrap();
 }
