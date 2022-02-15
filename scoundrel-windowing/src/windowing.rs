@@ -110,10 +110,7 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
 
         use nalgebra_glm::{ identity, ortho, translation, vec3, scaling, look_at };
         let projection = ortho(0.0f32, size.width as f32, size.height as f32, 0.0f32, 0.0f32, 100.0f32);
-        let viewport = {
-            let half = scale;
-            translation(&vec3(half, half, 0.0f32))
-        };
+        let viewport = translation(&vec3(0.0f32, 0.0f32, 0.0f32));
 
         let camera = {
             let scale_matrix = scaling(&vec3(scale, scale, scale));
@@ -132,10 +129,11 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
         gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.viewport).as_ptr());
         gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.camera).as_ptr());
         gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
-        println!("{} {}", size.width as f32, size.height as f32);
         gl::Uniform2f(uniforms.glyph_size, rescaled_glyph_size.0, rescaled_glyph_size.1);
-        println!("{} {}", rescaled_glyph_size.0, rescaled_glyph_size.1);
-        println!("{} {}", size.width as f32 / rescaled_glyph_size.0, size.height as f32 / rescaled_glyph_size.1);
+
+        println!("window size: {} {}", size.width as f32, size.height as f32);
+        println!("glyph size:  {} {}", rescaled_glyph_size.0, rescaled_glyph_size.1);
+        println!("offset:      {} {}", size.width as f32 / rescaled_glyph_size.0, size.height as f32 / rescaled_glyph_size.1);
     }
 
     (pipeline, gl_state)
@@ -153,7 +151,7 @@ fn render_frame(gl_context: &WindowedContext,
         gl::DrawArraysInstanced(
             gl::TRIANGLES, 0,
             QUAD_VERTEX_TEX_COORDS_COUNT as _,
-        1); // pipeline.glyph_buffer_size as i32);
+        65); // pipeline.glyph_buffer_size as i32);
     }
     gl_context.swap_buffers().unwrap();
 }

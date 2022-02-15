@@ -23,5 +23,5 @@ void main() {
 
     vec2 countPerLine = u_WindowSize / u_GlyphSize;
     vec2 offset = vec2(mod(v_InstanceId, countPerLine.x), floor(v_InstanceId / countPerLine.x));
-    gl_Position = u_Projection * u_Viewport * u_Camera * vec4((a_VertexPosition + offset) * countPerLine.x, 0.0, 1.0);
+    gl_Position = u_Projection * u_Viewport * u_Camera * vec4((a_VertexPosition + offset + vec2(0.5, 0.5)) * u_GlyphSize, 0.0, 1.0);
 }
