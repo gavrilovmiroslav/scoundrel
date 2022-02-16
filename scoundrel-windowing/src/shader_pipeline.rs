@@ -234,9 +234,10 @@ impl ShaderPipeline {
                 VERTEX_TEX_COORD_ATTRIBUTE,
             ]);
 
-            let glyph_width = window_size.width as i32 / 16; //scale as i32;
-            let glyph_height = window_size.height as i32 / 16; //scale as i32;
-            glyph_buffer_size = GLYPH_SIZE * glyph_width as usize * glyph_height as usize;
+            let glyph_width = window_size.width as i32 / scale as i32;
+            let glyph_height = window_size.height as i32 / scale as i32;
+            glyph_buffer_size = GLYPH_SIZE * glyph_width as usize * glyph_height as usize; // TODO: scale has to be fixed
+            println!("{}", glyph_buffer_size);
             init_vertex_buffer(instance_glyphs_vbo, Size(glyph_buffer_size));
             set_attributes(3, true, &[
                 GLYPH_SYMBOL_ATTRIBUTE,

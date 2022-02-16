@@ -93,7 +93,7 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
 
     gl::load_with(|symbol| gl_context.get_proc_address(symbol) as *const c_void);
 
-    let pipeline = ShaderPipeline::new(gl_context.window().get_inner_size().unwrap(), render_options.scale);
+    let pipeline = ShaderPipeline::new(gl_context.window().get_inner_size().unwrap(), render_options.scale * render_options.font.1.0 as f32 * 2.0); // TODO: cleanup!
     let size = gl_context.window().get_inner_size().unwrap();
     let gl_state = unsafe {
         let scale = render_options.scale;
@@ -123,17 +123,13 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
     let uniforms = pipeline.get_uniforms();
     unsafe {
         let original_glyph_size = render_options.font.1;
-        let rescaled_glyph_size = (original_glyph_size.0 as f32 * render_options.scale,
-                                   original_glyph_size.1 as f32 * render_options.scale);
+
         gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.projection).as_ptr());
         gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.viewport).as_ptr());
         gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.camera).as_ptr());
+        gl::Uniform2f(uniforms.glyph_size, original_glyph_size.0 as f32, original_glyph_size.1 as f32);
+        gl::Uniform1f(uniforms.glyph_scale, render_options.scale);
         gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
-        gl::Uniform2f(uniforms.glyph_size, rescaled_glyph_size.0, rescaled_glyph_size.1);
-
-        println!("window size: {} {}", size.width as f32, size.height as f32);
-        println!("glyph size:  {} {}", rescaled_glyph_size.0, rescaled_glyph_size.1);
-        println!("offset:      {} {}", size.width as f32 / rescaled_glyph_size.0, size.height as f32 / rescaled_glyph_size.1);
     }
 
     (pipeline, gl_state)
@@ -151,7 +147,7 @@ fn render_frame(gl_context: &WindowedContext,
         gl::DrawArraysInstanced(
             gl::TRIANGLES, 0,
             QUAD_VERTEX_TEX_COORDS_COUNT as _,
-        65); // pipeline.glyph_buffer_size as i32);
+        pipeline.glyph_buffer_size as i32);
     }
     gl_context.swap_buffers().unwrap();
 }

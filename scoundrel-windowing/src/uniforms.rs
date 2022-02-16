@@ -24,6 +24,7 @@ pub struct Uniforms {
     pub camera: GLint,
     pub window_size: GLint,
     pub glyph_size: GLint,
+    pub glyph_scale: GLint,
 }
 
 impl Uniforms {
@@ -33,6 +34,7 @@ impl Uniforms {
             viewport: get_uniform_id(id, "u_Viewport"),
             camera: get_uniform_id(id, "u_Camera"),
             glyph_size: get_uniform_id(id, "u_GlyphSize"),
+            glyph_scale: get_uniform_id(id, "u_GlyphScale"),
             window_size: get_uniform_id(id, "u_WindowSize"),
         }
     }
