@@ -4,6 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::path::Path;
 
 use image::GenericImageView;
+use scoundrel_common::presentation::Presentation;
 
 pub struct Texture {
     pub width: u32,
@@ -26,14 +27,14 @@ impl Display for TextureError {
 impl Error for TextureError {}
 
 impl Texture {
-    pub fn load<P: AsRef<Path>>(path: P, glyph_size: (u32, u32)) -> Result<Texture, TextureError> {
-        let image = image::open(path).map_err(|_| TextureError::LoadTextureFailed)?;
+    pub fn load(render_options: &Presentation) -> Result<Texture, TextureError> {
+        let image = image::open(format!("data/{}", render_options.input_font.as_str())).map_err(|_| TextureError::LoadTextureFailed)?;
         let dimensions = image.dimensions();
         let reversed_data: Vec<u8> = image
             .to_rgba8()
             .into_raw()
             .chunks(dimensions.0 as usize * 4)
-            .rev()
+//            .rev() <------ reversal of image was needed in Crow, why not here?
             .flat_map(|row| row.iter())
             .copied()
             .collect();
@@ -51,7 +52,7 @@ impl Texture {
                            0, gl::RGBA, gl::UNSIGNED_BYTE, reversed_data.as_ptr() as *const c_void, );
         }
 
-        Ok(Texture { texture_id: id, width: dimensions.0, height: dimensions.1, glyph_size })
+        Ok(Texture { texture_id: id, width: dimensions.0, height: dimensions.1, glyph_size: render_options.input_font_glyph_size })
     }
 
     pub fn bind(&self) {

@@ -110,7 +110,10 @@
         "platform/win32/executable/history": [
             "D:/Rust/scoundrel/target/debug/scoundrel.exe"
         ],
-        "platform/win32/workingdir": "",
+        "platform/win32/workingdir": "D:/Rust/scoundrel",
+        "platform/win32/workingdir/history": [
+            "D:/Rust/scoundrel"
+        ],
         "platform/windows/device": "localhost"
     },
     "uuid": "{3f20bde5-2537-4445-8243-b8467b37d7a1}",

@@ -1,18 +1,21 @@
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::mem;
 use std::mem::transmute;
 use std::sync::atomic::Ordering;
 
 use gl::types::GLboolean;
 use glutin::{Api, Context, ContextBuilder, ContextTrait, ElementState, Event, EventsLoop, GlRequest, MouseButton, VirtualKeyCode, WindowBuilder, WindowedContext, WindowEvent};
+use glutin::dpi::LogicalSize;
 use rand::Rng;
 
 use scoundrel_common::engine_context::EngineContext;
 use scoundrel_common::keycodes::{KeyState, MouseState};
+use crate::common::gl_error_check;
 
 use crate::gl_state::GlState;
-use crate::render_options::RenderOptions;
+use scoundrel_common::presentation::Presentation;
 use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, ShaderPipeline};
 use crate::texture::Texture;
 
@@ -32,16 +35,20 @@ fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
     MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
 }
 
-pub fn window_event_loop(engine_context: EngineContext) {
+pub fn window_event_loop(mut engine_context: EngineContext) {
     let mut event_loop = EventsLoop::new();
 
-    let window_builder = WindowBuilder::new();
+    let window_builder = WindowBuilder::new()
+        .with_title(engine_context.options.title.as_str())
+        .with_resizable(false)
+        .with_dimensions(LogicalSize::new(engine_context.options.window_size.0 as f64, engine_context.options.window_size.1 as f64,));
+
     let gl_context = glutin::ContextBuilder::new()
         .with_gl(GlRequest::Specific(Api::OpenGl, (4, 4)))
         .with_vsync(false)
         .build_windowed(window_builder, &event_loop).unwrap();
 
-    let (pipeline, gl_state) = render_prepare(&gl_context, &engine_context);
+    let (pipeline, gl_state) = render_prepare(&gl_context, &mut engine_context);
 
     let mut done = false;
     while !done {
@@ -83,20 +90,24 @@ pub fn window_event_loop(engine_context: EngineContext) {
 }
 
 #[inline(always)]
-fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) -> (ShaderPipeline, GlState) {
+fn render_prepare(gl_context: &WindowedContext, mut engine_context: &mut EngineContext) -> (ShaderPipeline, GlState) {
     unsafe { gl_context.make_current().unwrap() };
 
-    let render_options = RenderOptions{
-        font: ("./textures/Full-no-bg.png".to_string(), (8, 8)), // TODO:
-        scale: 2.0f32,
+    let presentation = engine_context.options.presentation.as_str();
+    println!("Preparing to use presentation: {}", presentation);
+
+    let preferred_render_options = {
+        let presentations = engine_context.presentations.lock().unwrap();
+        presentations.get(presentation).unwrap().clone()
     };
 
     gl::load_with(|symbol| gl_context.get_proc_address(symbol) as *const c_void);
+    gl_error_check();
 
-    let pipeline = ShaderPipeline::new(gl_context.window().get_inner_size().unwrap(), render_options.scale * render_options.font.1.0 as f32 * 2.0); // TODO: cleanup!
     let size = gl_context.window().get_inner_size().unwrap();
+    let pipeline = ShaderPipeline::new(size, &mut engine_context, &preferred_render_options);
+
     let gl_state = unsafe {
-        let scale = render_options.scale;
         gl::UseProgram(pipeline.id);
         gl::BindVertexArray(pipeline.vao);
 
@@ -105,7 +116,7 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
         let framebuffer = 0;
         gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer);
 
-        let mut texture = Texture::load(render_options.font.0.as_str(), render_options.font.1).unwrap();
+        let mut texture = Texture::load(&preferred_render_options).unwrap();
         texture.bind();
 
         use nalgebra_glm::{ identity, ortho, translation, vec3, scaling, look_at };
@@ -113,7 +124,7 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
         let viewport = translation(&vec3(0.0f32, 0.0f32, 0.0f32));
 
         let camera = {
-            let scale_matrix = scaling(&vec3(scale, scale, scale));
+            let scale_matrix = scaling(&vec3(1.0, 1.0, 1.0));
             scale_matrix * look_at(&vec3(0.0f32, 0.0f32, 0.0f32), &(vec3(0.0f32, 0.0f32, -90.0f32)), &vec3(0.0f32, 1.0f32, 0.0f32))
         };
 
@@ -122,14 +133,26 @@ fn render_prepare(gl_context: &WindowedContext, engine_context: &EngineContext) 
 
     let uniforms = pipeline.get_uniforms();
     unsafe {
-        let original_glyph_size = render_options.font.1;
-
         gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.projection).as_ptr());
+        gl_error_check();
         gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.viewport).as_ptr());
+        gl_error_check();
         gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.camera).as_ptr());
-        gl::Uniform2f(uniforms.glyph_size, original_glyph_size.0 as f32, original_glyph_size.1 as f32);
-        gl::Uniform1f(uniforms.glyph_scale, render_options.scale);
+        gl_error_check();
+
+        gl::Uniform2f(uniforms.input_font_bitmap_size, preferred_render_options.input_font_bitmap_size.0 as f32, preferred_render_options.input_font_bitmap_size.1 as f32);
+        gl_error_check();
+        gl::Uniform2f(uniforms.input_font_glyph_size, preferred_render_options.input_font_glyph_size.0 as f32, preferred_render_options.input_font_glyph_size.1 as f32);
+        gl_error_check();
+        gl::Uniform2f(uniforms.output_glyph_scale, preferred_render_options.output_glyph_scale.0 as f32, preferred_render_options.output_glyph_scale.1 as f32);
+        gl_error_check();
         gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
+        gl_error_check();
+
+        println!("font bitmap size:      {}, {}", preferred_render_options.input_font_bitmap_size.0 as f32, preferred_render_options.input_font_bitmap_size.1 as f32);
+        println!("input font glyph size: {}, {}", preferred_render_options.input_font_glyph_size.0 as f32, preferred_render_options.input_font_glyph_size.1 as f32);
+        println!("output glyph scale:    {}, {}", preferred_render_options.output_glyph_scale.0 as f32, preferred_render_options.output_glyph_scale.1 as f32);
+        println!("window size:           {}, {}", size.width as f32, size.height as f32);
     }
 
     (pipeline, gl_state)
@@ -140,14 +163,27 @@ fn render_frame(gl_context: &WindowedContext,
                 engine_context: &EngineContext,
                 pipeline: &ShaderPipeline,
                 gl_state: &GlState) {
+    use gl::types::GLsizeiptr;
 
     unsafe {
+
+        let screen_memory = engine_context.screen_memory.lock().unwrap();
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
+        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                       std::ptr::null(), gl::STREAM_DRAW, );
+        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                       screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+
         gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+        gl_error_check();
         gl::Clear(gl::COLOR_BUFFER_BIT);
+        gl_error_check();
         gl::DrawArraysInstanced(
             gl::TRIANGLES, 0,
             QUAD_VERTEX_TEX_COORDS_COUNT as _,
-        pipeline.glyph_buffer_size as i32);
+        screen_memory.len() as i32);
+        gl_error_check();
     }
     gl_context.swap_buffers().unwrap();
 }

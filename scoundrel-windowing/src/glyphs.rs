@@ -1,7 +1,7 @@
 use scoundrel_common::colors::Color;
 use scoundrel_common::glyphs::Glyph;
 
-#[derive(Copy, Clone)]
+/*#[derive(Copy, Clone)]
 pub struct Surface<T> {
     value: T,
     depth: u8,
@@ -23,7 +23,7 @@ impl<T> Surface<T> where T: Copy + Send {
 pub struct LayerGlyph {
     foreground: Surface<Color>,
     background: Surface<Color>,
-    symbol: Surface<u32>,
+    symbol: Surface<u8>,
 }
 
 impl LayerGlyph {
@@ -35,7 +35,7 @@ impl LayerGlyph {
         self.background.update(bg);
     }
 
-    pub fn set_symbol(&mut self, ch: Surface<u32>) {
+    pub fn set_symbol(&mut self, ch: Surface<u8>) {
         self.symbol.update(ch);
     }
 
@@ -47,3 +47,4 @@ impl LayerGlyph {
         }
     }
 }
+*/

@@ -22,9 +22,10 @@ pub struct Uniforms {
     pub projection: GLint,
     pub viewport: GLint,
     pub camera: GLint,
+    pub input_font_bitmap_size: GLint,
+    pub input_font_glyph_size: GLint,
+    pub output_glyph_scale: GLint,
     pub window_size: GLint,
-    pub glyph_size: GLint,
-    pub glyph_scale: GLint,
 }
 
 impl Uniforms {
@@ -33,8 +34,9 @@ impl Uniforms {
             projection: get_uniform_id(id, "u_Projection"),
             viewport: get_uniform_id(id, "u_Viewport"),
             camera: get_uniform_id(id, "u_Camera"),
-            glyph_size: get_uniform_id(id, "u_GlyphSize"),
-            glyph_scale: get_uniform_id(id, "u_GlyphScale"),
+            input_font_bitmap_size: get_uniform_id(id, "u_InputFontBitmapSize"),
+            input_font_glyph_size: get_uniform_id(id, "u_InputFontGlyphSize"),
+            output_glyph_scale: get_uniform_id(id, "u_OutputGlyphScale"),
             window_size: get_uniform_id(id, "u_WindowSize"),
         }
     }

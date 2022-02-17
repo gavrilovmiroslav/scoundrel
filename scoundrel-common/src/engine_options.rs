@@ -1,22 +1,16 @@
 use structopt::*;
-
-#[derive(Debug, StructOpt, Clone)]
+use serde::{ Deserialize, Serialize };
+#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct EngineOptions {
-    /// Vertical synchronization - true or false
-    #[structopt(short="v", long)]
     pub vsync: bool,
+    pub window_size: (u32, u32),
+    pub title: String,
+    pub presentation: String,
 }
 
 impl Default for EngineOptions {
     fn default() -> Self {
-        EngineOptions {
-            vsync: false,
-        }
-    }
-}
-
-impl EngineOptions {
-    pub fn get_from_command_line() -> EngineOptions {
-        EngineOptions::from_args()
+        ron::from_str(std::fs::read_to_string("data/config.ron").unwrap().as_str()).unwrap()
     }
 }

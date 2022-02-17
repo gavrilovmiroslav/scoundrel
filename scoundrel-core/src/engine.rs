@@ -41,6 +41,8 @@ impl Engine {
             thread.join().unwrap();
             println!("|) Killed thread {:?}", id);
         }
+
+        std::process::exit(0);
     }
 
     pub fn add_logic(&mut self, name: &'static str, logic: fn(&EngineContext)) {

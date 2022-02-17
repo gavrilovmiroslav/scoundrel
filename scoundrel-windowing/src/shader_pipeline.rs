@@ -6,11 +6,14 @@ use std::mem::size_of;
 
 use gl::types::*;
 use glutin::dpi::LogicalSize;
+use rand::{Rng, thread_rng};
 
 use scoundrel_common::colors::Color;
+use scoundrel_common::engine_context::EngineContext;
 use scoundrel_common::glyphs::Glyph;
 
 use crate::common::gl_error_check;
+use scoundrel_common::presentation::Presentation;
 use crate::shader_pipeline::VertexBufferInitProfile::{Data, Size};
 use crate::uniforms::Uniforms;
 
@@ -24,18 +27,18 @@ pub const VERTEX_POSITION_ATTRIBUTE: Attribute = Attribute{ position: 0, stride:
 pub const VERTEX_TEX_COORD_ATTRIBUTE: Attribute = Attribute{ position: 1, stride: 2, pointer: 2 };
 
 pub const GLYPH_SYMBOL_ATTRIBUTE: Attribute = Attribute{ position: 2, stride: 1, pointer: 0 };
-pub const GLYPH_FOREGROUND_ATTRIBUTE: Attribute = Attribute{ position: 3, stride: 1, pointer: 1 };
-pub const GLYPH_BACKGROUND_ATTRIBUTE: Attribute = Attribute{ position: 4, stride: 1, pointer: 2 };
+pub const GLYPH_FOREGROUND_ATTRIBUTE: Attribute = Attribute{ position: 3, stride: 3, pointer: 1 };
+pub const GLYPH_BACKGROUND_ATTRIBUTE: Attribute = Attribute{ position: 4, stride: 3, pointer: 4 };
 
 pub const QUAD_VERTEX_TEX_COORDS_COUNT: usize = 24;
 pub const QUAD_MEMORY_SIZE: usize = unsafe { size_of::<f32>() } * QUAD_VERTEX_TEX_COORDS_COUNT;
 pub const QUAD_VERTEX_AND_TEX_COORDS: [f32; QUAD_VERTEX_TEX_COORDS_COUNT] = [
     -0.5, -0.5, 0.0, 0.0,
     -0.5,  0.5, 0.0, 1.0,
-    0.5,  0.5, 1.0, 1.0,
-    0.5, -0.5, 1.0, 0.0,
+     0.5,  0.5, 1.0, 1.0,
+     0.5, -0.5, 1.0, 0.0,
     -0.5, -0.5, 0.0, 0.0,
-    0.5,  0.5, 1.0, 1.0
+     0.5,  0.5, 1.0, 1.0
 ];
 
 pub const GLYPH_SIZE: usize = unsafe { size_of::<Glyph>() };
@@ -148,41 +151,13 @@ pub enum VertexBufferInitProfile<'a> {
     Size(usize),
 }
 
-fn init_vertex_buffer(vbo: GLuint, data: VertexBufferInitProfile) {
-    use VertexBufferInitProfile::*;
-
-    unsafe {
-        // SAFETY: `gl::ARRAY_BUFFER` is a valid `target` and `vbo` is valid
-        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-        // SAFETY:
-        // `gl::ARRAY_BUFFER` is a valid buffer target
-        // `gl::STATIC_DRAW` is a valid usage
-        // `size` is positive
-        // `vbo` is bound to `target`
-        // `GL_BUFFER_IMMUTABLE_STORAGE` is not yet set
-        match data {
-            Data(data) => {
-                gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(data) as GLsizeiptr,
-                               data.as_ptr().cast(), gl::STATIC_DRAW, );
-            }
-            Size(size) => {
-                gl::BufferData(gl::ARRAY_BUFFER, size as GLsizeiptr,
-                               ptr::null(), gl::STATIC_DRAW, );
-            }
-        }
-
-        // check for oom
-        gl_error_check();
-    }
-}
-
 #[derive(Debug)]
 pub struct ShaderPipeline {
     pub id: GLuint,
     pub vao: GLuint,
     pub glyph_buffer_size: usize,
     static_quad_vbo: GLuint,
-    instance_glyphs_vbo: GLuint,
+    pub instance_glyphs_vbo: GLuint,
 }
 
 fn set_attributes(size: i32, divisor: bool, attribs: &[Attribute]) {
@@ -212,7 +187,7 @@ fn set_attributes(size: i32, divisor: bool, attribs: &[Attribute]) {
 }
 
 impl ShaderPipeline {
-    pub fn new(window_size: LogicalSize, scale: f32) -> ShaderPipeline {
+    pub fn new(window_size: LogicalSize, engine_context: &mut EngineContext, render_options: &Presentation) -> ShaderPipeline {
         let id = compile_program(VERTEX, FRAGMENT);
         let mut vao = 0;
         let mut static_quad_vbo = 0;
@@ -228,22 +203,47 @@ impl ShaderPipeline {
             // SAFETY: `vao` was just returned from `gl::GenVertexArrays`
             gl::BindVertexArray(vao);
 
-            init_vertex_buffer(static_quad_vbo, Data(&QUAD_VERTEX_AND_TEX_COORDS));
+            gl::BindBuffer(gl::ARRAY_BUFFER, static_quad_vbo);
+            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(&QUAD_VERTEX_AND_TEX_COORDS) as GLsizeiptr,
+                           QUAD_VERTEX_AND_TEX_COORDS.as_ptr().cast(), gl::STATIC_DRAW, );
+
             set_attributes(4, false, &[
                 VERTEX_POSITION_ATTRIBUTE,
                 VERTEX_TEX_COORD_ATTRIBUTE,
             ]);
 
-            let glyph_width = window_size.width as i32 / scale as i32;
-            let glyph_height = window_size.height as i32 / scale as i32;
-            glyph_buffer_size = GLYPH_SIZE * glyph_width as usize * glyph_height as usize; // TODO: scale has to be fixed
-            println!("{}", glyph_buffer_size);
-            init_vertex_buffer(instance_glyphs_vbo, Size(glyph_buffer_size));
-            set_attributes(3, true, &[
+            let scale = (render_options.input_font_glyph_size.0 * render_options.output_glyph_scale.0,
+                render_options.input_font_glyph_size.1 * render_options.output_glyph_scale.1);
+
+            let glyph_count_by_width = window_size.width as i32 / scale.0 as i32;
+            let glyph_count_by_height = window_size.height as i32 / scale.1 as i32;
+
+            let buffer_size = glyph_count_by_width as usize * glyph_count_by_height as usize;
+            glyph_buffer_size = GLYPH_SIZE * buffer_size;
+            println!("GLYPH BUFFER SIZE: {}", glyph_buffer_size);
+            println!("BUFFER SIZE:       {} {}", glyph_count_by_width, glyph_count_by_height);
+
+            set_attributes(7, true, &[
                 GLYPH_SYMBOL_ATTRIBUTE,
                 GLYPH_FOREGROUND_ATTRIBUTE,
                 GLYPH_BACKGROUND_ATTRIBUTE,
             ]);
+
+            {
+                let mut screen_memory = engine_context.screen_memory.lock().unwrap();
+                for _ in 0..10 { // buffer_size {
+                    screen_memory.push(Glyph {
+                        symbol: 10,
+                        background: Color{ hue: 0, sat: 0, val: 0 },
+                        foreground: Color{ hue: 255, sat: 255, val: 255 },
+                    })
+                }
+
+                println!("SCREEN MEMORY SIZE: {}", mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr);
+                gl::BindBuffer(gl::ARRAY_BUFFER, instance_glyphs_vbo);
+                gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                               screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+            }
         }
         gl_error_check();
 

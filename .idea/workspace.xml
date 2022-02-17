@@ -10,11 +10,34 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
+      <change afterPath="$PROJECT_DIR$/data/config.ron" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/presentations/8x8glyphs.ron" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/presentations/classic_roguelike_white.ron" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/presentation.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.nsight/scoundrel/scoundrel.ngfx-proj" beforeDir="false" afterPath="$PROJECT_DIR$/.nsight/scoundrel/scoundrel.ngfx-proj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/glyphs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/render_options.rs" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/texture.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/uniforms.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/uniforms.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/textures/8x8glyphs.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/8x8glyphs.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/textures/Full-no-bg.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/Full-no-bg.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/textures/MRMOTEXTEX_rexpaintx2.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/MRMOTEXTEX_rexpaintx2.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/textures/classic_roguelike_white.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/classic_roguelike_white.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,6 +51,7 @@
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Rust File" />
+        <option value="RON File" />
       </list>
     </option>
   </component>
@@ -65,12 +89,17 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="cf.first.check.clang-format" value="false" />
     <property name="cidr.known.project.marker" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../crow" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
   <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\Rust\scoundrel" />
+    </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Rust\scoundrel\data" />
+      <recent name="D:\Rust\scoundrel\presentations" />
       <recent name="D:\Rust\scoundrel\scoundrel-common\src" />
     </key>
   </component>
