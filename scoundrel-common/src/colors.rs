@@ -5,17 +5,14 @@ use rand::{Rng, thread_rng};
 #[no_mangle]
 #[repr(C)]
 pub struct Color {
-    pub hue: u32,
-    pub sat: u32,
-    pub val: u32,
+    pub hue: u8,
+    pub sat: u8,
+    pub val: u8,
+    pub eff: u8,
 }
 
 impl Color {
-    pub fn rand() -> Color {
-        Color {
-            hue: thread_rng().gen_range(0..255),
-            sat: thread_rng().gen_range(0..255),
-            val: thread_rng().gen_range(0..255),
-        }
+    pub fn new(h: u8, s: u8, v: u8) -> Color {
+        Color { hue: h, sat: s, val: v, eff: 255 }
     }
 }

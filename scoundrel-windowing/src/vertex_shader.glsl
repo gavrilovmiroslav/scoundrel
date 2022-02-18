@@ -1,16 +1,16 @@
 #version 440
 
 flat struct Glyph {
-    int symbol;
-    ivec3 foreground;
-    ivec3 background;
+    uint symbol;
+    uint foreground;
+    uint background;
 };
 
 layout (location = 0) in vec2 a_VertexPosition;
 layout (location = 1) in vec2 a_TextureCoord;
-layout (location = 2) in int a_GlyphSymbol;
-layout (location = 3) in ivec3 a_GlyphForeground;
-layout (location = 4) in ivec3 a_GlyphBackground;
+layout (location = 2) in uint a_GlyphSymbol;
+layout (location = 3) in uint a_GlyphForeground;
+layout (location = 4) in uint a_GlyphBackground;
 
 uniform mat4 u_Projection;
 uniform mat4 u_Viewport;
@@ -31,6 +31,7 @@ void main() {
     v_InputFontBitmapSize = u_InputFontBitmapSize;
     v_TextureCoord = a_TextureCoord;
     v_InstanceId = gl_InstanceID;
+
     v_Glyph.symbol = a_GlyphSymbol;
     v_Glyph.foreground = a_GlyphForeground;
     v_Glyph.background = a_GlyphBackground;

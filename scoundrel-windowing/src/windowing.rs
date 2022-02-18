@@ -166,15 +166,15 @@ fn render_frame(gl_context: &WindowedContext,
     use gl::types::GLsizeiptr;
 
     unsafe {
-
         let screen_memory = engine_context.screen_memory.lock().unwrap();
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
-        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
-                       std::ptr::null(), gl::STREAM_DRAW, );
-        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+        //gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
+        // TODO: streaming
+/*        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                       std::ptr::null(), gl::STREAM_DRAW, );*/
+/*        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
                        screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
-
+*/
         gl::ClearColor(0.0, 0.0, 0.0, 1.0);
         gl_error_check();
         gl::Clear(gl::COLOR_BUFFER_BIT);

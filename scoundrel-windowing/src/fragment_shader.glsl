@@ -1,9 +1,9 @@
 #version 440
 
 flat struct Glyph {
-    int symbol;
-    ivec3 foreground;
-    ivec3 background;
+    uint symbol;
+    uint foreground;
+    uint background;
 };
 
 in highp vec2 v_TextureCoord;
@@ -19,12 +19,18 @@ out vec4 color;
 void main() {
     vec2 glyphsInBitmapRatio = v_InputFontBitmapSize / v_InputFontGlyphSize;
     vec2 glyphScalingFactor = v_InputFontGlyphSize / v_InputFontBitmapSize;
-    vec2 glyphPosition = vec2(mod(float(v_Glyph.symbol), glyphsInBitmapRatio.x), floor(float(v_Glyph.symbol) / glyphsInBitmapRatio.x));
-    vec4 texel = texture(s_sourceTexture, (v_TextureCoord + glyphPosition)  * glyphScalingFactor);
+    vec2 glyphPosition = vec2(mod(v_Glyph.symbol, glyphsInBitmapRatio.x), floor(v_Glyph.symbol / glyphsInBitmapRatio.x));
+    vec4 texel = texture(s_sourceTexture, v_TextureCoord + glyphPosition * glyphScalingFactor);
 
-    float isAlphaDiscarded = float(texel.a < 1.0);
-    if (texel.a < 1.0) discard;
-    color = vec4(1.0, 1.0, 1.0, 1.0) + vec4(v_Glyph.foreground, 1.0);
-//    color = vec4(vec3(float(v_Glyph.background.x), float(v_Glyph.background.y), float(v_Glyph.background.z))  * isAlphaDiscarded
-  //          + vec3(float(v_Glyph.foreground.x), float(v_Glyph.foreground.y), float(v_Glyph.foreground.z)) * (1.0 - isAlphaDiscarded), 1.0);
+    vec4 fore = unpackUnorm4x8(v_Glyph.foreground);
+    vec4 back = unpackUnorm4x8(v_Glyph.background);
+
+    if (texel.a > 1.0) discard;
+
+//    color = vec4(v_TextureCoord.xy, 1.0, 1.0);
+//    color = vec4(glyphPosition / 2000.0, 1.0, 1.0);
+//    color = vec4(1.0, 1.0, 1.0, 1.0);
+//    color = vec4(glyphsInBitmapRatio / 255.0, 1.0, 1.0);
+//    color = texel;
+    color = vec4((v_TextureCoord + glyphPosition) * glyphScalingFactor, 1.0, 1.0);
 }

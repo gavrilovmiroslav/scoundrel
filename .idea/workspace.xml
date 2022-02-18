@@ -10,34 +10,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
-      <change afterPath="$PROJECT_DIR$/data/config.ron" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/presentations/8x8glyphs.ron" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/data/presentations/classic_roguelike_white.ron" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/presentation.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-windowing/src/attribute.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.nsight/scoundrel/scoundrel.ngfx-proj" beforeDir="false" afterPath="$PROJECT_DIR$/.nsight/scoundrel/scoundrel.ngfx-proj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/glyphs.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/render_options.rs" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/texture.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/uniforms.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/uniforms.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/textures/8x8glyphs.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/8x8glyphs.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/textures/Full-no-bg.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/Full-no-bg.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/textures/MRMOTEXTEX_rexpaintx2.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/MRMOTEXTEX_rexpaintx2.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/textures/classic_roguelike_white.png" beforeDir="false" afterPath="$PROJECT_DIR$/data/textures/classic_roguelike_white.png" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -50,8 +30,8 @@
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
-        <option value="Rust File" />
         <option value="RON File" />
+        <option value="Rust File" />
       </list>
     </option>
   </component>
@@ -89,7 +69,7 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="cf.first.check.clang-format" value="false" />
     <property name="cidr.known.project.marker" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="E:/Pajglanje" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
   </component>
@@ -104,6 +84,11 @@
     </key>
   </component>
   <component name="RunManager">
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command" nameIsGenerated="true">
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -118,11 +103,6 @@
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
   </component>
@@ -149,6 +129,7 @@
       <workItem from="1644712210517" duration="644000" />
       <workItem from="1644758239503" duration="21354000" />
       <workItem from="1644876944085" duration="3701000" />
+      <workItem from="1645100348469" duration="17257000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
