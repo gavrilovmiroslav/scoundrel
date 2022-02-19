@@ -13,7 +13,7 @@ pub struct Color {
 
 impl Color {
     pub fn new(h: u8, s: u8, v: u8) -> Color {
-        Color { hue: h, sat: s, val: v, eff: 255 }
+        Color { hue: h, sat: s, val: v, eff: 0 }
     }
 
     pub fn rand() -> Color {

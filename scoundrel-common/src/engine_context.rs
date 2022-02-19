@@ -4,7 +4,7 @@ use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
 use std::ops::Deref;
 use std::sync::{Arc, Mutex, RwLock};
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
 
 use crate::engine_options::EngineOptions;
@@ -13,17 +13,38 @@ use crate::keycodes::{KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
 
+#[derive(Clone, Default)]
+pub struct FrameCounter {
+    active_frame_count: Arc<AtomicU64>,
+    last_cached_count: Arc<AtomicU64>,
+}
+
+impl FrameCounter {
+    pub fn tick(&mut self) {
+        self.active_frame_count.fetch_add(1, Ordering::Acquire);
+    }
+
+    pub fn cache(&mut self) {
+        self.last_cached_count.store(self.active_frame_count.fetch_min(0, Ordering::Relaxed), Ordering::Release);
+    }
+
+    pub fn cached(&self) -> u64 {
+        self.last_cached_count.load(Ordering::Acquire)
+    }
+}
+
 #[derive(Clone)]
 pub struct EngineContext {
     pub options: EngineOptions,
     pub presentations: Arc<Mutex<HashMap<String, Presentation>>>,
     pub should_quit: Arc<AtomicBool>,
     pub stopwatch: Arc<Mutex<Instant>>,
-    pub frame_counter: Arc<RwLock<u64>>,
+    pub frame_counter: Arc<Mutex<FrameCounter>>,
     pub keyboard_events: Arc<Mutex<VecDeque<KeyState>>>,
     pub mouse_events: Arc<Mutex<VecDeque<MouseState>>>,
     pub mouse_position: Arc<Mutex<Point>>,
     pub screen_memory: Arc<RwLock<Vec<Glyph>>>,
+    pub should_redraw: Arc<AtomicBool>,
 }
 
 impl Default for EngineContext {
@@ -33,11 +54,12 @@ impl Default for EngineContext {
             presentations: Arc::new(Mutex::new(HashMap::new())),
             should_quit: Arc::new(AtomicBool::new(false)),
             stopwatch: Arc::new(Mutex::new(Instant::now())),
-            frame_counter: Arc::new(RwLock::new(0u64)),
+            frame_counter: Arc::new(Mutex::new(FrameCounter::default())),
             keyboard_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_position: Arc::new(Mutex::new((0, 0).into())),
             screen_memory: Arc::new(RwLock::new(Vec::new())),
+            should_redraw: Arc::new(AtomicBool::new(true)),
         }
     }
 }

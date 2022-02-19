@@ -4,6 +4,7 @@ use std::ffi::c_void;
 use std::mem;
 use std::mem::transmute;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 use gl::types::GLboolean;
 use glutin::{Api, Context, ContextBuilder, ContextTrait, ElementState, Event, EventsLoop, GlRequest, MouseButton, VirtualKeyCode, WindowBuilder, WindowedContext, WindowEvent};
@@ -53,7 +54,6 @@ pub fn window_event_loop(mut engine_context: EngineContext) {
 
     let mut done = false;
     while !done {
-        let mut frame = 0u64;
         event_loop.poll_events(|event| {
             match event {
                 Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
@@ -84,9 +84,6 @@ pub fn window_event_loop(mut engine_context: EngineContext) {
         });
 
         render_frame(&gl_context, &engine_context, &pipeline, &gl_state);
-
-        frame += 1;
-        *engine_context.frame_counter.write().unwrap() += 1;
     }
 }
 
@@ -165,27 +162,37 @@ fn render_frame(gl_context: &WindowedContext,
                 pipeline: &ShaderPipeline,
                 gl_state: &GlState) {
 
-    let screen_memory = engine_context.screen_memory.read().unwrap().clone();
+    let should_redraw = engine_context.should_redraw.load(Ordering::SeqCst);
 
-    unsafe {
-        use gl::types::GLsizeiptr;
+    if should_redraw {
+        let screen_memory = engine_context.screen_memory.read().unwrap().clone();
+        engine_context.should_redraw.store(false, Ordering::Release);
 
-        gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
+        unsafe {
+            use gl::types::GLsizeiptr;
 
-        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
-                       std::ptr::null(), gl::STREAM_DRAW, );
+            gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
 
-        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
-                       screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                           std::ptr::null(), gl::STREAM_DRAW, );
 
-        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-        gl_error_check();
-        gl::Clear(gl::COLOR_BUFFER_BIT);
-        gl_error_check();
-        gl::DrawArraysInstanced(gl::TRIANGLES, 0,
-                                QUAD_VERTEX_TEX_COORDS_COUNT as _,
-                                screen_memory.len() as i32);
-        gl_error_check();
+            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                           screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl_error_check();
+            gl::Clear(gl::COLOR_BUFFER_BIT);
+            gl_error_check();
+            gl::DrawArraysInstanced(gl::TRIANGLES, 0,
+                                    QUAD_VERTEX_TEX_COORDS_COUNT as _,
+                                    screen_memory.len() as i32);
+            gl_error_check();
+        }
+
+        gl_context.swap_buffers().unwrap();
+    } else {
+        std::thread::sleep(Duration::from_millis(6));
     }
-    gl_context.swap_buffers().unwrap();
+
+    engine_context.frame_counter.lock().unwrap().tick();
 }

@@ -190,9 +190,8 @@ impl ShaderPipeline {
             gl::GenBuffers(1, &mut instance_glyphs_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_glyphs_vbo);
 
-            {
-                let mut screen_memory = engine_context.screen_memory.write().unwrap();
-                for i in 0..buffer_size {
+            if let Ok(mut screen_memory) = engine_context.screen_memory.try_write() {
+                for _ in 0..buffer_size {
                     screen_memory.push(Glyph::default())
                 }
 
