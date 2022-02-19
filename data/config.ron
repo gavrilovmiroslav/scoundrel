@@ -5,5 +5,5 @@
 
     // Graphics options
     vsync: false,
-    presentation: "8x8glyphs",
+    presentation: "classic_roguelike_white",
 )

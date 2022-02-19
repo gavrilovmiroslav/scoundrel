@@ -11,17 +11,11 @@
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/config.ron" beforeDir="false" afterPath="$PROJECT_DIR$/data/config.ron" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/presentations/8x8glyphs.ron" beforeDir="false" afterPath="$PROJECT_DIR$/data/presentations/8x8glyphs.ron" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_context.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/attribute.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/attribute.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -134,7 +128,7 @@
       <workItem from="1644758239503" duration="21354000" />
       <workItem from="1644876944085" duration="3701000" />
       <workItem from="1645100348469" duration="17342000" />
-      <workItem from="1645145780461" duration="9129000" />
+      <workItem from="1645145780461" duration="10153000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>

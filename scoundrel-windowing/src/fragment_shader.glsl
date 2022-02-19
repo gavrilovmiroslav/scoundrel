@@ -1,6 +1,6 @@
 #version 440
 
-vec4 hsv2rgb(vec3 c)
+vec4 hsv2rgb(vec4 c)
 {
     vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
     vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
@@ -29,12 +29,9 @@ void main() {
     vec2 glyphPosition = vec2(mod(v_Glyph.symbol, glyphsInBitmapRatio.x), floor(v_Glyph.symbol / glyphsInBitmapRatio.x));
     vec4 texel = texture(s_sourceTexture, (v_TextureCoord + glyphPosition) * glyphScalingFactor);
 
-    vec4 fore = unpackUnorm4x8(v_Glyph.foreground);
-    vec4 back = unpackUnorm4x8(v_Glyph.background);
+    vec4 fore = hsv2rgb(unpackUnorm4x8(v_Glyph.foreground));
+    vec4 back = hsv2rgb(unpackUnorm4x8(v_Glyph.background));
 
-    if (texel.a < 1.0) {
-        color = hsv2rgb(back.rgb);
-    } else {
-        color = hsv2rgb(fore.rgb);
-    }
+    float shouldBeBackground = float(texel.a < 1.0);
+    color = back * shouldBeBackground + fore * (1.0 - shouldBeBackground);
 }

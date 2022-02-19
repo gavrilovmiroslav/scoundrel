@@ -13,7 +13,7 @@ impl Default for Glyph {
     fn default() -> Self {
         Glyph {
             symbol: '.' as u32,
-            foreground: Color::new(255, 255, 255),
+            foreground: Color::rand(),
             background: Color::new(0, 0, 0),
         }
     }
