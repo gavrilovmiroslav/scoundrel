@@ -11,6 +11,7 @@ use glutin::dpi::LogicalSize;
 use rand::Rng;
 
 use scoundrel_common::engine_context::EngineContext;
+use scoundrel_common::glyphs::Glyph;
 use scoundrel_common::keycodes::{KeyState, MouseState};
 use crate::common::gl_error_check;
 
@@ -163,26 +164,27 @@ fn render_frame(gl_context: &WindowedContext,
                 engine_context: &EngineContext,
                 pipeline: &ShaderPipeline,
                 gl_state: &GlState) {
-    use gl::types::GLsizeiptr;
+
+    let screen_memory = engine_context.screen_memory.read().unwrap().clone();
 
     unsafe {
-        let screen_memory = engine_context.screen_memory.lock().unwrap();
+        use gl::types::GLsizeiptr;
 
-        //gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
-        // TODO: streaming
-/*        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
-                       std::ptr::null(), gl::STREAM_DRAW, );*/
-/*        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+        gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
+
+        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                       std::ptr::null(), gl::STREAM_DRAW, );
+
+        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
                        screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
-*/
+
         gl::ClearColor(0.0, 0.0, 0.0, 1.0);
         gl_error_check();
         gl::Clear(gl::COLOR_BUFFER_BIT);
         gl_error_check();
-        gl::DrawArraysInstanced(
-            gl::TRIANGLES, 0,
-            QUAD_VERTEX_TEX_COORDS_COUNT as _,
-        screen_memory.len() as i32);
+        gl::DrawArraysInstanced(gl::TRIANGLES, 0,
+                                QUAD_VERTEX_TEX_COORDS_COUNT as _,
+                                screen_memory.len() as i32);
         gl_error_check();
     }
     gl_context.swap_buffers().unwrap();

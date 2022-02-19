@@ -8,3 +8,13 @@ pub struct Glyph {
     pub foreground: Color,
     pub background: Color,
 }
+
+impl Default for Glyph {
+    fn default() -> Self {
+        Glyph {
+            symbol: '.' as u32,
+            foreground: Color::new(255, 255, 255),
+            background: Color::new(0, 0, 0),
+        }
+    }
+}

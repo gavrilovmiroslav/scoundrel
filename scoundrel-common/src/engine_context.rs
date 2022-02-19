@@ -23,7 +23,7 @@ pub struct EngineContext {
     pub keyboard_events: Arc<Mutex<VecDeque<KeyState>>>,
     pub mouse_events: Arc<Mutex<VecDeque<MouseState>>>,
     pub mouse_position: Arc<Mutex<Point>>,
-    pub screen_memory: Arc<Mutex<Vec<Glyph>>>,
+    pub screen_memory: Arc<RwLock<Vec<Glyph>>>,
 }
 
 impl Default for EngineContext {
@@ -37,7 +37,7 @@ impl Default for EngineContext {
             keyboard_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_position: Arc::new(Mutex::new((0, 0).into())),
-            screen_memory: Arc::new(Mutex::new(Vec::new())),
+            screen_memory: Arc::new(RwLock::new(Vec::new())),
         }
     }
 }

@@ -191,13 +191,9 @@ impl ShaderPipeline {
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_glyphs_vbo);
 
             {
-                let mut screen_memory = engine_context.screen_memory.lock().unwrap();
-                for i in 0..768 { // buffer_size {
-                    screen_memory.push(Glyph {
-                        symbol: i,
-                        background: Color::new(0, 0, 0),
-                        foreground: Color::new(255, 255, 255),
-                    })
+                let mut screen_memory = engine_context.screen_memory.write().unwrap();
+                for i in 0..buffer_size {
+                    screen_memory.push(Glyph::default())
                 }
 
                 gl::BufferData(gl::ARRAY_BUFFER, (screen_memory.len() * std::mem::size_of::<Glyph>()) as GLsizeiptr,

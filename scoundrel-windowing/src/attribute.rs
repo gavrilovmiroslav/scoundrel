@@ -46,6 +46,19 @@ pub enum AttribType {
 }
 
 impl AttribType {
+    pub fn is_int(&self) -> bool {
+        match self {
+            AttribType::Byte |
+            AttribType::UnsignedByte |
+            AttribType::Short |
+            AttribType::UnsignedShort |
+            AttribType::Int |
+            AttribType::UnsignedInt => true,
+
+            _ => false
+        }
+    }
+
     pub fn stride(self) -> i32 {
         use crate::attribute::AttribType::*;
 
@@ -124,20 +137,25 @@ impl BufferMapping {
                 let glen: GLenum = attrib.kind.into();
 
                 gl::EnableVertexAttribArray(attrib.position.into());
-                println!("gl::VertexAttribPointer(pos({}), size({}), kind({}), FALSE, stride({}), ptr({}))",
-                    attrib.position.0,
-                    attrib.size.as_i32(),
-                    glen,
-                    stride,
-                    pointer,);
-                gl::VertexAttribPointer(
-                    attrib.position.0,
-                    attrib.size.as_i32(),
-                    glen,
-                    gl::FALSE as GLboolean,
-                    stride,
-                    pointer as *const c_void,
-                );
+
+                if attrib.kind.is_int() {
+                    gl::VertexAttribIPointer(
+                        attrib.position.0,
+                        attrib.size.as_i32(),
+                        glen,
+                        stride,
+                        pointer as *const c_void,
+                    );
+                } else {
+                    gl::VertexAttribPointer(
+                        attrib.position.0,
+                        attrib.size.as_i32(),
+                        glen,
+                        gl::FALSE as GLboolean,
+                        stride,
+                        pointer as *const c_void,
+                    );
+                }
 
                 if self.divisor {
                     gl::VertexAttribDivisor(attrib.position.0, 1);
