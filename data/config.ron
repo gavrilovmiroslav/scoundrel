@@ -1,0 +1,9 @@
+(
+    // Window options
+    title: "Scoundrel",
+    window_size: (1024, 768),
+
+    // Graphics options
+    vsync: false,
+    presentation: "classic_roguelike_white",
+)

@@ -1,7 +1,7 @@
+use scoundrel_common::colors::Color;
+use scoundrel_common::glyphs::Glyph;
 
-use crate::colors::Color;
-
-#[derive(Copy, Clone)]
+/*#[derive(Copy, Clone)]
 pub struct Surface<T> {
     value: T,
     depth: u8,
@@ -23,13 +23,7 @@ impl<T> Surface<T> where T: Copy + Send {
 pub struct LayerGlyph {
     foreground: Surface<Color>,
     background: Surface<Color>,
-    symbol: Surface<u16>,
-}
-
-pub struct Glyph {
-    foreground: Color,
-    background: Color,
-    symbol: u16,
+    symbol: Surface<u8>,
 }
 
 impl LayerGlyph {
@@ -41,7 +35,7 @@ impl LayerGlyph {
         self.background.update(bg);
     }
 
-    pub fn set_symbol(&mut self, ch: Surface<u16>) {
+    pub fn set_symbol(&mut self, ch: Surface<u8>) {
         self.symbol.update(ch);
     }
 
@@ -53,3 +47,4 @@ impl LayerGlyph {
         }
     }
 }
+*/

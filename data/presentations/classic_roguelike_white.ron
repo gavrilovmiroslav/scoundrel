@@ -1,0 +1,7 @@
+(
+    input_font: "textures/classic_roguelike_white.png",
+    input_font_bitmap_size: (224, 64),
+    input_font_glyph_size: (8, 8),
+    output_glyph_scale: (2, 2),
+    window_size_in_glyphs: (64, 48),
+)

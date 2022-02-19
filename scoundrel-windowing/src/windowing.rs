@@ -1,15 +1,24 @@
 use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::ffi::c_void;
+use std::mem;
 use std::mem::transmute;
 use std::sync::atomic::Ordering;
-use crow::{BlendMode, Context, DrawConfig, DrawTarget, Texture};
-use crow::glutin::event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent};
-use crow::glutin::event_loop::{ControlFlow, EventLoop};
-use crow::glutin::platform::windows::EventLoopExtWindows;
-use crow::glutin::window::WindowBuilder;
+
+use gl::types::GLboolean;
+use glutin::{Api, Context, ContextBuilder, ContextTrait, ElementState, Event, EventsLoop, GlRequest, MouseButton, VirtualKeyCode, WindowBuilder, WindowedContext, WindowEvent};
+use glutin::dpi::LogicalSize;
 use rand::Rng;
-use scoundrel_common::keycodes::{KeyState, MouseState};
+
 use scoundrel_common::engine_context::EngineContext;
+use scoundrel_common::glyphs::Glyph;
+use scoundrel_common::keycodes::{KeyState, MouseState};
+use crate::common::gl_error_check;
+
+use crate::gl_state::GlState;
+use scoundrel_common::presentation::Presentation;
+use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, ShaderPipeline};
+use crate::texture::Texture;
 
 #[no_mangle]
 pub static NvOptimusEnablement: u64 = 0x00000001;
@@ -27,79 +36,156 @@ fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
     MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
 }
 
-pub fn window_event_loop(shared_data: EngineContext) {
-    let mut event_loop = EventLoop::new_any_thread();
-    let mut frame = 0u64;
-    let mut context = Context::new(WindowBuilder::new(), &event_loop).unwrap();
+pub fn window_event_loop(mut engine_context: EngineContext) {
+    let mut event_loop = EventsLoop::new();
 
-    let mut rng = rand::thread_rng();
+    let window_builder = WindowBuilder::new()
+        .with_title(engine_context.options.title.as_str())
+        .with_resizable(false)
+        .with_dimensions(LogicalSize::new(engine_context.options.window_size.0 as f64, engine_context.options.window_size.1 as f64,));
 
-    let texture = Texture::load(&mut context, "./textures/8x8glyphs.png").unwrap();
-    let textures_by_char = {
-        let mut map_index = HashMap::new();
-        let mut index = 0u16;
-        for i in 0..16 {
-            for j in 0..16 {
-                map_index.insert(index, texture.get_section((8 * j, texture.height() - 8 * (i + 1)), (8, 8)));
-                index += 1;
+    let gl_context = glutin::ContextBuilder::new()
+        .with_gl(GlRequest::Specific(Api::OpenGl, (4, 4)))
+        .with_vsync(false)
+        .build_windowed(window_builder, &event_loop).unwrap();
+
+    let (pipeline, gl_state) = render_prepare(&gl_context, &mut engine_context);
+
+    let mut done = false;
+    while !done {
+        let mut frame = 0u64;
+        event_loop.poll_events(|event| {
+            match event {
+                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
+                    engine_context.should_quit.store(true, Ordering::SeqCst);
+
+                    done = true;
+                    println!("|= Quitting!");
+                },
+
+                Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
+                    if let Some(key) = input.virtual_keycode {
+                        engine_context.keyboard_events.lock().unwrap().push_back(transmute_keycode(key));
+                    }
+                },
+
+                Event::WindowEvent { event: WindowEvent::MouseInput{ button, state, .. }, .. } => {
+                    engine_context.mouse_events.lock().unwrap().push_back(transmute_mouse(button, state));
+                },
+
+                Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
+                    let mut xy = engine_context.mouse_position.lock().unwrap();
+                    xy.borrow_mut().x = position.x as i32 / 16 as i32;
+                    xy.borrow_mut().y = position.y as i32 / 16 as i32;
+                },
+
+                _ => {}
             }
-        }
-        map_index
+        });
+
+        render_frame(&gl_context, &engine_context, &pipeline, &gl_state);
+
+        frame += 1;
+        *engine_context.frame_counter.write().unwrap() += 1;
+    }
+}
+
+#[inline(always)]
+fn render_prepare(gl_context: &WindowedContext, mut engine_context: &mut EngineContext) -> (ShaderPipeline, GlState) {
+    unsafe { gl_context.make_current().unwrap() };
+
+    let presentation = engine_context.options.presentation.as_str();
+    println!("Preparing to use presentation: {}", presentation);
+
+    let preferred_render_options = {
+        let presentations = engine_context.presentations.lock().unwrap();
+        presentations.get(presentation).unwrap().clone()
     };
 
-    event_loop.run(move |event: Event<()>, _window_target: _, control_flow: &mut ControlFlow| {
-        match event {
-            Event::MainEventsCleared => {
-                if frame % RENDER_FRAME_DISTANCE == 0 {
-                    let mut surface = context.surface();
-                    context.clear_color(&mut surface, (0.0, 0.0, 0.0, 1.0));
+    gl::load_with(|symbol| gl_context.get_proc_address(symbol) as *const c_void);
+    gl_error_check();
 
-                    let mut config = DrawConfig::default();
-                    config.scale = (2, 2);
-                    for i in (0..1024).step_by(16) {
-                        for j in (0..768).step_by(16) {
+    let size = gl_context.window().get_inner_size().unwrap();
+    let pipeline = ShaderPipeline::new(size, &mut engine_context, &preferred_render_options);
 
-                            config.color_modulation = [
-                                [rng.gen::<f32>(), 0.0, 0.0, 0.0],
-                                [0.0, rng.gen::<f32>(), 0.0, 0.0],
-                                [0.0, 0.0, rng.gen::<f32>(), 0.0],
-                                [0.0, 0.0, 0.0, 1.0],
-                            ];
+    let gl_state = unsafe {
+        gl::UseProgram(pipeline.id);
+        gl::BindVertexArray(pipeline.vao);
 
-                            context.draw(&mut surface, &textures_by_char[&(rng.gen_range(1u16..128u16))], (i, j), &config);
-                        }
-                    }
-                    context.present(surface).unwrap();
-                }
+        gl::Viewport(0, 0, size.width as _, size.height as _);
 
-                frame += 1;
-                shared_data.frame_counter.fetch_add(1, Ordering::SeqCst);
-            },
+        let framebuffer = 0;
+        gl::BindFramebuffer(gl::FRAMEBUFFER, framebuffer);
 
-            Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                *control_flow = ControlFlow::Exit;
-                shared_data.should_quit.store(true, Ordering::SeqCst);
+        let mut texture = Texture::load(&preferred_render_options).unwrap();
+        texture.bind();
 
-                println!("|= Quitting!");
-            },
+        use nalgebra_glm::{ identity, ortho, translation, vec3, scaling, look_at };
+        let projection = ortho(0.0f32, size.width as f32, size.height as f32, 0.0f32, 0.0f32, 100.0f32);
+        let viewport = translation(&vec3(0.0f32, 0.0f32, 0.0f32));
 
-            Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
-                if let Some(key) = input.virtual_keycode {
-                    shared_data.keyboard_events.lock().unwrap().push_back(transmute_keycode(key));
-                }
-            },
+        let camera = {
+            let scale_matrix = scaling(&vec3(1.0, 1.0, 1.0));
+            scale_matrix * look_at(&vec3(0.0f32, 0.0f32, 0.0f32), &(vec3(0.0f32, 0.0f32, -90.0f32)), &vec3(0.0f32, 1.0f32, 0.0f32))
+        };
 
-            Event::WindowEvent { event: WindowEvent::MouseInput{ button, state, .. }, .. } => {
-                shared_data.mouse_events.lock().unwrap().push_back(transmute_mouse(button, state));
-            },
+        GlState { framebuffer, texture, projection, viewport, camera }
+    };
 
-            Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
-                let mut xy = shared_data.mouse_position.lock().unwrap();
-                xy.borrow_mut().x = position.x as i32 / 16;
-                xy.borrow_mut().y = position.y as i32 / 16;
-            },
+    let uniforms = pipeline.get_uniforms();
+    unsafe {
+        gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.projection).as_ptr());
+        gl_error_check();
+        gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.viewport).as_ptr());
+        gl_error_check();
+        gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.camera).as_ptr());
+        gl_error_check();
 
-            _ => {},
-        }
-    });
+        gl::Uniform2f(uniforms.input_font_bitmap_size, preferred_render_options.input_font_bitmap_size.0 as f32, preferred_render_options.input_font_bitmap_size.1 as f32);
+        gl_error_check();
+        gl::Uniform2f(uniforms.input_font_glyph_size, preferred_render_options.input_font_glyph_size.0 as f32, preferred_render_options.input_font_glyph_size.1 as f32);
+        gl_error_check();
+        gl::Uniform2f(uniforms.output_glyph_scale, preferred_render_options.output_glyph_scale.0 as f32, preferred_render_options.output_glyph_scale.1 as f32);
+        gl_error_check();
+        gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
+        gl_error_check();
+
+        println!("font bitmap size:      {}, {}", preferred_render_options.input_font_bitmap_size.0 as f32, preferred_render_options.input_font_bitmap_size.1 as f32);
+        println!("input font glyph size: {}, {}", preferred_render_options.input_font_glyph_size.0 as f32, preferred_render_options.input_font_glyph_size.1 as f32);
+        println!("output glyph scale:    {}, {}", preferred_render_options.output_glyph_scale.0 as f32, preferred_render_options.output_glyph_scale.1 as f32);
+        println!("window size:           {}, {}", size.width as f32, size.height as f32);
+    }
+
+    (pipeline, gl_state)
+}
+
+#[inline(always)]
+fn render_frame(gl_context: &WindowedContext,
+                engine_context: &EngineContext,
+                pipeline: &ShaderPipeline,
+                gl_state: &GlState) {
+
+    let screen_memory = engine_context.screen_memory.read().unwrap().clone();
+
+    unsafe {
+        use gl::types::GLsizeiptr;
+
+        gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
+
+        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                       std::ptr::null(), gl::STREAM_DRAW, );
+
+        gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
+                       screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+
+        gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+        gl_error_check();
+        gl::Clear(gl::COLOR_BUFFER_BIT);
+        gl_error_check();
+        gl::DrawArraysInstanced(gl::TRIANGLES, 0,
+                                QUAD_VERTEX_TEX_COORDS_COUNT as _,
+                                screen_memory.len() as i32);
+        gl_error_check();
+    }
+    gl_context.swap_buffers().unwrap();
 }
