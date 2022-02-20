@@ -2,45 +2,36 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use scoundrel_common::engine;
 
-use scoundrel_common::engine_context::EngineContext;
 use scoundrel_common::engine_options::EngineOptions;
 
 pub type ThreadState = JoinHandle<()>;
 
 pub struct Engine {
-    pub engine_context: EngineContext,
-    pub logic: Vec<fn(&EngineContext)>,
+    pub logic: Vec<fn()>,
 }
 
 impl Engine {
     pub fn new(options: EngineOptions) -> Engine {
-        Engine {
-            engine_context: EngineContext::default_with_opts(options),
-            logic: Vec::new(),
-        }
+        engine::start_engine(options);
+
+        Engine { logic: Vec::new(), }
     }
 
-    pub fn run(&self, main_loop: fn(EngineContext)) {
+    pub fn run(&self, main_loop: fn()) {
         let logics = self.logic.clone();
-        let engine_context = self.engine_context.clone();
         thread::spawn(move || {
-            while !engine_context.should_quit.load(Ordering::Acquire) {
-                if !engine_context.should_redraw.load(Ordering::Acquire) {
-                    for logic in &logics {
-                        logic(&engine_context);
-                    }
-
-                    engine_context.should_redraw.store(true, Ordering::Release);
+            while !engine::should_quit() {
+                if !engine::should_redraw() {
+                    for logic in &logics { logic(); }
+                    engine::force_redraw();
                 }
                 thread::sleep(Duration::from_millis(1));
             }
         });
 
-        let engine_context = self.engine_context.clone();
-        thread::spawn(move || {
-            main_loop(engine_context);
-        }).join();
+        thread::spawn(move || main_loop()).join();
 
         println!("=| Killing main thread");
     }

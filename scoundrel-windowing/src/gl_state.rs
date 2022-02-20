@@ -4,7 +4,6 @@ use nalgebra_glm::TMat4;
 use crate::texture::Texture;
 
 pub struct GlState {
-    pub framebuffer: GLuint,
     pub texture: Texture,
     pub viewport: TMat4<f32>,
     pub projection: TMat4<f32>,

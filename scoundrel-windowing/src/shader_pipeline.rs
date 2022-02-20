@@ -9,7 +9,6 @@ use glutin::dpi::LogicalSize;
 use rand::{Rng, thread_rng};
 
 use scoundrel_common::colors::Color;
-use scoundrel_common::engine_context::EngineContext;
 use scoundrel_common::glyphs::Glyph;
 
 use crate::common::gl_error_check;
@@ -17,7 +16,7 @@ use scoundrel_common::presentation::Presentation;
 use crate::attribute::{BufferMapping, AttribPosition, AttribSize, AttribType};
 use crate::shader_pipeline::VertexBufferInitProfile::{Data, Size};
 use crate::uniforms::Uniforms;
-
+use scoundrel_common::engine;
 
 pub const QUAD_VERTEX_TEX_COORDS_COUNT: usize = 24;
 pub const QUAD_MEMORY_SIZE: usize = unsafe { size_of::<f32>() } * QUAD_VERTEX_TEX_COORDS_COUNT;
@@ -150,7 +149,7 @@ pub struct ShaderPipeline {
 }
 
 impl ShaderPipeline {
-    pub fn new(window_size: LogicalSize, engine_context: &mut EngineContext, render_options: &Presentation) -> ShaderPipeline {
+    pub fn new(window_size: LogicalSize, render_options: &Presentation) -> ShaderPipeline {
         let id = compile_program(VERTEX, FRAGMENT);
         let mut vao = 0;
         let mut static_quad_vbo = 0;
@@ -190,7 +189,7 @@ impl ShaderPipeline {
             gl::GenBuffers(1, &mut instance_glyphs_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_glyphs_vbo);
 
-            let mut screen = engine_context.screen.write().unwrap();
+            let mut screen = engine::SCREEN.write().unwrap();
 
             let mut glyphs = Vec::new();
             for _ in 0..buffer_size {
