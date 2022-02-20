@@ -33,7 +33,7 @@ impl Engine {
 
                     engine_context.should_redraw.store(true, Ordering::Release);
                 }
-                thread::sleep(Duration::from_millis(16));
+                thread::sleep(Duration::from_millis(1));
             }
         });
 

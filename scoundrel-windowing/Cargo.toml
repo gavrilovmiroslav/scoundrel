@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 scoundrel-common = { path = "../scoundrel-common" }
+scoundrel-core = { path = "../scoundrel-core" }
 glutin = "0.20"
 gl = "0.14.0"
 nalgebra-glm = "0.16.0"

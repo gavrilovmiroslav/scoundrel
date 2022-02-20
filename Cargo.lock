@@ -1144,6 +1144,7 @@ dependencies = [
 name = "scoundrel-core"
 version = "0.1.0"
 dependencies = [
+ "lazy_static",
  "rand",
  "scoundrel-common",
 ]
@@ -1159,6 +1160,7 @@ dependencies = [
  "nalgebra-glm",
  "rand",
  "scoundrel-common",
+ "scoundrel-core",
  "static_assertions",
 ]
 

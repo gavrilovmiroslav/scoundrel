@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 scoundrel-common = { path = "../scoundrel-common" }
 rand = "0.8.5"
+lazy_static = "1.4.0"

@@ -83,7 +83,7 @@ pub fn window_event_loop(mut engine_context: EngineContext) {
             }
         });
 
-        render_frame(&gl_context, &engine_context, &pipeline, &gl_state);
+        render_frame(&gl_context, &engine_context, &pipeline);
     }
 }
 
@@ -159,37 +159,39 @@ fn render_prepare(gl_context: &WindowedContext, mut engine_context: &mut EngineC
 #[inline(always)]
 fn render_frame(gl_context: &WindowedContext,
                 engine_context: &EngineContext,
-                pipeline: &ShaderPipeline,
-                gl_state: &GlState) {
+                pipeline: &ShaderPipeline,) {
 
     let should_redraw = engine_context.should_redraw.load(Ordering::SeqCst);
 
     if should_redraw {
-        let screen_memory = engine_context.screen_memory.read().unwrap().clone();
-        engine_context.should_redraw.store(false, Ordering::Release);
+        let screen = engine_context.screen.read().unwrap();
+        if screen.is_ready() {
+            let glyphs = screen.glyphs();
+            engine_context.should_redraw.store(false, Ordering::Release);
 
-        unsafe {
-            use gl::types::GLsizeiptr;
+            unsafe {
+                use gl::types::GLsizeiptr;
 
-            gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
+                gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
 
-            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
-                           std::ptr::null(), gl::STREAM_DRAW, );
+                gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(glyphs.as_slice()) as GLsizeiptr,
+                               std::ptr::null(), gl::STREAM_DRAW, );
 
-            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(screen_memory.as_slice()) as GLsizeiptr,
-                           screen_memory.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+                gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(glyphs.as_slice()) as GLsizeiptr,
+                               glyphs.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
 
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl_error_check();
-            gl::Clear(gl::COLOR_BUFFER_BIT);
-            gl_error_check();
-            gl::DrawArraysInstanced(gl::TRIANGLES, 0,
-                                    QUAD_VERTEX_TEX_COORDS_COUNT as _,
-                                    screen_memory.len() as i32);
-            gl_error_check();
+                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+                gl_error_check();
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+                gl_error_check();
+                gl::DrawArraysInstanced(gl::TRIANGLES, 0,
+                                        QUAD_VERTEX_TEX_COORDS_COUNT as _,
+                                        glyphs.len() as i32);
+                gl_error_check();
+            }
+
+            gl_context.swap_buffers().unwrap();
         }
-
-        gl_context.swap_buffers().unwrap();
     } else {
         std::thread::sleep(Duration::from_millis(6));
     }

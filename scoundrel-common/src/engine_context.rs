@@ -6,6 +6,7 @@ use std::ops::Deref;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
+use crate::colors::Color;
 
 use crate::engine_options::EngineOptions;
 use crate::glyphs::Glyph;
@@ -33,6 +34,55 @@ impl FrameCounter {
     }
 }
 
+pub struct Screen {
+    pub screen_memory: Option<Vec<Glyph>>,
+    pub size: (u32, u32),
+    pub should_redraw: bool,
+}
+
+impl Screen {
+    pub fn new() -> Screen {
+        Screen { screen_memory: None, size: (0, 0), should_redraw: true }
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.screen_memory.is_some()
+    }
+
+    pub fn force_redraw(&mut self) {
+        self.should_redraw = true;
+    }
+
+    pub fn reset_redraw(&mut self) {
+        self.should_redraw = false;
+    }
+
+    pub fn glyphs_mut(&mut self) -> &mut Vec<Glyph>{
+        self.screen_memory.as_mut().unwrap()
+    }
+
+    pub fn glyphs(&self) -> &Vec<Glyph>{
+        self.screen_memory.as_ref().unwrap()
+    }
+
+    pub fn set_memory(&mut self, size: (u32, u32), memory: Vec<Glyph>) {
+        self.size = size;
+        self.screen_memory = Some(memory);
+    }
+
+    pub fn get_memory(&self) -> *const Glyph {
+        self.screen_memory.as_ref().unwrap().as_ptr()
+    }
+
+    pub fn len(&self) -> usize {
+        self.screen_memory.as_ref().map(|v| v.len()).unwrap_or(0)
+    }
+
+    pub fn get_index_for_position(&self, position: (u32, u32)) -> u32 {
+        position.1 * self.size.0 + position.0
+    }
+}
+
 #[derive(Clone)]
 pub struct EngineContext {
     pub options: EngineOptions,
@@ -43,7 +93,7 @@ pub struct EngineContext {
     pub keyboard_events: Arc<Mutex<VecDeque<KeyState>>>,
     pub mouse_events: Arc<Mutex<VecDeque<MouseState>>>,
     pub mouse_position: Arc<Mutex<Point>>,
-    pub screen_memory: Arc<RwLock<Vec<Glyph>>>,
+    pub screen: Arc<RwLock<Screen>>,
     pub should_redraw: Arc<AtomicBool>,
 }
 
@@ -58,7 +108,7 @@ impl Default for EngineContext {
             keyboard_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_events: Arc::new(Mutex::new(VecDeque::default())),
             mouse_position: Arc::new(Mutex::new((0, 0).into())),
-            screen_memory: Arc::new(RwLock::new(Vec::new())),
+            screen: Arc::new(RwLock::new(Screen::new())),
             should_redraw: Arc::new(AtomicBool::new(true)),
         }
     }
@@ -87,5 +137,52 @@ impl EngineContext {
         }
 
         context
+    }
+
+    pub fn print_string(&self, position: (u32, u32), text: &str) {
+        let mut screen = self.screen.write().unwrap();
+        if screen.is_ready() {
+            let mut index = screen.get_index_for_position(position).clone() as usize;
+            let mut glyphs = screen.glyphs_mut();
+            for i in 0..text.len() { glyphs[index + i].symbol = 0; }
+            for letter in text.chars() {
+                glyphs[index].symbol = letter as u32;
+                glyphs[index].foreground = Color::new(255, 255, 255);
+                glyphs[index].background = Color::new(0, 0, 0);
+                index += 1;
+            }
+            screen.should_redraw = true;
+        }
+    }
+
+    pub fn print_string_color(&self, position: (u32, u32), text: &str, fore: Color) {
+        let mut screen = self.screen.write().unwrap();
+        if screen.is_ready() {
+            let mut index = screen.get_index_for_position(position).clone() as usize;
+            let mut glyphs = screen.glyphs_mut();
+            for i in 0..text.len() { glyphs[index + i].symbol = 0; }
+            for letter in text.chars() {
+                glyphs[index].symbol = letter as u32;
+                glyphs[index].foreground = fore;
+                index += 1;
+            }
+            screen.should_redraw = true;
+        }
+    }
+
+    pub fn print_string_colors(&self, position: (u32, u32), text: &str, fore: Color, back: Color) {
+        let mut screen = self.screen.write().unwrap();
+        if screen.is_ready() {
+            let mut index = screen.get_index_for_position(position).clone() as usize;
+            let mut glyphs = screen.glyphs_mut();
+            for i in 0..text.len() { glyphs[index + i].symbol = 0; }
+            for letter in text.chars() {
+                glyphs[index].symbol = letter as u32;
+                glyphs[index].foreground = fore;
+                glyphs[index].background = back;
+                index += 1;
+            }
+            screen.should_redraw = true;
+        }
     }
 }

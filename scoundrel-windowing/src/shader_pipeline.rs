@@ -190,14 +190,17 @@ impl ShaderPipeline {
             gl::GenBuffers(1, &mut instance_glyphs_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_glyphs_vbo);
 
-            if let Ok(mut screen_memory) = engine_context.screen_memory.try_write() {
-                for _ in 0..buffer_size {
-                    screen_memory.push(Glyph::default())
-                }
+            let mut screen = engine_context.screen.write().unwrap();
 
-                gl::BufferData(gl::ARRAY_BUFFER, (screen_memory.len() * std::mem::size_of::<Glyph>()) as GLsizeiptr,
-                               screen_memory.as_ptr().cast(), gl::STREAM_DRAW, );
+            let mut glyphs = Vec::new();
+            for _ in 0..buffer_size {
+                glyphs.push(Glyph::default())
             }
+
+            screen.set_memory((glyph_count_by_width as u32, glyph_count_by_height as u32), glyphs);
+
+            gl::BufferData(gl::ARRAY_BUFFER, (screen.len() * std::mem::size_of::<Glyph>()) as GLsizeiptr,
+                           screen.get_memory().cast(), gl::STREAM_DRAW, );
 
             BufferMapping::new_instanced()
                 .with_attrib("glyph symbol", AttribPosition(2), AttribSize::One, AttribType::UnsignedInt)
