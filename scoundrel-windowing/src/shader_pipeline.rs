@@ -6,6 +6,8 @@ use std::mem::size_of;
 
 use gl::types::*;
 use glutin::dpi::LogicalSize;
+use glutin::WindowedContext;
+use nalgebra_glm::TMat4;
 use rand::{Rng, thread_rng};
 
 use scoundrel_common::colors::Color;
@@ -17,6 +19,7 @@ use crate::attribute::{BufferMapping, AttribPosition, AttribSize, AttribType};
 use crate::shader_pipeline::VertexBufferInitProfile::{Data, Size};
 use crate::uniforms::Uniforms;
 use scoundrel_common::engine;
+use crate::texture::Texture;
 
 pub const QUAD_VERTEX_TEX_COORDS_COUNT: usize = 24;
 pub const QUAD_MEMORY_SIZE: usize = unsafe { size_of::<f32>() } * QUAD_VERTEX_TEX_COORDS_COUNT;
@@ -139,17 +142,20 @@ pub enum VertexBufferInitProfile<'a> {
     Size(usize),
 }
 
-#[derive(Debug)]
-pub struct ShaderPipeline {
-    pub id: GLuint,
+pub struct GlyphRenderer {
+    pub shader: GLuint,
     pub vao: GLuint,
     pub glyph_buffer_size: usize,
-    static_quad_vbo: GLuint,
     pub instance_glyphs_vbo: GLuint,
+    pub texture: Texture,
+    pub viewport: TMat4<f32>,   // TODO: these three could go somewhere else, to be reused
+    pub projection: TMat4<f32>,
+    pub camera: TMat4<f32>,
+    static_quad_vbo: GLuint, // TODO: move outside so that multiple layers could use it
 }
 
-impl ShaderPipeline {
-    pub fn new(window_size: LogicalSize, render_options: &Presentation) -> ShaderPipeline {
+impl GlyphRenderer {
+    pub fn new(window_size: LogicalSize, render_options: &Presentation) -> GlyphRenderer {
         let id = compile_program(VERTEX, FRAGMENT);
         let mut vao = 0;
         let mut static_quad_vbo = 0;
@@ -164,8 +170,6 @@ impl ShaderPipeline {
 
         let buffer_size = glyph_count_by_width as usize * glyph_count_by_height as usize;
         glyph_buffer_size = GLYPH_SIZE * buffer_size;
-        println!("GLYPH BUFFER SIZE: {}", glyph_buffer_size);
-        println!("BUFFER SIZE:       {} {}", glyph_count_by_width, glyph_count_by_height);
 
         unsafe {
             gl::GenVertexArrays(1, &mut vao);
@@ -209,18 +213,74 @@ impl ShaderPipeline {
         }
         gl_error_check();
 
-        ShaderPipeline { id, vao, static_quad_vbo, instance_glyphs_vbo, glyph_buffer_size  }
+        let (texture, projection, viewport, camera) = unsafe {
+            gl::UseProgram(id);
+            gl::BindVertexArray(vao);
+
+            gl::Viewport(0, 0, window_size.width as _, window_size.height as _);
+
+            let mut texture = Texture::load(&render_options).unwrap();
+            texture.bind();
+
+            use nalgebra_glm::{identity, ortho, translation, vec3, scaling, look_at};
+            let projection = ortho(0.0f32, window_size.width as f32, window_size.height as f32, 0.0f32, 0.0f32, 100.0f32);
+            let viewport = translation(&vec3(0.0f32, 0.0f32, 0.0f32));
+
+            let camera = {
+                let scale_matrix = scaling(&vec3(1.0, 1.0, 1.0));
+                scale_matrix * look_at(&vec3(0.0f32, 0.0f32, 0.0f32), &(vec3(0.0f32, 0.0f32, -90.0f32)), &vec3(0.0f32, 1.0f32, 0.0f32))
+            };
+
+            texture.unbind();
+
+            (texture, projection, viewport, camera)
+        };
+
+        GlyphRenderer { shader: id, vao, static_quad_vbo, instance_glyphs_vbo, glyph_buffer_size, texture, projection, viewport, camera }
     }
 
+    fn bind(&self) {
+        unsafe {
+            gl::BindVertexArray(self.vao);
+            self.texture.bind();
+        };
+    }
+
+    fn unbind(&self) {
+        unsafe {
+            gl::BindVertexArray(0);
+            self.texture.unbind();
+        };
+    }
+
+    pub fn render(&self, glyphs: &Vec<Glyph>) {
+        self.bind();
+        unsafe {
+            use gl::types::GLsizeiptr;
+
+            gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_glyphs_vbo);
+
+            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(glyphs.as_slice()) as GLsizeiptr,
+                           std::ptr::null(), gl::STREAM_DRAW, );
+
+            gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(glyphs.as_slice()) as GLsizeiptr,
+                           glyphs.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
+
+            gl::DrawArraysInstanced(gl::TRIANGLES, 0,
+                                    QUAD_VERTEX_TEX_COORDS_COUNT as _,
+                                    glyphs.len() as i32);
+        }
+        self.unbind();
+    }
     pub fn get_uniforms(&self) -> Uniforms {
-        Uniforms::fetch_for_program(self.id)
+        Uniforms::fetch_for_program(self.shader)
     }
 }
 
-impl Drop for ShaderPipeline {
+impl Drop for GlyphRenderer {
     fn drop(&mut self) {
         unsafe {
-            gl::DeleteProgram(self.id);
+            gl::DeleteProgram(self.shader);
             gl::DeleteBuffers(1, &self.static_quad_vbo);
             gl::DeleteBuffers(1, &self.instance_glyphs_vbo);
             gl::DeleteVertexArrays(1, &self.vao);

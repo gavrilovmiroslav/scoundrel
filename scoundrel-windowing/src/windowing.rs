@@ -15,11 +15,10 @@ use scoundrel_common::glyphs::Glyph;
 use scoundrel_common::keycodes::{KeyState, MouseState};
 use crate::common::gl_error_check;
 
-use crate::gl_state::GlState;
 use scoundrel_common::presentation::Presentation;
 use scoundrel_common::engine;
 
-use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, ShaderPipeline};
+use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, GlyphRenderer};
 use crate::texture::Texture;
 
 #[no_mangle]
@@ -53,7 +52,7 @@ pub fn window_event_loop() {
         .with_vsync(false)
         .build_windowed(window_builder, &event_loop).unwrap();
 
-    let (pipeline, gl_state) = render_prepare(&gl_context);
+    let pipeline = render_prepare(&gl_context);
 
     let mut done = false;
     while !done {
@@ -91,13 +90,13 @@ pub fn window_event_loop() {
 }
 
 #[inline(always)]
-fn render_prepare(gl_context: &WindowedContext) -> (ShaderPipeline, GlState) {
+fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
     unsafe { gl_context.make_current().unwrap() };
 
     let presentation = engine::ENGINE_OPTIONS.lock().unwrap().presentation.clone();
     println!("Preparing to use presentation: {}", presentation);
 
-    let preferred_render_options = {
+    let render_options = {
         let presentations = engine::PRESENTATIONS.lock().unwrap();
         presentations.get(presentation.as_str()).unwrap().clone()
     };
@@ -106,86 +105,45 @@ fn render_prepare(gl_context: &WindowedContext) -> (ShaderPipeline, GlState) {
     gl_error_check();
 
     let size = gl_context.window().get_inner_size().unwrap();
-    let pipeline = ShaderPipeline::new(size, &preferred_render_options);
+    let glyph_renderer = GlyphRenderer::new(size, &render_options);
 
-    let gl_state = unsafe {
-        gl::UseProgram(pipeline.id);
-        gl::BindVertexArray(pipeline.vao);
-
-        gl::Viewport(0, 0, size.width as _, size.height as _);
-
-        let mut texture = Texture::load(&preferred_render_options).unwrap();
-        texture.bind();
-
-        use nalgebra_glm::{ identity, ortho, translation, vec3, scaling, look_at };
-        let projection = ortho(0.0f32, size.width as f32, size.height as f32, 0.0f32, 0.0f32, 100.0f32);
-        let viewport = translation(&vec3(0.0f32, 0.0f32, 0.0f32));
-
-        let camera = {
-            let scale_matrix = scaling(&vec3(1.0, 1.0, 1.0));
-            scale_matrix * look_at(&vec3(0.0f32, 0.0f32, 0.0f32), &(vec3(0.0f32, 0.0f32, -90.0f32)), &vec3(0.0f32, 1.0f32, 0.0f32))
-        };
-
-        GlState { texture, projection, viewport, camera }
-    };
-
-    let uniforms = pipeline.get_uniforms();
+    let uniforms = glyph_renderer.get_uniforms();
     unsafe {
-        gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.projection).as_ptr());
+        gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&glyph_renderer.projection).as_ptr());
         gl_error_check();
-        gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.viewport).as_ptr());
+        gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&glyph_renderer.viewport).as_ptr());
         gl_error_check();
-        gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&gl_state.camera).as_ptr());
+        gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&glyph_renderer.camera).as_ptr());
         gl_error_check();
 
-        gl::Uniform2f(uniforms.input_font_bitmap_size, preferred_render_options.input_font_bitmap_size.0 as f32, preferred_render_options.input_font_bitmap_size.1 as f32);
+        gl::Uniform2f(uniforms.input_font_bitmap_size, render_options.input_font_bitmap_size.0 as f32, render_options.input_font_bitmap_size.1 as f32);
         gl_error_check();
-        gl::Uniform2f(uniforms.input_font_glyph_size, preferred_render_options.input_font_glyph_size.0 as f32, preferred_render_options.input_font_glyph_size.1 as f32);
+        gl::Uniform2f(uniforms.input_font_glyph_size, render_options.input_font_glyph_size.0 as f32, render_options.input_font_glyph_size.1 as f32);
         gl_error_check();
-        gl::Uniform2f(uniforms.output_glyph_scale, preferred_render_options.output_glyph_scale.0 as f32, preferred_render_options.output_glyph_scale.1 as f32);
+        gl::Uniform2f(uniforms.output_glyph_scale, render_options.output_glyph_scale.0 as f32, render_options.output_glyph_scale.1 as f32);
         gl_error_check();
         gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
         gl_error_check();
-
-        println!("font bitmap size:      {}, {}", preferred_render_options.input_font_bitmap_size.0 as f32, preferred_render_options.input_font_bitmap_size.1 as f32);
-        println!("input font glyph size: {}, {}", preferred_render_options.input_font_glyph_size.0 as f32, preferred_render_options.input_font_glyph_size.1 as f32);
-        println!("output glyph scale:    {}, {}", preferred_render_options.output_glyph_scale.0 as f32, preferred_render_options.output_glyph_scale.1 as f32);
-        println!("window size:           {}, {}", size.width as f32, size.height as f32);
     }
 
-    (pipeline, gl_state)
+    glyph_renderer
 }
 
 #[inline(always)]
 fn render_frame(gl_context: &WindowedContext,
-                pipeline: &ShaderPipeline,) {
+                pipeline: &GlyphRenderer,) {
 
     if engine::should_redraw() {
         let screen = engine::SCREEN.read().unwrap().clone();
         if screen.is_ready() {
-            let glyphs = screen.glyphs();
             engine::clean_redraw();
 
             unsafe {
-                use gl::types::GLsizeiptr;
-
-                gl::BindBuffer(gl::ARRAY_BUFFER, pipeline.instance_glyphs_vbo);
-
-                gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(glyphs.as_slice()) as GLsizeiptr,
-                               std::ptr::null(), gl::STREAM_DRAW, );
-
-                gl::BufferData(gl::ARRAY_BUFFER, mem::size_of_val(glyphs.as_slice()) as GLsizeiptr,
-                               glyphs.as_slice().as_ptr().cast(), gl::STREAM_DRAW, );
-
                 gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                gl_error_check();
                 gl::Clear(gl::COLOR_BUFFER_BIT);
-                gl_error_check();
-                gl::DrawArraysInstanced(gl::TRIANGLES, 0,
-                                        QUAD_VERTEX_TEX_COORDS_COUNT as _,
-                                        glyphs.len() as i32);
-                gl_error_check();
             }
+
+            pipeline.render(screen.glyphs());
 
             gl_context.swap_buffers().unwrap();
         }
