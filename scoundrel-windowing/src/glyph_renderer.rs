@@ -16,7 +16,7 @@ use scoundrel_common::glyphs::Glyph;
 use crate::common::gl_error_check;
 use scoundrel_common::presentation::Presentation;
 use crate::attribute::{BufferMapping, AttribPosition, AttribSize, AttribType};
-use crate::shader_pipeline::VertexBufferInitProfile::{Data, Size};
+use crate::glyph_renderer::VertexBufferInitProfile::{Data, Size};
 use crate::uniforms::Uniforms;
 use scoundrel_common::engine;
 use crate::texture::Texture;
@@ -34,8 +34,8 @@ pub const QUAD_VERTEX_AND_TEX_COORDS: [f32; QUAD_VERTEX_TEX_COORDS_COUNT] = [
 
 pub const GLYPH_SIZE: usize = unsafe { size_of::<Glyph>() };
 
-const VERTEX: &str = include_str!("vertex_shader.glsl");
-const FRAGMENT: &str = include_str!("fragment_shader.glsl");
+const VERTEX: &str = include_str!("shaders/vertex_shader.glsl");
+const FRAGMENT: &str = include_str!("shaders/fragment_shader.glsl");
 
 fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     unsafe {

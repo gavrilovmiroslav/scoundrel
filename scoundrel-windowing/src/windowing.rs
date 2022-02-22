@@ -7,7 +7,7 @@ use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use gl::types::GLboolean;
-use glutin::{Api, Context, ContextBuilder, ContextTrait, ElementState, Event, EventsLoop, GlRequest, MouseButton, VirtualKeyCode, WindowBuilder, WindowedContext, WindowEvent};
+use glutin::*;
 use glutin::dpi::LogicalSize;
 use rand::Rng;
 
@@ -18,7 +18,7 @@ use crate::common::gl_error_check;
 use scoundrel_common::presentation::Presentation;
 use scoundrel_common::engine;
 
-use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, GlyphRenderer};
+use crate::glyph_renderer::{QUAD_VERTEX_TEX_COORDS_COUNT, GlyphRenderer};
 use crate::texture::Texture;
 
 #[no_mangle]

@@ -10,11 +10,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/grammar.pest" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/mod.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/parser.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/world.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel/prelude.rasc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/gl_state.rs" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/fragment_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shaders/fragment_shader.glsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/glyph_renderer.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/vertex_shader.glsl" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shaders/vertex_shader.glsl" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -68,24 +79,23 @@
     <property name="cidr.known.project.marker" value="true" />
     <property name="last_opened_file_path" value="E:/Pajglanje" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
-    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
+    <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/lib.rs" value="true" />
+    <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/world.rs" value="true" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="D:\Rust\scoundrel" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Rust\scoundrel\scoundrel" />
       <recent name="D:\Rust\scoundrel\data" />
-      <recent name="D:\Rust\scoundrel\presentations" />
-      <recent name="D:\Rust\scoundrel\scoundrel-common\src" />
+      <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs" />
+      <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs\" />
+      <recent name="D:\Rust\scoundrel\scoundrel-common\src\lib" />
     </key>
   </component>
   <component name="RunManager">
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command" nameIsGenerated="true">
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -100,6 +110,11 @@
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
   </component>
@@ -129,6 +144,7 @@
       <workItem from="1645100348469" duration="17342000" />
       <workItem from="1645145780461" duration="10153000" />
       <workItem from="1645386839872" duration="5400000" />
+      <workItem from="1645481108710" duration="7415000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>

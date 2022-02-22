@@ -1,0 +1,8 @@
+
+state HasPosition { pos: point };
+state HasHealth { hp: num };
+
+event ReceivedDamage { damage: num };
+
+tag IsDead;
+tag IsBurning;

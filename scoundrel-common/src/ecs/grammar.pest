@@ -1,0 +1,15 @@
+WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
+
+block = _{ (tag | state | event) ~ ";" }
+
+program = _{ (block ~ (block)*) }
+
+name = @{ (ASCII_ALPHANUMERIC | "_")+ }
+datatype = { "entity" | "num" | "text" | "point" }
+
+tag = { "tag" ~ name }
+state = { "state" ~ name ~ "{" ~ member_list ~ "}" }
+event = { "event" ~ name ~ "{" ~ member_list ~ "}" }
+
+member_list = { (member ~ ("," ~ member)*) }
+member = { name ~ ":" ~ datatype }
