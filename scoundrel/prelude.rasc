@@ -2,7 +2,7 @@
 state HasPosition { pos: point };
 state HasHealth { hp: num };
 
-event ReceivedDamage { damage: num };
+event ReceivedDamage { victim: entity, attacker: entity, damage: num };
 
 tag IsDead;
 tag IsBurning;
