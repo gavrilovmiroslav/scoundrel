@@ -13,6 +13,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/grammar.pest" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/world.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel/prelude.rasc" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/prelude.rasc" afterDir="false" />
@@ -68,7 +69,7 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="cf.first.check.clang-format" value="false" />
     <property name="cidr.known.project.marker" value="true" />
-    <property name="last_opened_file_path" value="E:/Pajglanje" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../_poirogue" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/lib.rs" value="true" />
     <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/world.rs" value="true" />
@@ -135,7 +136,7 @@
       <workItem from="1645100348469" duration="17342000" />
       <workItem from="1645145780461" duration="10153000" />
       <workItem from="1645386839872" duration="5400000" />
-      <workItem from="1645481108710" duration="28654000" />
+      <workItem from="1645481108710" duration="65565000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>

@@ -1,15 +1,67 @@
 WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
 
-block = _{ (tag | state | event) ~ ";" }
+decl = _{ (system_decl | tag_decl | state_decl | event_decl) }
+program = _{ (decl ~ decl*) }
 
-program = _{ (block ~ (block)*) }
+// text
 
-name = @{ (ASCII_ALPHANUMERIC | "_")+ }
-datatype = { "entity" | "num" | "text" | "point" }
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+}
 
-tag = { "tag" ~ name }
-state = { "state" ~ name ~ "{" ~ member_list ~ "}" }
-event = { "event" ~ name ~ "{" ~ member_list ~ "}" }
+// components
+
+name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
+
+datatype = { "bool" | "entity" | "symbol" | "num" | "text" | "point" | "color" }
+
+value = _{ bool_value | number | text_value | point_value | color_value | identifier }
+number_or_ident = _{ number | identifier }
+bool_value = _{ "true" | "false" }
+number = _{ ASCII_DIGIT+ }
+text_value = _{ inner_text }
+inner_text = ${ "\"" ~ inner ~ "\"" }
+identifier = _{ name }
+point_value = _{ "(" ~ number_or_ident ~ "," ~ number_or_ident ~ ")" }
+color_value = _{ "(" ~ number_or_ident ~ "," ~ number_or_ident ~ number_or_ident ~ "," ~ ")" }
+
+// components
+tag_decl = { "tag" ~ name  ~ ";" }
+state_decl = { "state" ~ name ~ "{" ~ member_list ~ "}" ~ ";" }
+event_decl = { "event" ~ name ~ "{" ~ member_list ~ "}" ~ ";" }
 
 member_list = { (member ~ ("," ~ member)*) }
 member = { name ~ ":" ~ datatype }
+
+// systems
+
+system_title = _{ "[" ~ name ~ "]" }
+system_block = { "{" ~ "}" }
+
+system_decl = { system_title ~ (event_system_decl | titled_stateful_system_decl) }
+event_system_decl = _{ on_event_clause ~ with_query_clause? ~ system_block }
+on_event_clause = { "on" ~ query_event }
+
+titled_stateful_system_decl = _{ with_query_clause ~ system_block }
+with_query_clause = { "with" ~ stateful_system_query }
+stateful_system_query = { query_selector ~ ("&" ~ query_selector)* }
+
+query_decl = _{ query_factor ~ ("&" ~ query_factor)* }
+query_factor = _{ query_selector | query_event }
+query_event = { event_name ~ query_args? }
+query_args = { "(" ~ query_arg_with_default ~ ("," ~ query_arg_with_default)* ~ ")" }
+query_arg_with_default = { query_arg ~ ("=" ~ arg_default_value)? }
+arg_default_value = { value }
+query_arg = { name }
+query_selector = _{ query_state | query_tag }
+query_state = { owner_name? ~ "." ~ state_name ~ query_args+ }
+query_tag = _{ pos_query_tag | neg_query_tag }
+pos_query_tag = { owner_name? ~ "." ~ name }
+neg_query_tag = { query_negate ~ owner_name? ~ "." ~ name }
+query_negate = _{ "!" }
+tag_name = { name }
+event_name = { name }
+state_name = { name }
+owner_name = { name }

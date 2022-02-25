@@ -16,6 +16,8 @@ pub enum DataType {
     Text,
     Entity,
     Point,
+    Symbol,
+    Color,
 }
 
 impl DataType {
@@ -26,6 +28,8 @@ impl DataType {
             "text" => Text,
             "entity" => Entity,
             "point" => Point,
+            "symbol" => Symbol,
+            "color" => Color,
             _ => panic!("Wrong datatype: {}", text)
         }
     }
@@ -37,6 +41,8 @@ impl DataType {
             Text => 4, // ptr size
             Entity => 8, // u64
             Point => 8, // 2x u32
+            Symbol => 2, // u16
+            Color => 4, // u32
         }
     }
 }
@@ -93,15 +99,50 @@ impl Debug for ComponentSignature {
 }
 
 #[derive(Debug)]
+pub struct SystemSignature {
+
+}
+
+impl SystemSignature {
+    pub fn new(mut rule: pest::iterators::Pairs<Rule>) -> SystemSignature {
+        let name = rule.next().unwrap().as_str();
+        println!("NAME: {}", name);
+
+        if let Rule::on_event_clause = rule.peek().unwrap().as_rule() {
+            let on_clause = rule.next().unwrap().as_str();
+            println!("ON: {}", on_clause);
+        }
+
+        if let Rule::with_query_clause = rule.peek().unwrap().as_rule() {
+            let queries = rule.next().unwrap().as_str();
+            println!("QUERIES: {}", queries);
+        }
+
+        SystemSignature{}
+    }
+}
+
+#[derive(Debug)]
 pub enum RascalValue {
     State(ComponentSignature),
     Event(ComponentSignature),
     Tag(String),
+    System(SystemSignature),
+}
+
+impl RascalValue {
+    pub fn is_component(&self) -> bool {
+        use RascalValue::*;
+        match self {
+            System(_) => false,
+            _ => true,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComponentType {
-    State, Event, Tag
+    State, Event, Tag, System
 }
 
 pub fn parse_rascal(src: &str) -> Vec<RascalValue> {
@@ -123,22 +164,29 @@ pub fn parse_rascal(src: &str) -> Vec<RascalValue> {
 
     for parse_tree in program {
         match parse_tree.as_rule() {
-            Rule::state => {
+            Rule::state_decl => {
+                println!("{}", parse_tree.as_str());
                 let mut state_rule = parse_tree.into_inner();
                 let (name, members) = parse_component_name_and_members(state_rule);
                 ast.push(RascalValue::State(ComponentSignature::new(name, members)))
             }
 
-            Rule::event => {
+            Rule::event_decl => {
                 let mut event_rule = parse_tree.into_inner();
                 let (name, members) = parse_component_name_and_members(event_rule);
                 ast.push(RascalValue::Event(ComponentSignature::new(name, members)))
             }
 
-            Rule::tag => {
+            Rule::tag_decl => {
                 let mut inner = parse_tree.into_inner();
                 let name = inner.next().unwrap().as_str();
                 ast.push(RascalValue::Tag(name.to_string()));
+            }
+
+            Rule::system_decl => {
+                println!("\nSYSTEM!");
+                let mut inner = parse_tree.into_inner();
+                ast.push(RascalValue::System(SystemSignature::new(inner)));
             }
 
             _ => {}

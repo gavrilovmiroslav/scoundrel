@@ -1,8 +1,23 @@
-
-state HasPosition { pos: point };
-state HasHealth { hp: num };
-
-event ReceivedDamage { victim: entity, attacker: entity, damage: num };
-
 tag IsDead;
 tag IsBurning;
+
+state HasGlyph { glyph: symbol, fg: color, bg: color };
+state HasHealth { hp: num };
+
+event BumpIntent { bumper: entity, position: point };
+
+[Consume_Bump]
+on BumpIntent(@, pos)
+{}
+
+[Burning_Deals_Damage]
+with .HasHealth(hp)
+   & .IsBurning
+{}
+
+[Bump_To_Open_Doors]
+on BumpIntent(@, pos)
+with door.IsDoor(closed=true)
+   & door.IsAt(pos)
+   & door.HasGlyph(glyph, _, _)
+{}

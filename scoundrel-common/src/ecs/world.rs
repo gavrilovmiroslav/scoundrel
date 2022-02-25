@@ -2,6 +2,7 @@
 use std::collections::{HashMap, HashSet};
 use arena_rs::Arena;
 use bitmaps::Bitmap;
+use show_my_errors::{AnnotationList, Stylesheet};
 use sparseset::SparseSet;
 use crate::ecs::parser::{ComponentSignature, ComponentType, RascalValue};
 
@@ -57,9 +58,26 @@ impl World {
     }
 
     pub fn add_component(&mut self, entity: EntityId, comp_type: ComponentId, comp_value: Vec<u8>) {
-        assert!(entity < self.entity_count);
-        assert!(self.component_types.contains_key(&comp_type));
-        assert!(self.storage_bitmaps.contains_key(&comp_type));
+        if entity >= self.entity_count {
+            let mut list = AnnotationList::new("world.rs", "entity < self.entity_count");
+            list.error(0..3, "Entity not initiated!", "entity_count is automatically raised.");
+            list.show_stdout(&Stylesheet::colored());
+            return;
+        }
+
+        if !self.component_types.contains_key(&comp_type) {
+            let mut list = AnnotationList::new("world.rs", "!self.component_types.contains_key(&comp_type)");
+            list.error(36..39, format!("Component type storage for {} not registered", comp_type), "this really should be a warning later on"); // TODO!
+            list.show_stdout(&Stylesheet::colored());
+            return;
+        }
+
+        if !self.storage_bitmaps.contains_key(&comp_type) {
+            let mut list = AnnotationList::new("world.rs", "!self.storage_bitmaps.contains_key(&comp_type)");
+            list.error(35..38, format!("Component type bitmap for {} not registered", comp_type), "this really should be a warning later on"); // TODO!
+            list.show_stdout(&Stylesheet::colored());
+            return;
+        }
 
         if self.component_types[&comp_type] != ComponentType::Tag {
             use ComponentType::*;
@@ -68,7 +86,7 @@ impl World {
             let size = match self.component_types[&comp_type] {
                 State => { self.registered_states[&comp_type].size as usize }
                 Event => { self.registered_events[&comp_type].size as usize }
-                Tag => unreachable!()
+                _ => unreachable!()
             };
             assert_eq!(size, comp_value.len());
 
@@ -113,6 +131,8 @@ impl World {
                 // no storage pointer here, bitmap only!
                 self.registered_tags.insert(tag);
             }
+
+            _ => unreachable!()
         };
     }
 }
