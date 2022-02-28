@@ -17,51 +17,84 @@ name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
 datatype = { "bool" | "entity" | "symbol" | "num" | "text" | "point" | "color" }
 
-value = _{ bool_value | number | text_value | point_value | color_value | identifier }
-number_or_ident = _{ number | identifier }
-bool_value = _{ "true" | "false" }
-number = _{ ASCII_DIGIT+ }
-text_value = _{ inner_text }
+value = _{ bool_value | number | text_value | color_value | point_value | identifier }
+bool_value = { "true" | "false" }
+number = { ASCII_DIGIT+ }
+text_value = { inner_text }
 inner_text = ${ "\"" ~ inner ~ "\"" }
-identifier = _{ name }
-point_value = _{ "(" ~ number_or_ident ~ "," ~ number_or_ident ~ ")" }
-color_value = _{ "(" ~ number_or_ident ~ "," ~ number_or_ident ~ number_or_ident ~ "," ~ ")" }
+identifier = { name }
+point_value = { "(" ~ expression ~ "," ~ expression ~ ")" }
+color_value = { "(" ~ expression ~ "," ~ expression ~ "," ~ expression ~ ")" }
 
 // components
 tag_decl = { "tag" ~ name  ~ ";" }
-state_decl = { "state" ~ name ~ "{" ~ member_list ~ "}" ~ ";" }
-event_decl = { "event" ~ name ~ "{" ~ member_list ~ "}" ~ ";" }
+state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
+event_decl = { "event" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
 
-member_list = { (member ~ ("," ~ member)*) }
-member = { name ~ ":" ~ datatype }
+type_member_list = { (type_member ~ ("," ~ type_member)*) }
+type_member = { name ~ ":" ~ datatype }
 
+component_call_list = { component_call ~ ("&" ~ component_call)* }
+component_call = _{ negated_call_site | call_site }
+component_arg_list = _{ "(" ~ arg_member_list ~ ")" }
+negated_call_site = { "!"  ~ call_site }
+call_site = _{ (complex_call_site | simple_call_site) }
+simple_call_site = { name ~ component_arg_list? }
+complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
+
+arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
+arg_member = _{ name_with_value | name }
+name_with_value = { name ~ "=" ~ value }
+
+owner_name = @{ name }
+comp_name = @{ name }
 // systems
 
 system_title = _{ "[" ~ name ~ "]" }
-system_block = { "{" ~ "}" }
+system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ system_block }
 
-system_decl = { system_title ~ (event_system_decl | titled_stateful_system_decl) }
-event_system_decl = _{ on_event_clause ~ with_query_clause? ~ system_block }
-on_event_clause = { "on" ~ query_event }
+system_block = { "{" ~ statements ~ "}" }
+statements = _{ statement ~ (statement)* }
+statement = { assignment | if_statement |
+    spawn_statement | destroy_statement |
+    update_statement | trigger_statement }
 
-titled_stateful_system_decl = _{ with_query_clause ~ system_block }
-with_query_clause = { "with" ~ stateful_system_query }
-stateful_system_query = { query_selector ~ ("&" ~ query_selector)* }
+assignment = { identifier ~ "=" ~ expression ~ ";" }
 
-query_decl = _{ query_factor ~ ("&" ~ query_factor)* }
-query_factor = _{ query_selector | query_event }
-query_event = { event_name ~ query_args? }
-query_args = { "(" ~ query_arg_with_default ~ ("," ~ query_arg_with_default)* ~ ")" }
-query_arg_with_default = { query_arg ~ ("=" ~ arg_default_value)? }
-arg_default_value = { value }
-query_arg = { name }
-query_selector = _{ query_state | query_tag }
-query_state = { owner_name? ~ "." ~ state_name ~ query_args+ }
-query_tag = _{ pos_query_tag | neg_query_tag }
-pos_query_tag = { owner_name? ~ "." ~ name }
-neg_query_tag = { query_negate ~ owner_name? ~ "." ~ name }
-query_negate = _{ "!" }
-tag_name = { name }
-event_name = { name }
-state_name = { name }
-owner_name = { name }
+if_statement = { "if" ~ expression ~ system_block ~ else_statement? }
+else_statement = { "else" ~ system_block }
+
+spawn_statement = { "spawn" ~ identifier ~ "with" ~ component_call_list ~ ";" }
+destroy_statement = { "destroy" ~ identifier ~ ";" }
+update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" }
+trigger_statement = { "trigger" ~ call_site ~ ";" }
+
+on_event_clause = { "on" ~ component_call }
+with_query_clause = { "with" ~ component_call_list }
+
+binary_relation = _{ eq_rel | ne_rel | lt_rel | gt_rel | le_rel | ge_rel }
+    eq_rel = { "==" }
+    ne_rel = { "!=" }
+    lt_rel = { "<" }
+    gt_rel = { ">" }
+    le_rel = { "<=" }
+    ge_rel = { ">=" }
+
+additive_op = _{ plus_op | minus_op }
+    plus_op = { "+" }
+    minus_op = { "-" }
+
+multiplicative_op = _{ mul_op | div_op | mod_op }
+    mul_op = { "*" }
+    div_op = { "/" }
+    mod_op = { "%" }
+
+unary_op = _{ not_op | neg_op }
+    not_op = { "!" }
+    neg_op = { "-" }
+
+expression = { additive ~ (binary_relation ~ additive)* }
+additive = _{ summand ~ (additive_op ~ summand)* }
+summand = _{ factor ~ (multiplicative_op ~ factor)* }
+factor = _{ unary_op ~ "(" ~ expression ~ ")" | primary }
+primary = _{ "(" ~ expression ~ ")" | value }

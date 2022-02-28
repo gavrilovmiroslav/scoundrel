@@ -4,7 +4,7 @@ use arena_rs::Arena;
 use bitmaps::Bitmap;
 use show_my_errors::{AnnotationList, Stylesheet};
 use sparseset::SparseSet;
-use crate::ecs::parser::{ComponentSignature, ComponentType, RascalValue};
+use crate::ecs::parser::{ComponentSignature, ComponentType, RascalStruct};
 
 type EntityId = usize;
 type ComponentId = String;
@@ -100,7 +100,7 @@ impl World {
         self.storage_bitmaps.get_mut(&comp_type).unwrap().set(entity, true);
     }
 
-    pub fn register_component(&mut self, v: RascalValue) {
+    pub fn register_component(&mut self, v: RascalStruct) {
         fn create_storage(element_size: usize) -> Vec<u8> {
             let cap = MAX_ENTRIES_PER_STORAGE * MAX_COMPONENTS * element_size as usize;
             let mut storage = Vec::with_capacity(cap);
@@ -111,21 +111,21 @@ impl World {
         }
 
         match v {
-            RascalValue::State(comp) => {
+            RascalStruct::State(comp) => {
                 self.component_types.insert(comp.name.clone(), ComponentType::State);
                 self.storage_pointers.insert(comp.name.clone(), create_storage(comp.size as usize));
                 self.storage_bitmaps.insert(comp.name.clone(), Bitmap::new());
                 self.registered_states.insert(comp.name.clone(), comp);
             }
 
-            RascalValue::Event(comp) => {
+            RascalStruct::Event(comp) => {
                 self.component_types.insert(comp.name.clone(), ComponentType::Event);
                 self.storage_pointers.insert(comp.name.clone(), create_storage(comp.size as usize));
                 self.storage_bitmaps.insert(comp.name.clone(), Bitmap::new());
                 self.registered_events.insert(comp.name.clone(), comp);
             }
 
-            RascalValue::Tag(tag) => {
+            RascalStruct::Tag(tag) => {
                 self.component_types.insert(tag.clone(), ComponentType::Tag);
                 self.storage_bitmaps.insert(tag.clone(), Bitmap::new());
                 // no storage pointer here, bitmap only!

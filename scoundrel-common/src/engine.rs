@@ -1,21 +1,17 @@
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
-use std::ops::Deref;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Instant;
-use crate::colors::Color;
+
+use lazy_static::*;
+
+use lazy_static;
 
 use crate::engine_options::EngineOptions;
 use crate::glyphs::Glyph;
 use crate::keycodes::{KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
-
-use lazy_static;
-use lazy_static::*;
 
 #[derive(Clone, Default)]
 pub struct FrameCounter {

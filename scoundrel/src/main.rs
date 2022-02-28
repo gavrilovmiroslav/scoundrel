@@ -16,6 +16,8 @@ fn main() {
         }
     }
 
+    return;
+
 /*    let entity = world.create_entity();
     world.add_component(entity, "HasHealth".to_string(), vec![ 10u8, 0u8, 0u8, 0u8 ]);
 
