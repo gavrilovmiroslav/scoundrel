@@ -1,25 +1,17 @@
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
 use std::ffi::c_void;
-use std::mem;
-use std::mem::transmute;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use gl::types::GLboolean;
 use glutin::*;
 use glutin::dpi::LogicalSize;
-use rand::Rng;
 
-use scoundrel_common::glyphs::Glyph;
-use scoundrel_common::keycodes::{KeyState, MouseState};
-use crate::common::gl_error_check;
-
-use scoundrel_common::presentation::Presentation;
 use scoundrel_common::engine;
+use scoundrel_common::engine::snoop_for_data_changes;
+use scoundrel_common::keycodes::{KeyState, MouseState};
 
-use crate::glyph_renderer::{QUAD_VERTEX_TEX_COORDS_COUNT, GlyphRenderer};
-use crate::texture::Texture;
+use crate::common::gl_error_check;
+use crate::glyph_renderer::GlyphRenderer;
 
 #[no_mangle]
 pub static NvOptimusEnablement: u64 = 0x00000001;
@@ -84,6 +76,10 @@ pub fn window_event_loop() {
                 _ => {}
             }
         });
+
+        if let Some(e) = snoop_for_data_changes() {
+            println!("{:?}", e);
+        }
 
         render_frame(&gl_context, &pipeline);
     }

@@ -3,30 +3,24 @@ tag IsBurning;
 
 state HasGlyph { glyph: symbol, fg: color, bg: color };
 state HasHealth { hp: num };
+state IsDoor { closed: bool };
+state IsAt { pos: point };
 
 event BumpIntent { bumper: entity, position: point };
-
-[Consume_Bump]
-on BumpIntent(@, pos=(3, x + 2))
-{
-    x = 5;
-    if 3 + 3 == 5 {
-        x = 6 + 3 * x;
-    }
-}
 
 [Burning_Deals_Damage]
 with .HasHealth(hp)
    & .IsBurning
 {
-    x = 6;
+    hp = hp - 1;
 }
 
 [Bump_To_Open_Doors]
 on BumpIntent(@, pos)
-with door.IsDoor(closed=(3 - y, x / (2 + y)))
+with door.IsDoor(closed=true)
    & door.IsAt(pos)
    & door.HasGlyph(glyph, _, _)
 {
-    x = 10;
+    closed = false;
+    destroy door;
 }

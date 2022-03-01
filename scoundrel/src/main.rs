@@ -1,10 +1,9 @@
+use scoundrel_common::ecs::parser::parse_rascal;
+use scoundrel_common::ecs::world::World;
 use scoundrel_common::engine_options::EngineOptions;
 use scoundrel_core::core_logic;
 use scoundrel_core::engine::Engine;
 use scoundrel_windowing::windowing;
-
-use scoundrel_common::ecs::parser::parse_rascal;
-use scoundrel_common::ecs::world::World;
 
 fn main() {
     let mut world = World::default();
@@ -16,9 +15,7 @@ fn main() {
         }
     }
 
-    return;
-
-/*    let entity = world.create_entity();
+    let entity = world.create_entity();
     world.add_component(entity, "HasHealth".to_string(), vec![ 10u8, 0u8, 0u8, 0u8 ]);
 
     let entity = world.create_entity();
@@ -27,7 +24,7 @@ fn main() {
     let slice = &world.storage_pointers.get(&"HasHealth".to_string()).unwrap()[0..10];
     for x in slice {
         print!("{} ", x);
-    }*/
+    }
 
     let mut engine = Engine::new(EngineOptions::default());
 
