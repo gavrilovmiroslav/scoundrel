@@ -7,7 +7,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use lazy_static::*;
-use notify::{DebouncedEvent, Error, RecommendedWatcher, RecursiveMode, Watcher, watcher};
+use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher, watcher};
 
 use lazy_static;
 
@@ -16,6 +16,8 @@ use crate::glyphs::Glyph;
 use crate::keycodes::{KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
+use crate::rascal::parser::RascalStruct;
+use crate::rascal::world::{run_all_systems, World};
 
 #[derive(Clone, Default)]
 pub struct FrameCounter {
@@ -98,6 +100,7 @@ lazy_static! {
     pub static ref MOUSE_POSITIONS: Arc<Mutex<Point>> = Arc::new(Mutex::new((0, 0).into()));
     pub static ref SCREEN: Arc<RwLock<Screen>> = Arc::new(RwLock::new(Screen::new()));
     pub static ref SHOULD_REDRAW: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
+    pub static ref WORLD: Arc<Mutex<World>> = Arc::new(Mutex::new(World::default()));
     pub static ref WATCHER: Mutex<Option<RecommendedWatcher>> = Mutex::new(None);
     pub static ref WATCH_RECEIVER: Mutex<Option<Receiver<DebouncedEvent>>> = Mutex::new(None);
 }
@@ -145,10 +148,10 @@ pub fn snoop_for_data_changes() -> Option<DataChange> {
         Ok(E::Remove(p)) => Some(Change(Remove(p))),
         Ok(E::Rename(p, q)) => Some(Change(Rename(p, q))),
         Ok(E::Rescan) => Some(Change(Rescan)),
-        Ok(E::Error(Error::Generic(s), op)) => Some(Error(Generic(s), op)),
-        Ok(E::Error(Error::Io(_), op)) => Some(Error(IO, op)),
-        Ok(E::Error(Error::WatchNotFound, op)) => Some(Error(WatchNotFound, op)),
-        Ok(E::Error(Error::PathNotFound, op)) => Some(Error(PathNotFound, op)),
+        Ok(E::Error(notify::Error::Generic(s), op)) => Some(Error(Generic(s), op)),
+        Ok(E::Error(notify::Error::Io(_), op)) => Some(Error(IO, op)),
+        Ok(E::Error(notify::Error::WatchNotFound, op)) => Some(Error(WatchNotFound, op)),
+        Ok(E::Error(notify::Error::PathNotFound, op)) => Some(Error(PathNotFound, op)),
         Err(TryRecvError::Disconnected) => Some(Disconnected),
         Err(TryRecvError::Empty) => None,
     }
@@ -207,3 +210,18 @@ pub fn clean_redraw() {
     SHOULD_REDRAW.store(false, Ordering::Release);
 }
 
+pub fn rebuild_world(ast: Vec<RascalStruct>) {
+    let mut world = WORLD.lock().unwrap();
+    for structure in ast {
+        if structure.is_component() {
+            world.register_component(structure);
+        } else {
+            world.register_system(structure);
+        }
+    }
+}
+
+pub fn update_world() {
+    let world = WORLD.lock().unwrap();
+    run_all_systems(&world);
+}

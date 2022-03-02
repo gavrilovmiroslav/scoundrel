@@ -6,6 +6,6 @@ pub mod engine_options;
 pub mod colors;
 pub mod glyphs;
 pub mod presentation;
-pub mod ecs;
+pub mod rascal;
 
 

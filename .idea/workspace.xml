@@ -9,15 +9,15 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/config.ron" beforeDir="false" afterPath="$PROJECT_DIR$/data/config.ron" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/textures/Full-no-bg.png" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/grammar.pest" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/ecs/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/ecs/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel/prelude.rasc" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/prelude.rasc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
@@ -73,6 +73,7 @@
     <property name="cf.first.check.clang-format" value="false" />
     <property name="cidr.known.project.marker" value="true" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/../_poirogue" />
+    <property name="nodejs_package_manager_path" value="npm" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
     <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/lib.rs" value="true" />
     <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/world.rs" value="true" />
@@ -91,6 +92,11 @@
     </key>
   </component>
   <component name="RunManager">
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command" nameIsGenerated="true">
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -105,11 +111,6 @@
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
   </component>
@@ -143,7 +144,8 @@
       <workItem from="1645831490573" duration="2990000" />
       <workItem from="1645864522648" duration="4013000" />
       <workItem from="1645949527880" duration="5379000" />
-      <workItem from="1645990815169" duration="36370000" />
+      <workItem from="1645990815169" duration="36740000" />
+      <workItem from="1646170248828" duration="9145000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -208,7 +210,14 @@
       <option name="project" value="LOCAL" />
       <updated>1644628781735</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Added data file watching (TODO: make the directory be read from config.ron), and full Rascal parsing!">
+      <created>1646098044488</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1646098044488</updated>
+    </task>
+    <option name="localTasksCounter" value="11" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -239,7 +248,8 @@
     <MESSAGE value="Actually, on second thought..." />
     <MESSAGE value="Starting up a raw gl renderer to have batched rendering." />
     <MESSAGE value="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next." />
+    <MESSAGE value="Added data file watching (TODO: make the directory be read from config.ron), and full Rascal parsing!" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added data file watching (TODO: make the directory be read from config.ron), and full Rascal parsing!" />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
 </project>

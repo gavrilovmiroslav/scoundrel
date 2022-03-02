@@ -1,15 +1,17 @@
-
 use std::collections::{HashMap, HashSet};
-use arena_rs::Arena;
+use std::ptr::copy_nonoverlapping;
+
 use bitmaps::Bitmap;
 use show_my_errors::{AnnotationList, Stylesheet};
-use sparseset::SparseSet;
-use crate::ecs::parser::{ComponentSignature, ComponentType, RascalStruct};
+
+use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemSignature};
+use crate::rascal::vm::RascalVM;
 
 type EntityId = usize;
 type ComponentId = String;
+type SystemId = String;
 
-const MAX_ENTRIES_PER_STORAGE: usize = 1024;
+pub const MAX_ENTRIES_PER_STORAGE: usize = 1024;
 const MAX_COMPONENTS: usize = 1024;
 const AVERAGE_COMPONENT_SIZE: usize = 50;
 const JUST_TO_BE_SAFE_FACTOR: usize = 5;
@@ -21,13 +23,14 @@ const ARENA_SIZE: usize =
 
 pub struct World {
     entity_count: usize,
-    deleted_entities: Vec<EntityId>,
-    component_types: HashMap<ComponentId, ComponentType>,
-    registered_states: HashMap<ComponentId, ComponentSignature>,
-    registered_events: HashMap<ComponentId, ComponentSignature>,
-    registered_tags: HashSet<ComponentId>,
+    pub component_types: HashMap<ComponentId, ComponentType>,
+    pub registered_systems: HashMap<SystemId, SystemSignature>,
+    pub registered_states: HashMap<ComponentId, ComponentSignature>,
+    pub registered_events: HashMap<ComponentId, ComponentSignature>,
+    pub registered_tags: HashSet<ComponentId>,
     pub storage_pointers: HashMap<ComponentId, Vec<u8>>,
-    storage_bitmaps: HashMap<ComponentId, Bitmap<MAX_ENTRIES_PER_STORAGE>>,
+    pub storage_bitmaps: HashMap<ComponentId, Bitmap<MAX_ENTRIES_PER_STORAGE>>,
+    pub deleted_entities: Vec<EntityId>,
 }
 
 impl Default for World {
@@ -36,12 +39,57 @@ impl Default for World {
             entity_count: usize::default(),
             deleted_entities: Vec::default(),
             component_types: HashMap::default(),
+            registered_systems: HashMap::default(),
             registered_states: HashMap::default(),
             registered_events: HashMap::default(),
             registered_tags: HashSet::default(),
             storage_pointers: HashMap::default(),
             storage_bitmaps: HashMap::default(),
         }
+    }
+}
+
+pub fn run_all_systems(world: &World) {
+    for (id, sys) in world.registered_systems.iter() {
+        println!("Running {}", id);
+        run_system(world, sys);
+    }
+}
+
+pub fn run_system(world: &World, system: &SystemSignature) {
+    let mut vm = RascalVM {};
+    let mut no_event_to_run = false;
+
+    system.event.as_ref().map(|e| {
+        assert!(world.storage_bitmaps.contains_key(&e.name));
+
+        let event_bitmap = world.storage_bitmaps.get(&e.name).unwrap();
+        if event_bitmap.is_empty() {
+            no_event_to_run = true;
+        }
+    });
+
+    if no_event_to_run { return; }
+
+    vm.query_storages(&world, &system.with);
+
+    if let Some(e) = system.event.as_ref() {
+        let event_descriptor = world.registered_events.get(&e.name).unwrap().clone();
+        let event_instance_size = event_descriptor.size as usize;
+        let event_bitmap = world.storage_bitmaps.get(&e.name).unwrap();
+
+        let storage_pointer = world.storage_pointers.get(&e.name).unwrap();
+        for index in 0..MAX_ENTRIES_PER_STORAGE {
+            if event_bitmap.get(index as usize) {
+                let ptr = index * event_instance_size;
+                let event_instance = &storage_pointer[ptr..(ptr + event_instance_size)];
+
+                vm.connect_to_vm(event_instance, event_descriptor);
+                vm.interpret_block(&system.body);
+            }
+        }
+    } else {
+        vm.interpret_block(&system.body);
     }
 }
 
@@ -93,11 +141,18 @@ impl World {
             unsafe {
                 let mut comp_storage_ptr = self.storage_pointers.get_mut(&comp_type).unwrap().as_mut_ptr();
                 let comp_storage_at_entity_ptr = comp_storage_ptr.offset(entity as isize * size as isize);
-                std::ptr::copy_nonoverlapping(comp_value.as_ptr(), comp_storage_at_entity_ptr, size);
+                copy_nonoverlapping(comp_value.as_ptr(), comp_storage_at_entity_ptr, size);
             }
         }
 
         self.storage_bitmaps.get_mut(&comp_type).unwrap().set(entity, true);
+    }
+
+    pub fn register_system(&mut self, s: RascalStruct) {
+        if let RascalStruct::System(sys) = s {
+            self.registered_systems.insert(sys.name.clone(), sys);
+            // TODO: save the events that trigger systems here, so that we don't have to run them all the time
+        }
     }
 
     pub fn register_component(&mut self, v: RascalStruct) {

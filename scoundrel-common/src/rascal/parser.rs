@@ -14,10 +14,10 @@ use show_my_errors::{AnnotationList, Stylesheet};
 
 use lazy_static;
 
-use crate::ecs::parser::RascalExpression::{BoolLiteral, Identifier, NumLiteral, TextLiteral};
+use crate::rascal::parser::RascalExpression::{BoolLiteral, Identifier, NumLiteral, TextLiteral};
 
 #[derive(Parser)]
-#[grammar = "ecs/grammar.pest"]
+#[grammar = "rascal/grammar.pest"]
 struct RascalParser;
 
 lazy_static! {
@@ -175,7 +175,7 @@ impl ComponentCallSite {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SystemSignature {
     pub name: String,
     pub event: Option<ComponentCallSite>,

@@ -7,7 +7,7 @@ use glutin::*;
 use glutin::dpi::LogicalSize;
 
 use scoundrel_common::engine;
-use scoundrel_common::engine::snoop_for_data_changes;
+use scoundrel_common::engine::{snoop_for_data_changes, update_world};
 use scoundrel_common::keycodes::{KeyState, MouseState};
 
 use crate::common::gl_error_check;
@@ -81,6 +81,7 @@ pub fn window_event_loop() {
             println!("{:?}", e);
         }
 
+        update_world();
         render_frame(&gl_context, &pipeline);
     }
 }

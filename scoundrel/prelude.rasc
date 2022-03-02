@@ -4,7 +4,7 @@ tag IsBurning;
 state HasGlyph { glyph: symbol, fg: color, bg: color };
 state HasHealth { hp: num };
 state IsDoor { closed: bool };
-state IsAt { pos: point };
+state IsAt { position: point };
 
 event BumpIntent { bumper: entity, position: point };
 
@@ -18,7 +18,7 @@ with .HasHealth(hp)
 [Bump_To_Open_Doors]
 on BumpIntent(@, pos)
 with door.IsDoor(closed=true)
-   & door.IsAt(pos)
+   & door.IsAt(position=pos)
    & door.HasGlyph(glyph, _, _)
 {
     closed = false;
