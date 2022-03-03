@@ -17,7 +17,7 @@ use crate::keycodes::{KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
 use crate::rascal::parser::RascalStruct;
-use crate::rascal::world::{run_all_systems, World};
+use crate::rascal::world::World;
 
 #[derive(Clone, Default)]
 pub struct FrameCounter {
@@ -222,6 +222,5 @@ pub fn rebuild_world(ast: Vec<RascalStruct>) {
 }
 
 pub fn update_world() {
-    let world = WORLD.lock().unwrap();
-    run_all_systems(&world);
+    WORLD.lock().unwrap().run_all_systems();
 }

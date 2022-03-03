@@ -84,13 +84,13 @@ impl DataType {
     }
 }
 
-type MemberId = String;
+pub(crate) type MemberId = String;
 
 #[derive(Debug)]
 pub struct MemberSignature {
     pub name: String,
     pub typ: DataType,
-    pub ptr: u8,
+    pub offset: u8,
 }
 
 pub struct ComponentSignature {
@@ -116,7 +116,7 @@ impl ComponentSignature {
         down.iter().map(|(n, dt)| {
             let ptr = ptr_count;
             ptr_count += dt.size_in_bytes();
-            (n.to_string(), MemberSignature{ name: n.to_string(), typ: dt.clone(), ptr })
+            (n.to_string(), MemberSignature{ name: n.to_string(), typ: dt.clone(), offset: ptr })
         }).collect()
     }
 
@@ -135,7 +135,7 @@ impl Debug for ComponentSignature {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct ComponentArgument {
     pub name: String,
     pub value: Option<RascalExpression>,
@@ -151,7 +151,7 @@ impl ComponentArgument {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct ComponentCallSite {
     pub not: bool,
     pub is_owned: bool,
@@ -177,20 +177,27 @@ impl ComponentCallSite {
 
 #[derive(Debug, Clone)]
 pub struct SystemSignature {
+    pub id: u64,
     pub name: String,
     pub event: Option<ComponentCallSite>,
     pub with: Vec<ComponentCallSite>,
     pub body: RascalBlock,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+impl SystemSignature {
+    pub fn with_id(self, id: u64) -> Self {
+        SystemSignature{ id, name: self.name, event: self.event, with: self.with, body: self.body }
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Rel { Eq, Ne, Le, Lt, Ge, Gt }
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Op { Add, Sub, Mul, Div, Mod }
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Un { Not, Neg }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum RascalExpression {
     Relation(Box<RascalExpression>, Rel, Box<RascalExpression>),
     Binary(Box<RascalExpression>, Op, Box<RascalExpression>),
@@ -510,7 +517,7 @@ impl SystemSignature {
             }
         }
 
-        SystemSignature{ name, event, with, body }
+        SystemSignature{ id: 0, name, event, with, body }
     }
 }
 
@@ -557,7 +564,6 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
     for parse_tree in program {
         match parse_tree.as_rule() {
             Rule::state_decl => {
-                println!("{}", parse_tree.as_str());
                 let mut state_rule = parse_tree.into_inner();
                 let (name, members) = parse_component_name_and_members(state_rule);
                 ast.push(RascalStruct::State(ComponentSignature::new(name, members)))
@@ -576,7 +582,6 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
             }
 
             Rule::system_decl => {
-                println!("\nSYSTEM!");
                 let mut inner = parse_tree.into_inner();
                 ast.push(RascalStruct::System(SystemSignature::new(inner)));
             }

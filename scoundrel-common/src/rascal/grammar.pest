@@ -54,7 +54,7 @@ system_title = _{ "[" ~ name ~ "]" }
 system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ system_block }
 
 system_block = { "{" ~ statements ~ "}" }
-statements = _{ statement ~ (statement)* }
+statements = _{ statement* }
 statement = _{ assignment | if_statement |
     spawn_statement | destroy_statement |
     update_statement | trigger_statement }
