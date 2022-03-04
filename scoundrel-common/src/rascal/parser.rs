@@ -77,9 +77,9 @@ impl DataType {
             Bool => 4, // bool
             Text => 4, // ptr size
             Entity => 8, // u64
-            Point => 8, // 2x u32
+            Point => 8, // 2x i32
             Symbol => 2, // u16
-            Color => 4, // u32
+            Color => 3, // u32
         }
     }
 }

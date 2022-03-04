@@ -1,6 +1,7 @@
 tag IsDead;
 tag IsBurning;
 tag ExitGame;
+tag IsPlayer;
 
 state HasGlyph { glyph: symbol, fg: color, bg: color };
 state HasHealth { hp: num };
@@ -9,15 +10,10 @@ state IsDoor { closed: bool };
 state IsAt { position: point };
 
 event KeyPress { key_code: num, key_name: text };
-event BumpIntent { bumper: entity, position: point };
-
-[Weird_Damage]
-with .HasHealth(hp=1)
-   & .HasDamage(hp)
-{
-}
+event Bump { bumper: entity, position: point };
 
 [Bump_To_Open_Doors]
+on Bump(@, pos)
 with door.IsDoor(closed)
    & door.IsAt(pos)
    & door.HasGlyph(glyph, _, _)
@@ -26,15 +22,18 @@ with door.IsDoor(closed)
     destroy door;
 }
 
-[ExitOnEscape]
-on KeyPress(_, key="escape")
-{
-    trigger ExitGame;
-}
-
 [Burning_Deals_Damage]
-with .HasHealth(hp=1)
+with .HasHealth(hp)
+   & .HasDamage(hp)
    & .IsBurning
 {
     hp = hp - 1;
 }
+
+[ExitOnEscape]
+on KeyPress(key=27, _)
+with .IsPlayer
+{
+    trigger ExitGame;
+}
+
