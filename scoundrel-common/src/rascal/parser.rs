@@ -279,7 +279,10 @@ impl SystemSignature {
                     |pair| match pair.as_rule() {
                         Rule::bool_value => BoolLiteral(pair.as_str().starts_with("true")),
                         Rule::number => NumLiteral(pair.as_str().trim().parse().unwrap()),
-                        Rule::text_value => TextLiteral(pair.as_str().to_string()),
+                        Rule::text_value => TextLiteral({
+                            let text = pair.as_str().to_string();
+                            text[1..(text.len() - 1)].to_string()
+                        }),
                         Rule::point_value => {
                             let mut pt = pair.into_inner();
                             let x = recurse_by_token_type(&mut pt);

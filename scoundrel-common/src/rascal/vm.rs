@@ -16,6 +16,7 @@ lazy_static! {
     static ref STRING_REGISTRY: Mutex<HashMap<String, u32>> = Mutex::new(HashMap::default());
     static ref SYSTEM_QUERY_CACHE: Mutex<HashMap<u64, Bitmap<MAX_ENTRIES_PER_STORAGE>>> = Mutex::new(HashMap::new());
     static ref BINDING_COUNTER: AtomicU64 = AtomicU64::new(1);
+    static ref STRING_POOL: Mutex<HashMap<String, u32>> = Mutex::new(HashMap::default());
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -29,15 +30,39 @@ pub enum RascalValue {
     Color(u8, u8, u8),
 }
 
+pub fn get_string_index(t: &String) -> u32 {
+    let mut pool = STRING_POOL.lock().unwrap();
+    if !pool.contains_key(t) {
+        let index = pool.len() + 1;
+        pool.insert(t.clone(), index as u32);
+        index as u32
+    } else {
+        *pool.get(t).unwrap()
+    }
+}
+
+pub fn num(v: i32) -> RascalValue { RascalValue::Num(v) }
+pub fn bool(v: bool) -> RascalValue { RascalValue::Bool(v) }
+pub fn text(v: &str) -> RascalValue {
+    RascalValue::Text(get_string_index(&v.to_string()))
+}
+pub fn entity(v: u64) -> RascalValue { RascalValue::Entity(v) }
+pub fn symbol<C: Into<u16>>(c: C) -> RascalValue {
+    RascalValue::Symbol(c.into())
+}
+pub fn point(x: i32, y: i32) -> RascalValue {
+    RascalValue::Point(x, y)
+}
+pub fn color(x: u8, y: u8, z: u8) -> RascalValue {
+    RascalValue::Color(x, y, z)
+}
+
 impl RascalValue {
     pub fn parse(data_type: DataType, chunk: &[u8]) -> RascalValue {
         match data_type {
             DataType::Num => RascalValue::Num(i32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
             DataType::Bool => RascalValue::Bool(u32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap()) != 0u32),
-            DataType::Text => {
-                let string_registry_index = u32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap());
-                RascalValue::Text(string_registry_index)
-            },
+            DataType::Text => RascalValue::Text(u32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
             DataType::Entity => RascalValue::Entity(u64::from_ne_bytes(<[u8; 8]>::try_from(chunk).unwrap())),
             DataType::Point => RascalValue::Point(
                 i32::from_ne_bytes(<[u8; 4]>::try_from(&chunk[0..4]).unwrap()),
@@ -244,11 +269,7 @@ impl RascalVM {
                     }
                 }
 
-                println!("SYSTEM [{}]: working for entity {}", system.name, index);
-                println!("BINDINGS:    {:?}", self.bindings);
-                println!("EQUALITIES:  {:?}", self.equalities);
-                println!("PUSH VALUES: {:?}", self.push_values);
-                println!("==============================================");
+                println!("[{}] {}!", system.name, index);
             }
         }
     }
@@ -292,7 +313,9 @@ impl RascalVM {
                             return;
                         }
 
-                        for (arg, (id, _)) in event.args.iter().zip(event_descriptor.members.iter()) {
+                        let members_in_order: Vec<_> = event_descriptor.ptrs.iter().map(|(_, mid)| mid).collect();
+                        let zipped_arg_and_ids: Vec<_> = event.args.iter().zip(members_in_order).collect();
+                        for (arg, id) in zipped_arg_and_ids {
                             self.update_equality(&system.name, world, arg, id, event_descriptor);
                         }
 
@@ -388,7 +411,10 @@ impl RascalVM {
             RascalExpression::BoolLiteral(b) => Some(RascalValue::Bool(*b)),
             RascalExpression::NumLiteral(n) => Some(RascalValue::Num(*n)),
             RascalExpression::SymbolLiteral(s) => Some(RascalValue::Symbol(*s)),
-            RascalExpression::TextLiteral(t) => Some(RascalValue::Text(0)), // TODO: BIG THING HERE
+            RascalExpression::TextLiteral(t) => {
+                let string_pool_index = get_string_index(t);
+                Some(RascalValue::Text(string_pool_index))
+            },
             RascalExpression::Identifier(ident) if values.contains_key(ident) => {
                 Some(values.get(ident).unwrap().clone())
             }

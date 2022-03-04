@@ -12,28 +12,9 @@ state IsAt { position: point };
 event KeyPress { key_code: num, key_name: text };
 event Bump { bumper: entity, position: point };
 
-[Bump_To_Open_Doors]
-on Bump(@, pos)
-with door.IsDoor(closed)
-   & door.IsAt(pos)
-   & door.HasGlyph(glyph, _, _)
-{
-    closed = false;
-    destroy door;
-}
-
-[Burning_Deals_Damage]
-with .HasHealth(hp)
-   & .HasDamage(hp)
-   & .IsBurning
-{
-    hp = hp - 1;
-}
-
 [ExitOnEscape]
-on KeyPress(key=27, _)
+on KeyPress(_, key="escape")
 with .IsPlayer
 {
     trigger ExitGame;
 }
-

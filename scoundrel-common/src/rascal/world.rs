@@ -160,7 +160,6 @@ impl AddComponent<u8> for World {
                 Event => { self.registered_events[&comp_type].size as usize }
                 _ => 0
             };
-            assert_eq!(size, comp_value.len());
 
             unsafe {
                 let mut comp_storage_ptr = self.storage_pointers.get_mut(&comp_type).unwrap().as_mut_ptr();
