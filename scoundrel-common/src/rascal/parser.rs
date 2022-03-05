@@ -227,6 +227,8 @@ pub enum RascalStatement {
     Destroy(RascalIdentifier),
     Update(RascalIdentifier, Vec<ComponentCallSite>),
     Trigger(ComponentCallSite),
+    Print(RascalExpression),
+    ConsumeEvent,
 }
 
 pub type RascalIdentifier = RascalExpression; /* could only be Identifier */
@@ -358,6 +360,10 @@ impl SystemSignature {
                         let name = name_value.next().unwrap().as_str();
                         let value = Self::parse_expression(TokenType::NonTerm(name_value));
                         (name.to_string(), value)
+                    }
+                    Rule::anonymous_with_value => {
+                        let value = Self::parse_expression(TokenType::NonTerm(arg.into_inner()));
+                        ("_".to_string(), value)
                     }
                     Rule::name => {
                         (arg.as_str().to_string(), None)
@@ -492,6 +498,17 @@ impl SystemSignature {
                         let mut list = AnnotationList::new("parser#trigger", statement.clone().as_str());
                         list.error(0..3, "Call site expected", "(so, something like 'Foo(3, 1)')");
                         list.show_stdout(&Stylesheet::colored());
+                    }
+                }
+
+                Rule::consume_statement => {
+                    result.push(RascalStatement::ConsumeEvent);
+                }
+
+                Rule::print_statement => {
+                    let mut print_statement = statement.into_inner();
+                    if let Some(expr) = Self::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
+                        result.push(RascalStatement::Print(expr));
                     }
                 }
 

@@ -43,8 +43,9 @@ simple_call_site = { name ~ component_arg_list? }
 complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
 
 arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
-arg_member = _{ name_with_value | name }
+arg_member = _{ name_with_value | name | anonymous_with_value }
 name_with_value = { name ~ "=" ~ value }
+anonymous_with_value = { value }
 
 owner_name = @{ name }
 comp_name = @{ name }
@@ -57,7 +58,8 @@ system_block = { "{" ~ statements ~ "}" }
 statements = _{ statement* }
 statement = _{ assignment | if_statement |
     spawn_statement | destroy_statement |
-    update_statement | trigger_statement }
+    update_statement | trigger_statement |
+    consume_statement | print_statement }
 
 assignment = { identifier ~ "=" ~ expression ~ ";" }
 
@@ -65,9 +67,11 @@ if_statement = { "if" ~ expression ~ system_block ~ else_statement? }
 else_statement = { "else" ~ system_block }
 
 spawn_statement = { "spawn" ~ identifier ~ "with" ~ component_call_list ~ ";" }
+consume_statement = { "consume" ~ "event" ~ ";" }
 destroy_statement = { "destroy" ~ identifier ~ ";" }
 update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" }
 trigger_statement = { "trigger" ~ call_site ~ ";" }
+print_statement = { "print" ~ expression ~ ";" }
 
 on_event_clause = { "on" ~ component_call }
 with_query_clause = { "with" ~ component_call_list }

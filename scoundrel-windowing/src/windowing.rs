@@ -7,7 +7,7 @@ use glutin::*;
 use glutin::dpi::LogicalSize;
 
 use scoundrel_common::engine;
-use scoundrel_common::engine::{snoop_for_data_changes, update_world};
+use scoundrel_common::engine::{should_quit, snoop_for_data_changes, update_world};
 use scoundrel_common::keycodes::{KeyState, MouseState};
 
 use crate::common::gl_error_check;
@@ -23,6 +23,10 @@ const RENDER_FRAME_DISTANCE: u64 = 20;
 
 fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
     unsafe { std::mem::transmute(vk) }
+}
+
+fn transmute_element_state(ek: ElementState) -> scoundrel_common::keycodes::ElementState {
+    unsafe { std::mem::transmute(ek) }
 }
 
 fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
@@ -59,7 +63,7 @@ pub fn window_event_loop() {
 
                 Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
                     if let Some(key) = input.virtual_keycode {
-                        engine::KEYBOARD_EVENTS.lock().unwrap().push_back(transmute_keycode(key));
+                        engine::KEYBOARD_EVENTS.lock().unwrap().push_back((transmute_keycode(key), transmute_element_state(input.state)));
                     }
                 },
 
@@ -83,6 +87,10 @@ pub fn window_event_loop() {
 
         update_world();
         render_frame(&gl_context, &pipeline);
+
+        if should_quit() {
+            done = true;
+        }
     }
 }
 

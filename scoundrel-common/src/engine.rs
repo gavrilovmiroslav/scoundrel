@@ -13,7 +13,7 @@ use lazy_static;
 
 use crate::engine_options::EngineOptions;
 use crate::glyphs::Glyph;
-use crate::keycodes::{KeyState, MouseState};
+use crate::keycodes::{ElementState, KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
 use crate::rascal::parser::RascalStruct;
@@ -95,7 +95,7 @@ lazy_static! {
     pub static ref SHOULD_QUIT: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     pub static ref STOPWATCH: Arc<Mutex<Instant>> = Arc::new(Mutex::new(Instant::now()));
     pub static ref FRAME_COUNTER: Arc<Mutex<FrameCounter>> = Arc::new(Mutex::new(FrameCounter::default()));
-    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<KeyState>>> = Arc::new(Mutex::new(VecDeque::default()));
+    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<(KeyState, ElementState)>>> = Arc::new(Mutex::new(VecDeque::default()));
     pub static ref MOUSE_EVENTS: Arc<Mutex<VecDeque<MouseState>>> = Arc::new(Mutex::new(VecDeque::default()));
     pub static ref MOUSE_POSITIONS: Arc<Mutex<Point>> = Arc::new(Mutex::new((0, 0).into()));
     pub static ref SCREEN: Arc<RwLock<Screen>> = Arc::new(RwLock::new(Screen::new()));

@@ -1,20 +1,25 @@
-tag IsDead;
-tag IsBurning;
+
 tag ExitGame;
 tag IsPlayer;
 
 state HasGlyph { glyph: symbol, fg: color, bg: color };
-state HasHealth { hp: num };
-state HasDamage { dmg: num };
-state IsDoor { closed: bool };
 state IsAt { position: point };
 
-event KeyPress { key_code: num, key_name: text };
-event Bump { bumper: entity, position: point };
+event KeyPress { key_name: text, action: text };
 
-[ExitOnEscape]
-on KeyPress(_, key="escape")
+[Exit_On_Escape_Key]
+on KeyPress(key="Escape", action="Released")
 with .IsPlayer
 {
     trigger ExitGame;
+    consume event;
+}
+
+[Consume_Key_Press_At_End_Of_Frame]
+on KeyPress(key, action)
+with .IsPlayer
+{
+    print key;
+    print action;
+    consume event;
 }
