@@ -195,6 +195,7 @@ impl RascalVM {
     fn update_equality(&mut self, system_name: &String, world: &World, arg: &ComponentArgument, id: &MemberId, comp_signature: &ComponentSignature) {
         if arg.name == "_" && arg.value.is_some() {
             let new_id = format!("${}_{}", arg.name, BINDING_COUNTER.fetch_add(1, Ordering::SeqCst));
+            self.bindings.insert(new_id.clone(), (comp_signature.name.clone(), id.clone()));
             self.equalities.insert(new_id, EqualityWith::Value(arg.value.clone().unwrap()));
         } else if arg.name != "_" && self.bindings.contains_key(&arg.name) {
             let new_id = format!("${}_{}", arg.name, BINDING_COUNTER.fetch_add(1, Ordering::SeqCst));
@@ -320,6 +321,7 @@ impl RascalVM {
     }
 
     fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>) -> Option<RascalValue> {
+
         match expr {
             RascalExpression::Relation(a, op, b) => {
                 let ia = self.interpret_expression(a.as_ref(), values).unwrap();
@@ -327,12 +329,12 @@ impl RascalVM {
 
                 use RascalValue::*;
                 match (ia, op, ib) {
-                    (Num(l), Rel::Eq, Num(r)) => Some(Bool(l == r)),
-                    (Num(l), Rel::Ne, Num(r)) => Some(Bool(l != r)),
                     (Num(l), Rel::Le, Num(r)) => Some(Bool(l <= r)),
                     (Num(l), Rel::Lt, Num(r)) => Some(Bool(l < r)),
                     (Num(l), Rel::Ge, Num(r)) => Some(Bool(l >= r)),
                     (Num(l), Rel::Gt, Num(r)) => Some(Bool(l > r)),
+                    (lhs, Rel::Eq, rhs) => Some(Bool(lhs == rhs)),
+                    (lhs, Rel::Ne, rhs) => Some(Bool(lhs != rhs)),
                     _ => None
                 }
             }
@@ -407,7 +409,10 @@ impl RascalVM {
             RascalExpression::Identifier(ident) if values.contains_key(ident) => {
                 Some(values.get(ident).unwrap().clone())
             }
-            _ => None
+            other => {
+                println!("[parse_expression] failed to catch: {:?}", other);
+                None
+            }
         }
     }
 
@@ -430,11 +435,23 @@ impl RascalVM {
             }
 
             RascalStatement::IfElse(body, then, or_else) => {
-                if let RascalValue::Bool(is) = self.interpret_expression(body, values).unwrap() {
-                    if is {
-                        result.extend(self.interpret_block(then.as_ref(), values));
-                    } else if or_else.is_some() {
-                        result.extend(self.interpret_block(or_else.as_ref().unwrap(), values));
+                match self.interpret_expression(body, values) {
+                    Some(RascalValue::Bool(is)) => {
+                        if is {
+                            result.extend(self.interpret_block(then.as_ref(), values));
+                        } else if or_else.is_some() {
+                            result.extend(self.interpret_block(or_else.as_ref().unwrap(), values));
+                        }
+                    }
+
+                    Some(other) => {
+                        println!("If guard didn't evaluate to boolean, but rather to: {:?}!", other);
+                        unreachable!()
+                    }
+
+                    None => {
+                        println!("It was impossible to interpret the evaluated expression: {:?}\n\t{:?}", body, values);
+                        unreachable!()
                     }
                 }
             }
@@ -482,9 +499,9 @@ impl RascalVM {
             RascalStatement::Print(e) => {
                 let v = self.interpret_expression(e, &values).unwrap();
                 if let RascalValue::Text(val) = v {
-                    println!("print [{:?}]: {:?}", e, retrieve_string(val));
+                    println!("{:?}", retrieve_string(val));
                 } else {
-                    println!("print [{:?}]: {:?}", e, v);
+                    println!("{:?}", v);
                 }
             }
         };
@@ -534,8 +551,8 @@ impl RascalVM {
     fn commit_changes(&mut self, world: &mut World, index: usize, values: &mut HashMap<String, RascalValue>, changes: Vec<SemanticChange>) {
         for change in changes {
             match change {
-                SemanticChange::ValueChange(a, b) => {
-                    let (comp_id, member_id) = self.bindings.get(&a).unwrap();
+                SemanticChange::ValueChange(name, new_value) => {
+                    let (comp_id, member_id) = self.bindings.get(&name).unwrap();
                     if let ComponentType::State = world.component_types.get(comp_id).unwrap() {
 
                         let descriptor = world.registered_states.get(comp_id).unwrap();
@@ -547,20 +564,22 @@ impl RascalVM {
                         let member_start = ptr_start + ptr_offset as usize;
                         let size = descriptor.members.get(member_id).unwrap().typ.size_in_bytes() as usize;
 
-                        let value = b.emit();
-                        assert_eq!(value.len(), size);
+                        let binary_value = new_value.emit();
+                        assert_eq!(binary_value.len(), size);
 
                         unsafe {
                             let storage = world.storage_pointers.get_mut(comp_id).unwrap().as_mut_ptr();
                             let comp_storage_at_entity_ptr = storage.offset(member_start as isize);
-                            copy_nonoverlapping(value.as_ptr(), comp_storage_at_entity_ptr, size);
+                            copy_nonoverlapping(binary_value.as_ptr(), comp_storage_at_entity_ptr, size);
                         }
 
-                        let old_value = values.get(&a).unwrap().clone();
-                        println!("Changed {}={:?} -> {:?}.", a, old_value, b);
-                        *values.get_mut(&a).unwrap() = b;
+                        let old_value = values.get(&name).unwrap().clone();
+
+                        // println!("Changed {}={:?} -> {:?}.", name, old_value, new_value);
+                        // TODO: add <inserted>, <changed> and <removed> meta-events
+                        *values.get_mut(&name).unwrap() = new_value;
                     } else {
-                        println!("Only states are mutable ({} is not writable).", a);
+                        println!("Only states are mutable ({} is not writable).", name);
                     }
                 }
 

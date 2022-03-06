@@ -139,7 +139,6 @@ fn render_frame(gl_context: &WindowedContext,
 
     let screen = engine::SCREEN.read().unwrap().clone();
     if screen.is_ready() {
-        engine::clean_redraw();
 
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);

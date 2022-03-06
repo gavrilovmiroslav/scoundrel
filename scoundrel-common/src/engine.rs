@@ -17,6 +17,7 @@ use crate::keycodes::{ElementState, KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
 use crate::rascal::parser::RascalStruct;
+use crate::rascal::world::REGISTERED_SYSTEMS;
 use crate::rascal::world::World;
 
 #[derive(Clone, Default)]
@@ -188,6 +189,13 @@ pub fn start_engine(opts: EngineOptions) {
             panic!("WATCHER CAN'T WATCH THIS FOLDER!");
         }
     }
+
+    {
+        let mut world = WORLD.lock().unwrap();
+        world.register_component(RascalStruct::Tag("Main".to_string()));
+        let main_entity = world.create_entity();
+        world.add_tag(main_entity, "Main");
+    }
 }
 
 pub fn should_quit() -> bool {
@@ -198,21 +206,28 @@ pub fn force_quit() {
     SHOULD_QUIT.store(true, Ordering::Release);
 }
 
-pub fn should_redraw() -> bool {
-    SHOULD_REDRAW.load(Ordering::Acquire)
-}
-
-pub fn force_redraw() {
-    SHOULD_REDRAW.store(true, Ordering::Release);
-}
-
-pub fn clean_redraw() {
-    SHOULD_REDRAW.store(false, Ordering::Release);
+fn remove_structure(world: &mut World, structure: &RascalStruct) {
+    match structure {
+        RascalStruct::State(state) => {
+            world.registered_states.remove(&state.name);
+        }
+        RascalStruct::Event(event) => {
+            world.registered_events.remove(&event.name);
+        }
+        RascalStruct::Tag(tag) => {
+            world.registered_tags.remove(tag);
+        }
+        RascalStruct::System(sys) => {
+            REGISTERED_SYSTEMS.lock().unwrap().remove(&sys.name);
+        }
+    }
 }
 
 pub fn rebuild_world(ast: Vec<RascalStruct>) {
     let mut world = WORLD.lock().unwrap();
     for structure in ast {
+        remove_structure(&mut world, &structure);
+
         if structure.is_component() {
             world.register_component(structure);
         } else {

@@ -22,7 +22,6 @@ pub fn pass_input_events_to_rascal() {
                 glyph.symbol = thread_rng().gen_range(0..255);
                 glyph.foreground.hue = ((glyph.foreground.hue as u16 + 1) % 255) as u8;
             }
-            engine::force_redraw();
         }
     }
 }
@@ -36,7 +35,6 @@ pub fn create_fps_tracker() {
     if time >= 1000 {
         *stopwatch = Instant::now();
         frame_counter.cache();
-        engine::force_redraw();
     }
 
     let message = format!("FPS: {:.0}", frame_counter.cached());

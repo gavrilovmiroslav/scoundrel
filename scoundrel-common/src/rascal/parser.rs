@@ -433,16 +433,16 @@ impl SystemSignature {
     fn parse_body(rule: Pair<Rule>) -> Vec<RascalStatement> {
         use TokenType::*;
 
-        let mut result = Vec::new();
-        for statement in rule.into_inner() {
-            match statement.as_rule() {
+        fn parse_statement(statement: Pair<Rule>) -> Vec<RascalStatement> {
+            let mut result = Vec::new();
 
+            match statement.as_rule() {
                 Rule::assignment => {
                     let mut assign = statement.into_inner();
                     if let Some(id@RascalExpression::Identifier(_)) =
-                            Self::parse_expression(Term(assign.next().unwrap())) {
+                        SystemSignature::parse_expression(Term(assign.next().unwrap())) {
 
-                        if let Some(value) = Self::parse_expression(NonTerm(assign.clone())) {
+                        if let Some(value) = SystemSignature::parse_expression(NonTerm(assign.clone())) {
                             result.push(RascalStatement::Assign(id, value));
                         } else {
                             let mut list = AnnotationList::new("script", assign.clone().as_str());
@@ -458,10 +458,26 @@ impl SystemSignature {
 
                 Rule::if_statement => {
                     let mut if_statement = statement.into_inner();
-                    if let Some(guard) = Self::parse_expression(NonTerm(if_statement.next().unwrap().into_inner())) {
-                        let then_branch = Self::parse_body(if_statement.next().unwrap());
+                    if let Some(guard) = SystemSignature::parse_expression(NonTerm(if_statement.next().unwrap().into_inner())) {
+                        let then_branch = SystemSignature::parse_body(if_statement.next().unwrap());
                         result.push(RascalStatement::IfElse(guard, Box::new(then_branch),
-                            if_statement.next().map(|else_block| Box::new(Self::parse_body(else_block)))));
+                                                            if_statement.next().map(|else_block| {
+                                                                let mut else_piece = else_block.clone().into_inner().next().unwrap();
+                                                                match else_piece.as_rule() {
+                                                                    Rule::system_block => {
+                                                                        println!("[el] {:?}", else_piece.as_str());
+                                                                        Box::new(SystemSignature::parse_body(else_piece))
+                                                                    },
+                                                                    Rule::if_statement => {
+                                                                        println!("[if] {:?}", else_piece.as_str());
+                                                                        Box::new(parse_statement(else_piece))
+                                                                    },
+                                                                    foo => {
+                                                                        println!("[!!] {:?}", foo);
+                                                                        unreachable!();
+                                                                    }
+                                                                }
+                                                            })));
                     } else {
                         let mut list = AnnotationList::new("parser#if_statement", if_statement.clone().as_str());
                         list.error(0..3, "Expression expected", "");
@@ -469,14 +485,18 @@ impl SystemSignature {
                     }
                 }
 
+                Rule::else_statement => {
+
+                }
+
                 rule@(Rule::spawn_statement | Rule::update_statement) => {
                     let mut spawn_statement = statement.into_inner();
                     if let Some(id @ RascalExpression::Identifier(_)) =
-                            Self::parse_expression(Term(spawn_statement.next().unwrap())) {
+                    SystemSignature::parse_expression(Term(spawn_statement.next().unwrap())) {
 
                         let mut clauses = Vec::new();
                         for next in spawn_statement.next().unwrap().into_inner() {
-                            clauses.push(Self::parse_component_call_list(next).unwrap());
+                            clauses.push(SystemSignature::parse_component_call_list(next).unwrap());
                         }
 
                         result.push(match rule {
@@ -494,8 +514,7 @@ impl SystemSignature {
                 Rule::destroy_statement => {
                     let mut destroy_statement = statement.into_inner();
                     if let Some(id @ RascalExpression::Identifier(_)) =
-                            Self::parse_expression(Term(destroy_statement.next().unwrap())) {
-
+                    SystemSignature::parse_expression(Term(destroy_statement.next().unwrap())) {
                         result.push(RascalStatement::Destroy(id));
                     } else {
                         let mut list = AnnotationList::new("parser#destroy", destroy_statement.clone().as_str());
@@ -505,7 +524,7 @@ impl SystemSignature {
                 }
 
                 Rule::trigger_statement => {
-                    if let Some(call_site) = Self::parse_call_site(statement.clone()) {
+                    if let Some(call_site) = SystemSignature::parse_call_site(statement.clone()) {
                         result.push(RascalStatement::Trigger(call_site));
                     } else {
                         let mut list = AnnotationList::new("parser#trigger", statement.clone().as_str());
@@ -520,7 +539,7 @@ impl SystemSignature {
 
                 Rule::print_statement => {
                     let mut print_statement = statement.into_inner();
-                    if let Some(expr) = Self::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
+                    if let Some(expr) = SystemSignature::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
                         result.push(RascalStatement::Print(expr));
                     }
                 }
@@ -530,6 +549,13 @@ impl SystemSignature {
                     unreachable!()
                 }
             }
+
+            result
+        }
+
+        let mut result = Vec::new();
+        for statement in rule.into_inner() {
+            result.extend(parse_statement(statement));
         }
 
         result

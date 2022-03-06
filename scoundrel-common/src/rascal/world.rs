@@ -85,7 +85,6 @@ impl World {
         for sys in SYSTEM_PRIORITIES.lock().unwrap().clone().into_sorted_vec().iter().rev() {
             vm.interpret(self, REGISTERED_SYSTEMS.lock().unwrap().get(sys).unwrap());
         }
-
     }
 
     pub fn create_entity(&mut self) -> EntityId {
