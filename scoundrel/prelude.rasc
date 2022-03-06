@@ -20,17 +20,12 @@ on KeyPress(key, "Pressed")
 with .IsPlayer
    & .IsAt(x, y)
 {
-    if key == "A" {
-        x = x - 1;
-    } else if key == "D" {
-        x = x + 1;
-    } else if key == "W" {
-        y = y + 1;
-    } else if key == "S" {
-        y = y - 1;
+    match key {
+        case "A": x = x - 1;
+        case "D": x = x + 1;
+        case "W": y = y + 1;
+        case "S": y = y - 1;
     }
-
-    print (x, y);
 }
 
 [Consume_Key_Press_At_End_Of_Frame|last]

@@ -54,19 +54,23 @@ comp_name = @{ name }
 system_title = { "[" ~ name ~ ("|" ~ system_priority)? ~ "]" }
 system_priority = { priority }
 priority = { number | "last" | "first" }
-system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ system_block }
+system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }
 
-system_block = { "{" ~ statements ~ "}" }
+block = { "{" ~ statements ~ "}" }
 statements = _{ statement* }
 statement = _{ assignment | if_statement |
     spawn_statement | destroy_statement |
     update_statement | trigger_statement |
-    consume_statement | print_statement }
+    consume_statement | print_statement |
+    match_statement }
 
 assignment = { identifier ~ "=" ~ expression ~ ";" }
 
-if_statement = { "if" ~ expression ~ system_block ~ else_statement? }
-else_statement = { "else" ~ (if_statement | system_block) }
+if_statement = { "if" ~ expression ~ block ~ else_statement? }
+else_statement = { "else" ~ (if_statement | block) }
+
+match_statement = { "match" ~ expression ~ "{" ~ match_case+ ~ "}" }
+match_case = { "case" ~ expression ~ ":" ~ (block | statement) }
 
 spawn_statement = { "spawn" ~ identifier ~ "with" ~ component_call_list ~ ";" }
 consume_statement = { "consume" ~ "event" ~ ";" }

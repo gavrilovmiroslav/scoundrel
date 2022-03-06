@@ -118,6 +118,7 @@ pub enum SemanticChange {
     UpdateComponents(String, Vec<ComponentCallSite>),
     TriggerEvent(ComponentCallSite),
     ConsumeEvent,
+    Print(RascalExpression),
 }
 
 #[derive(Debug)]
@@ -497,11 +498,25 @@ impl RascalVM {
             }
 
             RascalStatement::Print(e) => {
-                let v = self.interpret_expression(e, &values).unwrap();
-                if let RascalValue::Text(val) = v {
-                    println!("{:?}", retrieve_string(val));
-                } else {
-                    println!("{:?}", v);
+                result.push(SemanticChange::Print(e.clone()));
+            }
+
+            RascalStatement::Match(key, cases) => {
+                match self.interpret_expression(key, values) {
+                    Some(value) => {
+                        for (case_match, case_body) in cases {
+                            let other = self.interpret_expression(case_match, values).unwrap();
+                            if value == other {
+                                result.extend(self.interpret_block(case_body, values));
+                                break;
+                            }
+                        }
+                    }
+
+                    None => {
+                        println!("It was impossible to interpret the key of the match: {:?}\n\t{:?}", key, values);
+                        unreachable!()
+                    }
                 }
             }
         };
@@ -629,6 +644,15 @@ impl RascalVM {
                     if let Some(system) = &self.current_system {
                         let index = self.current_event_handled.unwrap();
                         world.storage_bitmaps.get_mut(&system.event.as_ref().unwrap().name).unwrap().set(index, false);
+                    }
+                }
+
+                SemanticChange::Print(expr) => {
+                    let v = self.interpret_expression(&expr, &values).unwrap();
+                    if let RascalValue::Text(val) = v {
+                        println!("{:?}", retrieve_string(val));
+                    } else {
+                        println!("{:?}", v);
                     }
                 }
             }
