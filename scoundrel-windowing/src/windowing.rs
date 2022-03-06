@@ -1,6 +1,5 @@
 use std::borrow::BorrowMut;
 use std::ffi::c_void;
-use std::time::Duration;
 
 use gl::types::GLboolean;
 use glutin::*;
@@ -33,7 +32,7 @@ fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
     MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
 }
 
-pub fn window_event_loop() {
+pub fn window_event_loop(support_systems: Vec<fn()>) {
     let mut event_loop = EventsLoop::new();
 
     let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
@@ -88,9 +87,9 @@ pub fn window_event_loop() {
         update_world();
         render_frame(&gl_context, &pipeline);
 
-        if should_quit() {
-            done = true;
-        }
+        for sys in &support_systems { sys(); }
+
+        if should_quit() { done = true; }
     }
 }
 
@@ -138,22 +137,18 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 fn render_frame(gl_context: &WindowedContext,
                 pipeline: &GlyphRenderer,) {
 
-    if engine::should_redraw() {
-        let screen = engine::SCREEN.read().unwrap().clone();
-        if screen.is_ready() {
-            engine::clean_redraw();
+    let screen = engine::SCREEN.read().unwrap().clone();
+    if screen.is_ready() {
+        engine::clean_redraw();
 
-            unsafe {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
-
-            pipeline.render(screen.glyphs());
-
-            gl_context.swap_buffers().unwrap();
+        unsafe {
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-    } else {
-        std::thread::sleep(Duration::from_millis(1));
+
+        pipeline.render(screen.glyphs());
+
+        gl_context.swap_buffers().unwrap();
     }
 
     engine::FRAME_COUNTER.lock().unwrap().tick();

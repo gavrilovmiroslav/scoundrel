@@ -19,9 +19,9 @@ fn main() {
         world.add_tag(player_entity, "IsPlayer");
     }
 
-    engine.logic.push(core_logic::pass_input_events_to_rascal);
-    engine.logic.push(core_logic::create_fps_tracker);
-    engine.logic.push(core_logic::create_exit_game);
+    engine.support_systems.push(core_logic::pass_input_events_to_rascal);
+    engine.support_systems.push(core_logic::create_fps_tracker);
+    engine.support_systems.push(core_logic::create_exit_game);
 
     engine.run(windowing::window_event_loop);
 }

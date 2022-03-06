@@ -111,6 +111,15 @@ impl RascalValue {
     }
 }
 
+pub enum SemanticChange {
+    ValueChange(String, RascalValue),
+    SpawnEntity(String, Vec<ComponentCallSite>),
+    DestroyEntity(String),
+    UpdateComponents(String, Vec<ComponentCallSite>),
+    TriggerEvent(ComponentCallSite),
+    ConsumeEvent,
+}
+
 #[derive(Debug)]
 pub enum EqualityWith {
     Alias(String),
@@ -231,8 +240,6 @@ impl RascalVM {
     }
 
     fn interpret_with(&mut self, world: &mut World, system: &SystemSignature) {
-        println!("{:=^46}", format!(" SYSTEM [{}] ", system.name));
-
         /* CHECK FOR MULTIPLE OWNERS */ {
             let with = system.with.clone();
             let mut owners: Vec<_> = with.iter().map(|o| o.owner.clone().unwrap_or(String::default())).collect();
@@ -280,15 +287,11 @@ impl RascalVM {
 
             if query_bitmap.get(index as usize) {
                 let mut values = self.get_binding_values(world, index as usize);
-                println!("Values: {:?}", values);
                 for (id, value) in &values {
                     if self.equalities.contains_key(id) {
                         if let EqualityWith::Value(expr) = self.equalities.get(id).unwrap() {
                             if let Some(expr_resolved) = self.interpret_expression(expr, &values) {
                                 if *value != expr_resolved {
-                                    for (text, index) in STRING_POOL.lock().unwrap().iter() {
-                                        println!("    {}: {}", index, text);
-                                    }
                                     continue 'entries;
                                 }
                             }
@@ -659,13 +662,4 @@ impl RascalVM {
 
         self.current_system = None;
     }
-}
-
-pub enum SemanticChange {
-    ValueChange(String, RascalValue),
-    SpawnEntity(String, Vec<ComponentCallSite>),
-    DestroyEntity(String),
-    UpdateComponents(String, Vec<ComponentCallSite>),
-    TriggerEvent(ComponentCallSite),
-    ConsumeEvent,
 }

@@ -175,10 +175,21 @@ impl ComponentCallSite {
     }
 }
 
+pub type SystemPrioritySize = u16;
+
+#[derive(Debug, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub enum SystemPriority {
+    Default,
+    Last,
+    First,
+    At(SystemPrioritySize),
+}
+
 #[derive(Debug, Clone)]
 pub struct SystemSignature {
     pub id: u64,
     pub name: String,
+    pub priority: SystemPriority,
     pub event: Option<ComponentCallSite>,
     pub with: Vec<ComponentCallSite>,
     pub body: RascalBlock,
@@ -186,7 +197,9 @@ pub struct SystemSignature {
 
 impl SystemSignature {
     pub fn with_id(self, id: u64) -> Self {
-        SystemSignature{ id, name: self.name, event: self.event, with: self.with, body: self.body }
+        SystemSignature{
+            id, name: self.name, priority: SystemPriority::Default,
+            event: self.event, with: self.with, body: self.body }
     }
 }
 
@@ -523,7 +536,21 @@ impl SystemSignature {
     }
 
     pub fn new(mut rule: Pairs<Rule>) -> SystemSignature {
-        let name = rule.next().unwrap().as_str().to_string();
+        let mut system_title = rule.next().unwrap().into_inner();
+        let name = system_title.next().unwrap().as_str().to_string();
+
+        let priority = system_title.next().map(|p| match p.as_str() {
+            "last" => SystemPriority::Last,
+            "first" => SystemPriority::Default,
+            num => {
+                if let Ok(v) = num.parse::<SystemPrioritySize>() {
+                    SystemPriority::At(v)
+                } else {
+                    SystemPriority::Default
+                }
+            }
+        }).unwrap_or(SystemPriority::Default);
+
         let mut event = None;
         let mut with = Vec::new();
         let mut body = Vec::new();
@@ -537,7 +564,7 @@ impl SystemSignature {
             }
         }
 
-        SystemSignature{ id: 0, name, event, with, body }
+        SystemSignature{ id: 0, name, priority, event, with, body }
     }
 }
 

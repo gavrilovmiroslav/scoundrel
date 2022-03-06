@@ -7,7 +7,7 @@ state IsAt { position: point };
 
 event KeyPress { key_name: text, action: text };
 
-[Exit_On_Escape_Key]
+[Exit_On_Escape_Key|first]
 on KeyPress(key="Escape", action="Released")
 with .IsPlayer
 {
@@ -15,11 +15,9 @@ with .IsPlayer
     consume event;
 }
 
-[Consume_Key_Press_At_End_Of_Frame]
+[Consume_Key_Press_At_End_Of_Frame|last]
 on KeyPress(key, action)
 with .IsPlayer
 {
-    print key;
-    print action;
     consume event;
 }

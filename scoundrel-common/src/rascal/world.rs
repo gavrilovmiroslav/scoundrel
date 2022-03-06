@@ -8,7 +8,7 @@ use priority_queue::PriorityQueue;
 use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::WORLD;
-use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemSignature};
+use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
 use crate::rascal::vm::{RascalValue, RascalVM};
 
 pub(crate) type EntityId = usize;
@@ -34,6 +34,7 @@ pub struct World {
     pub storage_pointers: HashMap<ComponentId, Vec<u8>>,
     pub entity_bitmaps: Bitmap<MAX_ENTRIES_PER_STORAGE>,
     pub storage_bitmaps: HashMap<ComponentId, Bitmap<MAX_ENTRIES_PER_STORAGE>>,
+    pub system_priorities: HashMap<SystemPriority, u16>,
 }
 
 impl Default for World {
@@ -47,13 +48,16 @@ impl Default for World {
             storage_pointers: HashMap::default(),
             entity_bitmaps: Bitmap::new(),
             storage_bitmaps: HashMap::default(),
+            system_priorities: HashMap::default(),
         }
     }
 }
 
+const RESERVED_FIRST_PRIORITY: SystemPrioritySize = 1000;
+
 lazy_static! {
     pub static ref REGISTERED_SYSTEMS: Mutex<HashMap<SystemId, SystemSignature>> = Mutex::new(HashMap::default());
-    pub static ref SYSTEM_PRIORITIES: Mutex<PriorityQueue<SystemId, u32>> = Mutex::new(PriorityQueue::new());
+    pub static ref SYSTEM_PRIORITIES: Mutex<PriorityQueue<SystemId, SystemPrioritySize>> = Mutex::new(PriorityQueue::new());
     pub static ref SYSTEM_QUERY_CACHE: Mutex<HashMap<u64, Bitmap<MAX_ENTRIES_PER_STORAGE>>> = Mutex::new(HashMap::new());
 }
 
@@ -81,6 +85,7 @@ impl World {
         for sys in SYSTEM_PRIORITIES.lock().unwrap().clone().into_sorted_vec().iter().rev() {
             vm.interpret(self, REGISTERED_SYSTEMS.lock().unwrap().get(sys).unwrap());
         }
+
     }
 
     pub fn create_entity(&mut self) -> EntityId {
@@ -93,12 +98,27 @@ impl World {
         if let RascalStruct::System(sys) = s {
             let mut registered_systems = REGISTERED_SYSTEMS.lock().unwrap();
 
-            let mut prio = SYSTEM_PRIORITIES.lock().unwrap();
-            prio.push(sys.name.clone(), registered_systems.len() as u32);
+            if !self.system_priorities.contains_key(&sys.priority) {
+                self.system_priorities.insert(sys.priority.clone(), 0);
+            }
+
+            let p = self.system_priorities.get_mut(&sys.priority).unwrap();
+            *p += 1;
+
+            let priority = match sys.priority {
+                SystemPriority::Default => RESERVED_FIRST_PRIORITY + *p as SystemPrioritySize,
+                SystemPriority::Last => SystemPrioritySize::MAX - *p,
+                SystemPriority::First => *p,
+                SystemPriority::At(level) => RESERVED_FIRST_PRIORITY + level,
+            };
+
+            println!("System {} registered at priority level {} ({:?})", sys.name, priority, sys.priority);
+
+            let mut system_priorities = SYSTEM_PRIORITIES.lock().unwrap();
+            system_priorities.push(sys.name.clone(), priority);
 
             let sys_with_id = sys.with_id(registered_systems.len() as u64 + 1);
             registered_systems.insert(sys_with_id.name.clone(), sys_with_id);
-            // TODO: save the events that trigger systems here, so that we don't have to run them all the time
         }
     }
 

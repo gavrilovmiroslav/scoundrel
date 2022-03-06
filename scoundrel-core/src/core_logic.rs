@@ -14,6 +14,7 @@ pub fn pass_input_events_to_rascal() {
         let mut world = WORLD.lock().unwrap();
         let entity = world.create_entity();
         world.add_component(entity, "KeyPress", vec![ text(keystate_to_name(key)), text(key_action_to_name(action)) ]);
+        drop(world);
 
         let mut screen = engine::SCREEN.write().unwrap();
         if screen.is_ready() {
@@ -24,8 +25,6 @@ pub fn pass_input_events_to_rascal() {
             engine::force_redraw();
         }
     }
-
-
 }
 
 pub fn create_fps_tracker() {

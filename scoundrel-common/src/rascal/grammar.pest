@@ -51,7 +51,9 @@ owner_name = @{ name }
 comp_name = @{ name }
 // systems
 
-system_title = _{ "[" ~ name ~ "]" }
+system_title = { "[" ~ name ~ ("|" ~ system_priority)? ~ "]" }
+system_priority = { priority }
+priority = { number | "last" | "first" }
 system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ system_block }
 
 system_block = { "{" ~ statements ~ "}" }
