@@ -147,8 +147,15 @@ impl ComponentArgument {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum ComponentModifier {
+    Default,
+    Not,
+    Toggle,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct ComponentCallSite {
-    pub not: bool,
+    pub modifier: ComponentModifier,
     pub is_owned: bool,
     pub owner: Option<String>,
     pub name: String,
@@ -157,7 +164,7 @@ pub struct ComponentCallSite {
 
 impl ComponentCallSite {
     pub fn simple(name: String, args: Vec<String>) -> Self {
-        ComponentCallSite{ not: false, is_owned: false, owner: None, name,
+        ComponentCallSite{ modifier: ComponentModifier::Default, is_owned: false, owner: None, name,
             args: args.iter().map(|a| ComponentArgument::simple(a.clone())).collect() }
     }
 
@@ -166,7 +173,15 @@ impl ComponentCallSite {
         let owner = self.owner;
         let name = self.name;
         let args = self.args;
-        ComponentCallSite{ not: !self.not, is_owned, owner, name, args }
+        ComponentCallSite{ modifier: ComponentModifier::Not, is_owned, owner, name, args }
+    }
+
+    pub fn toggled(self) -> Self {
+        let is_owned = self.is_owned;
+        let owner = self.owner;
+        let name = self.name;
+        let args = self.args;
+        ComponentCallSite{ modifier: ComponentModifier::Toggle, is_owned, owner, name, args }
     }
 }
 
@@ -249,7 +264,7 @@ impl SystemSignature {
     fn parse_simple_call_site(rule: Pair<Rule>) -> Option<ComponentCallSite> {
         let (name, args) = Self::parse_name_and_args(rule.into_inner());
         Some(ComponentCallSite {
-            not: false,
+            modifier: ComponentModifier::Default,
             is_owned: false,
             owner: None,
             name,
@@ -265,7 +280,7 @@ impl SystemSignature {
         }
         let (name, args) = Self::parse_name_and_args(call);
 
-        Some(ComponentCallSite{ not: false, is_owned: true, owner,
+        Some(ComponentCallSite{ modifier: ComponentModifier::Default, is_owned: true, owner,
             name: name.to_string(),
             args: args.iter()
                 .map(|(name, value)|
@@ -399,6 +414,10 @@ impl SystemSignature {
             Rule::negated_call_site => {
                 Self::parse_component_call_list(rule.into_inner().next().unwrap())
                     .map(|c| c.negated())
+            }
+            Rule::toggled_call_site => {
+                Self::parse_component_call_list(rule.into_inner().next().unwrap())
+                    .map(|c| c.toggled())
             }
             _ => None,
         }

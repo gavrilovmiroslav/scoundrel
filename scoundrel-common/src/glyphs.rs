@@ -32,17 +32,14 @@ pub fn print_glyph(position: (u32, u32), glyph: Glyph) {
 
 pub fn print_string(position: (u32, u32), text: &str) {
     let mut screen = engine::SCREEN.write().unwrap();
-    if screen.is_ready() {
-        let mut index = screen.get_index_for_position(position).clone() as usize;
-        let mut glyphs = screen.glyphs_mut();
-        for i in 0..text.len() { glyphs[index + i].symbol = 0; }
-        for letter in text.chars() {
-            glyphs[index].symbol = letter as u32;
-            glyphs[index].foreground = Color::new(255, 255, 255);
-            glyphs[index].background = Color::new(0, 0, 0);
-            index += 1;
-        }
-        screen.should_redraw = true;
+    let mut index = screen.get_index_for_position(position).clone() as usize;
+    let mut glyphs = screen.glyphs_mut();
+    for i in 0..text.len() { glyphs[index + i].symbol = 0; }
+    for letter in text.chars() {
+        glyphs[index].symbol = letter as u32;
+        glyphs[index].foreground = Color::new(255, 255, 255);
+        glyphs[index].background = Color::new(0, 0, 0);
+        index += 1;
     }
 }
 

@@ -33,9 +33,10 @@ type_member_list = { (type_member ~ ("," ~ type_member)*) }
 type_member = { name ~ ":" ~ datatype }
 
 component_call_list = { component_call ~ ("&" ~ component_call)* }
-component_call = _{ negated_call_site | call_site }
+component_call = _{ negated_call_site | toggled_call_site | call_site }
 component_arg_list = _{ "(" ~ arg_member_list ~ ")" }
-negated_call_site = { "!"  ~ call_site }
+negated_call_site = { "not:"  ~ call_site }
+toggled_call_site = { "toggle:"  ~ call_site }
 call_site = _{ (complex_call_site | simple_call_site) }
 simple_call_site = { name ~ component_arg_list? }
 complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }

@@ -7,9 +7,8 @@ use std::sync::Mutex;
 use bitmaps::*;
 use lazy_static::lazy_static;
 
-use crate::colors::Color;
-use crate::engine::SCREEN;
-use crate::rascal::parser::{ComponentArgument, ComponentCallSite, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
+use crate::glyphs::print_string;
+use crate::rascal::parser::{ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::world::{AddComponent, ComponentId};
 use crate::rascal::world::EntityId;
@@ -135,10 +134,11 @@ impl RascalVM {
             let name = c.name.clone();
 
             let bitmap = world.storage_bitmaps.get(&name).unwrap();
-            if c.not {
-                bitmap.not().bitand(b)
-            } else {
+
+            if c.modifier == ComponentModifier::Default {
                 bitmap.bitand(b)
+            } else {
+                bitmap.not().bitand(b)
             }
         })
     }
@@ -570,7 +570,7 @@ impl RascalVM {
                 world.add_component(entity, comp.name.as_str(), args);
             }
             ComponentType::Tag => {
-                if !comp.not {
+                if comp.modifier != ComponentModifier::Not {
                     world.add_tag(entity, comp.name.as_str());
                 }
             }
@@ -664,10 +664,18 @@ impl RascalVM {
                         let index = *index;
                         if world.entity_bitmaps.get(index) {
                             for comp in comps {
-                                if comp.not {
-                                    world.storage_bitmaps.get_mut(&comp.name).unwrap().set(index, false);
-                                } else {
-                                    self.add_component(world, index, comp, values);
+                                match comp.modifier {
+                                    ComponentModifier::Default =>
+                                        { self.add_component(world, index, comp, values); }
+                                    ComponentModifier::Not =>
+                                        { world.storage_bitmaps.get_mut(&comp.name).unwrap().set(index, false); }
+                                    ComponentModifier::Toggle => {
+                                        if world.storage_bitmaps.get(&comp.name).unwrap().get(index) {
+                                            world.storage_bitmaps.get_mut(&comp.name).unwrap().set(index, false);
+                                        } else {
+                                            self.add_component(world, index, comp, values);
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -696,17 +704,7 @@ impl RascalVM {
                         format!("{:?}", v)
                     };
 
-                    let mut screen = SCREEN.write().unwrap();
-                    if screen.is_ready() {
-                        let glyphs = screen.glyphs_mut();
-                        let mut index = 0;
-                        for c in text.chars() {
-                            glyphs[index].symbol = c as u32;
-                            glyphs[index].foreground = Color::new(255, 255, 255);
-                            glyphs[index].background = Color::new(0, 0, 0);
-                            index += 1;
-                        }
-                    }
+                    print_string((x, y), text.as_str());
                 }
             }
         }
