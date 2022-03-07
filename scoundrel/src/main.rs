@@ -22,8 +22,8 @@ fn main() {
     }
 
     engine.support_systems.push(core_logic::pass_input_events_to_rascal);
-    engine.support_systems.push(core_logic::create_fps_tracker);
-    engine.support_systems.push(core_logic::create_exit_game);
+    engine.support_systems.push(core_logic::track_fps);
+    engine.support_systems.push(core_logic::exit_game_from_script);
 
     engine.run(windowing::window_event_loop);
 }

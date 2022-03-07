@@ -10,7 +10,6 @@ use pest::prec_climber::*;
 use pest::prec_climber::Assoc::*;
 use pest_derive;
 use pest_derive::Parser;
-use show_my_errors::{AnnotationList, Stylesheet};
 
 use lazy_static;
 
@@ -51,9 +50,7 @@ pub enum DataType {
     Bool,
     Text,
     Entity,
-    Point,
     Symbol,
-    Color,
 }
 
 impl DataType {
@@ -64,9 +61,7 @@ impl DataType {
             "text" => Text,
             "bool" => Bool,
             "entity" => Entity,
-            "point" => Point,
             "symbol" => Symbol,
-            "color" => Color,
             _ => panic!("Wrong datatype: {}", text)
         }
     }
@@ -78,9 +73,8 @@ impl DataType {
             Bool => 4, // bool
             Text => 4, // ptr size
             Entity => 8, // u64
-            Point => 8, // 2x i32
             Symbol => 2, // u16
-            Color => 3, // u32
+            ColorComponent => 1, // char
         }
     }
 }
@@ -244,6 +238,8 @@ pub enum RascalStatement {
     Print(RascalExpression),
     ConsumeEvent,
     Match(RascalIdentifier, Vec<(RascalExpression, RascalBlock)>),
+    Inc(RascalExpression, RascalExpression),
+    Dec(RascalExpression, RascalExpression),
 }
 
 pub type RascalIdentifier = RascalExpression; /* could only be Identifier */
@@ -300,19 +296,6 @@ impl SystemSignature {
                             let text = pair.as_str().to_string();
                             text[1..(text.len() - 1)].to_string()
                         }),
-                        Rule::point_value => {
-                            let mut pt = pair.into_inner();
-                            let x = recurse_by_token_type(&mut pt);
-                            let y = recurse_by_token_type(&mut pt);
-                            RascalExpression::Point(Box::new(x.unwrap()), Box::new(y.unwrap()))
-                        }
-                        Rule::color_value => {
-                            let mut cl = pair.into_inner();
-                            let r = recurse_by_token_type(&mut cl);
-                            let g = recurse_by_token_type(&mut cl);
-                            let b = recurse_by_token_type(&mut cl);
-                            RascalExpression::Color(Box::new(r.unwrap()), Box::new(g.unwrap()), Box::new(b.unwrap()))
-                        },
                         Rule::identifier => {
                             RascalExpression::Identifier(pair.as_str().to_string())
                         }
@@ -444,15 +427,31 @@ impl SystemSignature {
 
                     if let Some(value) = SystemSignature::parse_expression(NonTerm(assign.clone())) {
                         result.push(RascalStatement::Assign(id, value));
-                    } else {
-                        let mut list = AnnotationList::new("script", assign.clone().as_str());
-                        list.error(0..3, "Expression expected", "");
-                        list.show_stdout(&Stylesheet::colored());
                     }
-                } else {
-                    let mut list = AnnotationList::new("parser#assignment", assign.clone().as_str());
-                    list.error(0..3, "Identifier expected", "(so, something like 'foo', 'x', etc.)");
-                    list.show_stdout(&Stylesheet::colored());
+                }
+            }
+
+            Rule::self_mod_assignment => {
+                let mut assign = statement.into_inner();
+                if let Some(id@RascalExpression::Identifier(_)) =
+                SystemSignature::parse_expression(Term(assign.next().unwrap())) {
+                    result.push(match assign.next().unwrap().as_str().trim() {
+                        "++" => RascalStatement::Inc(id, RascalExpression::NumLiteral(1)),
+                        "--" => RascalStatement::Dec(id, RascalExpression::NumLiteral(1)),
+                        _ => unreachable!()
+                    });
+                }
+            }
+
+            Rule::mod_assignment => {
+                let mut assign = statement.into_inner();
+                if let Some(id@RascalExpression::Identifier(_)) =
+                SystemSignature::parse_expression(Term(assign.next().unwrap())) {
+                    result.push(match assign.next().unwrap().as_str().trim() {
+                        "+=" => RascalStatement::Inc(id, SystemSignature::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
+                        "-=" => RascalStatement::Dec(id, SystemSignature::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
+                        _ => unreachable!()
+                    });
                 }
             }
 
@@ -469,10 +468,6 @@ impl SystemSignature {
                                 _ => unreachable!(),
                             }
                         })));
-                } else {
-                    let mut list = AnnotationList::new("parser#if_statement", if_statement.clone().as_str());
-                    list.error(0..3, "Expression expected", "");
-                    list.show_stdout(&Stylesheet::colored());
                 }
             }
 
@@ -491,10 +486,6 @@ impl SystemSignature {
                         Rule::update_statement => RascalStatement::Update(id, clauses),
                         _ => unreachable!()
                     });
-                } else {
-                    let mut list = AnnotationList::new("parser#spawn/update", spawn_statement.clone().as_str());
-                    list.error(0..3, "Identifier expected", "(so, something like 'foo', 'x', etc.)");
-                    list.show_stdout(&Stylesheet::colored());
                 }
             }
 
@@ -503,20 +494,12 @@ impl SystemSignature {
                 if let Some(id @ RascalExpression::Identifier(_)) =
                 SystemSignature::parse_expression(Term(destroy_statement.next().unwrap())) {
                     result.push(RascalStatement::Destroy(id));
-                } else {
-                    let mut list = AnnotationList::new("parser#destroy", destroy_statement.clone().as_str());
-                    list.error(0..3, "Identifier expected", "(so, something like 'foo', 'x', etc.)");
-                    list.show_stdout(&Stylesheet::colored());
                 }
             }
 
             Rule::trigger_statement => {
                 if let Some(call_site) = SystemSignature::parse_call_site(statement.clone()) {
                     result.push(RascalStatement::Trigger(call_site));
-                } else {
-                    let mut list = AnnotationList::new("parser#trigger", statement.clone().as_str());
-                    list.error(0..3, "Call site expected", "(so, something like 'Foo(3, 1)')");
-                    list.show_stdout(&Stylesheet::colored());
                 }
             }
 

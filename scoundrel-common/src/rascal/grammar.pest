@@ -17,14 +17,12 @@ name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
 datatype = { "bool" | "entity" | "symbol" | "num" | "text" | "point" | "color" }
 
-value = _{ bool_value | number | text_value | color_value | point_value | identifier }
+value = _{ bool_value | number | text_value | identifier }
 bool_value = { "true" | "false" }
 number = { ASCII_DIGIT+ }
 text_value = { inner_text }
 inner_text = { "\"" ~ inner ~ "\"" }
 identifier = { name }
-point_value = { "(" ~ expression ~ "," ~ expression ~ ")" }
-color_value = { "(" ~ expression ~ "," ~ expression ~ "," ~ expression ~ ")" }
 
 // components
 tag_decl = { "tag" ~ name  ~ ";" }
@@ -58,13 +56,22 @@ system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }
 
 block = { "{" ~ statements ~ "}" }
 statements = _{ statement* }
-statement = _{ assignment | if_statement |
+statement = _{
+    self_mod_assignment |
+    mod_assignment | assignment |
+    if_statement | match_statement |
     spawn_statement | destroy_statement |
     update_statement | trigger_statement |
-    consume_statement | print_statement |
-    match_statement }
+    consume_statement | print_statement
+}
 
 assignment = { identifier ~ "=" ~ expression ~ ";" }
+
+self_mod_assignment = { identifier ~ self_mod_operator ~ ";" }
+self_mod_operator = { "++" | "--" }
+
+mod_assignment = { identifier ~ mod_operator ~ expression ~ ";" }
+mod_operator = { "+=" | "-=" }
 
 if_statement = { "if" ~ expression ~ block ~ else_statement? }
 else_statement = { "else" ~ (if_statement | block) }
