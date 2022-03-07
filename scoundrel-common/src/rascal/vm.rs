@@ -135,7 +135,6 @@ impl RascalVM {
             let name = c.name.clone();
 
             let bitmap = world.storage_bitmaps.get(&name).unwrap();
-            println!("{}? {} {:?}", c.name.clone(), c.not, bitmap);
             if c.not {
                 bitmap.not().bitand(b)
             } else {
@@ -247,9 +246,7 @@ impl RascalVM {
             owners.first().map(|f| f.clone())
         };
 
-        println!("----------- {}", system.name.clone());
         let query_bitmap = self.query_storages(world, &system.with);
-        println!("-----------------------------------");
 
         for call_site in system.with.clone() {
             let comp_type = world.component_types.get(&call_site.name).unwrap();
@@ -663,7 +660,6 @@ impl RascalVM {
                 }
 
                 SemanticChange::UpdateComponents(name, comps) => {
-                    println!("{:?}", values);
                     if let Some(RascalValue::Entity(index)) = values.get(&name) {
                         let index = *index;
                         if world.entity_bitmaps.get(index) {

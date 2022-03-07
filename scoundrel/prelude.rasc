@@ -2,6 +2,7 @@
 tag IsPlayer;
 tag ExitGame;
 tag UI;
+tag Changed;
 
 state HasGlyph { glyph: symbol };
 state HasColor { hue: num, sat: num, val: num };
@@ -21,18 +22,21 @@ with .Main
 
 [Toggle_UI_On]
 on KeyPress("U", "Released")
-with @.Main
-   & !@.UI
+with  .Main
+   & !.UI
+   & !.Changed
 {
-    update @ with UI;
+    update @ with UI & Changed;
 }
 
 [Toggle_UI_Off]
 on KeyPress("U", "Released")
 with .Main
    & .UI
+   & !.Changed
 {
-    update @ with !UI;
+    update @ with !UI & Changed;
+
 }
 
 [Move_By_Keyboard]
@@ -55,6 +59,12 @@ with .Main & .UI
     print "              ";
     print " FPS: " + fps;
     consume event;
+}
+
+[Consume_Changed|last]
+with .Main & .Changed
+{
+    update @ with !Changed;
 }
 
 [Consume_Key_Press_At_End_Of_Frame|last]

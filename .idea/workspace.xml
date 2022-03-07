@@ -11,12 +11,8 @@
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel/prelude.rasc" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/prelude.rasc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -142,7 +138,7 @@
       <workItem from="1645949527880" duration="5379000" />
       <workItem from="1645990815169" duration="36740000" />
       <workItem from="1646170248828" duration="128588000" />
-      <workItem from="1646572275190" duration="33063000" />
+      <workItem from="1646572275190" duration="33678000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -270,7 +266,14 @@
       <option name="project" value="LOCAL" />
       <updated>1646604021226</updated>
     </task>
-    <option name="localTasksCounter" value="19" />
+    <task id="LOCAL-00019" summary="Removed color and point. Need to add syntax for checking tag status within a system. Maybe wider query system overall? Currently, can't toggle between adding and removing UI because of system executions happening one after the other and changing the states back and forth.">
+      <created>1646617882800</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1646617882800</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -311,19 +314,11 @@
     <MESSAGE value="Fixed the bug with callsites receiving only values with no names (the trick was to add the anonymous bindings and equalities either way). A bug is present, seems that when we change from a key to another key, one more execution of the old key is sent? Weird..." />
     <MESSAGE value="Fixed the bug with call-sites receiving only values with no names (the trick was to add the anonymous bindings and equalities either way). A bug is present, seems that when we change from a key to another key, one more execution of the old key is sent? Weird... Added &quot;else if&quot; into the parser and VM." />
     <MESSAGE value="The bug from the previous commit is mostly just about when the print statement worked. Fixed now. Added match statements!" />
-    <option name="LAST_COMMIT_MESSAGE" value="The bug from the previous commit is mostly just about when the print statement worked. Fixed now. Added match statements!" />
+    <MESSAGE value="Removed color and point. Need to add syntax for checking tag status within a system. Maybe wider query system overall? Currently, can't toggle between adding and removing UI because of system executions happening one after the other and changing the states back and forth." />
+    <option name="LAST_COMMIT_MESSAGE" value="Removed color and point. Need to add syntax for checking tag status within a system. Maybe wider query system overall? Currently, can't toggle between adding and removing UI because of system executions happening one after the other and changing the states back and forth." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs</url>
-          <line>666</line>
-          <option name="timeStamp" value="14" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
     <watches-manager>
       <configuration name="CargoCommandRunConfiguration">
         <watch expression="self-&gt;bindings.base" />
