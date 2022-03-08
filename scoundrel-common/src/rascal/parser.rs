@@ -228,8 +228,6 @@ pub enum RascalExpression {
     Bool(Box<RascalExpression>),
     Num(Box<RascalExpression>),
     Symbol(Box<RascalExpression>),
-    Point(Box<RascalExpression>, Box<RascalExpression>),
-    Color(Box<RascalExpression>, Box<RascalExpression>, Box<RascalExpression>),
     BoolLiteral(bool),
     NumLiteral(i32),
     SymbolLiteral(u16),
@@ -242,6 +240,9 @@ pub enum TokenType<'i> {
     Term(Pair<'i, Rule>),
 }
 
+pub type RascalGlyphPosition = (RascalExpression, RascalExpression);
+pub type RascalGlyphColor = (RascalExpression, RascalExpression, RascalExpression);
+
 #[derive(Debug, Clone)]
 pub enum RascalStatement {
     Assign(RascalExpression, RascalExpression),
@@ -250,7 +251,10 @@ pub enum RascalStatement {
     Destroy(RascalIdentifier),
     Update(RascalIdentifier, Vec<ComponentCallSite>),
     Trigger(ComponentCallSite),
-    Print(RascalExpression),
+    Print(RascalGlyphPosition,
+          RascalGlyphColor,
+          RascalGlyphColor,
+          RascalExpression),
     ConsumeEvent,
     Match(RascalIdentifier, Vec<(RascalExpression, RascalBlock)>),
     Inc(RascalExpression, RascalExpression),
@@ -311,6 +315,9 @@ impl SystemSignature {
                             let text = pair.as_str().to_string();
                             text[1..(text.len() - 1)].to_string()
                         }),
+                        Rule::any_char => {
+                            RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16)
+                        }
                         Rule::identifier => {
                             RascalExpression::Identifier(pair.as_str().to_string())
                         }
@@ -528,8 +535,37 @@ impl SystemSignature {
 
             Rule::print_statement => {
                 let mut print_statement = statement.into_inner();
+                let position = if let Rule::position = print_statement.peek().unwrap().as_rule() {
+                    let mut pos_rule = print_statement.next().unwrap().into_inner();
+                    let x = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
+                    let y = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
+                    (x, y)
+                } else {
+                    (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
+                };
+
+                let foreground = if let Rule::foreground = print_statement.peek().unwrap().as_rule() {
+                    let mut fg_rule = print_statement.next().unwrap().into_inner();
+                    let h = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                    let s = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                    let v = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                    (h, s, v)
+                } else {
+                    (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(255))
+                };
+
+                let background = if let Rule::background = print_statement.peek().unwrap().as_rule() {
+                    let mut bg_rule = print_statement.next().unwrap().into_inner();
+                    let h = SystemSignature::parse_expression(NonTerm(bg_rule.next().unwrap().into_inner())).unwrap();
+                    let s = SystemSignature::parse_expression(NonTerm(bg_rule.next().unwrap().into_inner())).unwrap();
+                    let v = SystemSignature::parse_expression(NonTerm(bg_rule.next().unwrap().into_inner())).unwrap();
+                    (h, s, v)
+                } else {
+                    (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
+                };
+
                 if let Some(expr) = SystemSignature::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
-                    result.push(RascalStatement::Print(expr));
+                    result.push(RascalStatement::Print(position, foreground, background, expr));
                 }
             }
 
@@ -601,6 +637,16 @@ impl SystemSignature {
                 Rule::block => body = Self::parse_body(r),
                 _ => {}
             }
+        }
+
+        if with.len() == 0 {
+            with.push(ComponentCallSite{
+                modifier: ComponentModifier::Default,
+                is_owned: true,
+                owner: None,
+                name: "Main".to_string(),
+                args: vec![]
+            });
         }
 
         SystemSignature{ id: 0, name, priority, event, with, body }

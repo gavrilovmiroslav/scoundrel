@@ -16,7 +16,7 @@ use crate::glyphs::Glyph;
 use crate::keycodes::{ElementState, KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
-use crate::rascal::parser::RascalStruct;
+use crate::rascal::parser::{parse_rascal, RascalStruct};
 use crate::rascal::world::REGISTERED_SYSTEMS;
 use crate::rascal::world::World;
 
@@ -44,24 +44,15 @@ impl FrameCounter {
 pub struct Screen {
     pub screen_memory: Option<Vec<Glyph>>,
     pub size: (u32, u32),
-    pub should_redraw: bool,
 }
 
 impl Screen {
     pub fn new() -> Screen {
-        Screen { screen_memory: None, size: (0, 0), should_redraw: true }
+        Screen { screen_memory: None, size: (0, 0), }
     }
 
     pub fn is_ready(&self) -> bool {
         self.screen_memory.is_some()
-    }
-
-    pub fn force_redraw(&mut self) {
-        self.should_redraw = true;
-    }
-
-    pub fn reset_redraw(&mut self) {
-        self.should_redraw = false;
     }
 
     pub fn glyphs_mut(&mut self) -> &mut Vec<Glyph>{
@@ -196,6 +187,8 @@ pub fn start_engine(opts: EngineOptions) {
         let main_entity = world.create_entity();
         world.add_tag(main_entity, "Main");
     }
+
+    rebuild_world(parse_rascal(include_str!("..\\..\\data\\prelude.rascal").trim()));
 }
 
 pub fn should_quit() -> bool {

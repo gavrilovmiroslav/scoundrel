@@ -9,7 +9,7 @@ use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::WORLD;
 use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
-use crate::rascal::vm::{RascalValue, RascalVM};
+use crate::rascal::vm::{num, RascalValue, RascalVM};
 
 pub(crate) type EntityId = usize;
 pub(crate) type ComponentId = String;
@@ -63,6 +63,12 @@ lazy_static! {
 
 pub trait AddComponent<T> {
     fn add_component(&mut self, entity: EntityId, comp_type: &str, comp_value: Vec<T>);
+}
+
+pub fn send_start_event() {
+    let mut world = WORLD.lock().unwrap();
+    let entity = world.create_entity();
+    world.add_component(entity, "Start", vec![ num(0) ]);
 }
 
 pub fn world_contains_event(event_name: &str) -> bool {

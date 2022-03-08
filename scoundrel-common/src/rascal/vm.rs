@@ -7,7 +7,8 @@ use std::sync::Mutex;
 use bitmaps::*;
 use lazy_static::lazy_static;
 
-use crate::glyphs::print_string;
+use crate::colors::Color;
+use crate::glyphs::print_string_colors;
 use crate::rascal::parser::{ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::world::{AddComponent, ComponentId};
@@ -30,6 +31,16 @@ pub enum RascalValue {
     Text(u32),
     Entity(usize),
     Symbol(u16),
+}
+
+impl RascalValue {
+    pub fn as_num(&self) -> Option<i32> {
+        if let RascalValue::Num(v) = self {
+            Some(*v)
+        } else {
+            None
+        }
+    }
 }
 
 pub fn retrieve_string(index: u32) -> String {
@@ -96,7 +107,7 @@ pub enum SemanticChange {
     UpdateComponents(String, Vec<ComponentCallSite>),
     TriggerEvent(ComponentCallSite),
     ConsumeEvent,
-    Print(RascalExpression),
+    Print((u32, u32), (u8, u8, u8), (u8, u8, u8), RascalExpression),
 }
 
 #[derive(Debug)]
@@ -188,9 +199,11 @@ impl RascalVM {
 
             let is_alias = arg.name != "_" && self.bindings.contains_key(&arg.name);
 
-            self.equalities.insert(new_id.clone(),
-                                   if is_alias { EqualityWith::Alias(arg.name.clone()) }
-                                   else { EqualityWith::Value(arg.value.clone().unwrap()) });
+            if is_alias {
+                self.equalities.insert(new_id.clone(), EqualityWith::Alias(arg.name.clone()));
+            } else if arg.value.is_some() {
+                self.equalities.insert(new_id.clone(), EqualityWith::Value(arg.value.clone().unwrap()));
+            }
 
             if is_alias {
                 if self.check_latest_equality(&system_name, world, (new_id, EqualityWith::Alias(arg.name.clone()))).is_err() {
@@ -308,8 +321,8 @@ impl RascalVM {
                 }
 
                 match &owner {
-                    None => values.insert("@".to_string(), RascalValue::Entity(index)),
-                    Some(name) if name.trim() == "" => values.insert("@".to_string(), RascalValue::Entity(index)),
+                    None => values.insert("_".to_string(), RascalValue::Entity(index)),
+                    Some(name) if name.trim() == "" => values.insert("_".to_string(), RascalValue::Entity(index)),
                     Some(name) => values.insert(name.clone(), RascalValue::Entity(index)),
                 };
 
@@ -486,8 +499,31 @@ impl RascalVM {
                 }
             }
 
-            RascalStatement::Print(e) => {
-                result.push(SemanticChange::Print(e.clone()));
+            RascalStatement::Print(position, foreground, background,e) => {
+                let xy = {
+                    let x = self.interpret_expression(&position.0, values).unwrap();
+                    let y = self.interpret_expression(&position.1, values).unwrap();
+
+                    (x.as_num().unwrap_or(0) as u32, y.as_num().unwrap_or(0) as u32)
+                };
+
+                let fg = {
+                    let h = self.interpret_expression(&foreground.0, values).unwrap();
+                    let s = self.interpret_expression(&foreground.1, values).unwrap();
+                    let v = self.interpret_expression(&foreground.2, values).unwrap();
+
+                    (h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(255) as u8)
+                };
+
+                let bg = {
+                    let h = self.interpret_expression(&background.0, values).unwrap();
+                    let s = self.interpret_expression(&background.1, values).unwrap();
+                    let v = self.interpret_expression(&background.2, values).unwrap();
+
+                    (h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(0) as u8)
+                };
+
+                result.push(SemanticChange::Print(xy, fg, bg, e.clone()));
             }
 
             RascalStatement::Match(key, cases) => {
@@ -694,17 +730,17 @@ impl RascalVM {
                     }
                 }
 
-                SemanticChange::Print(expr) => {
-                    let x = 0;
-                    let y = 0;
+                SemanticChange::Print(xy, fg, bg, expr) => {
                     let v = self.interpret_expression(&expr, &values).unwrap();
-                    let text = if let RascalValue::Text(val) = v {
-                        retrieve_string(val)
-                    } else {
-                        format!("{:?}", v)
+                    let text = match v {
+                        RascalValue::Text(val) => retrieve_string(val),
+                        RascalValue::Symbol(glyph) => {
+                            format!("{}", glyph as u8 as char)
+                        },
+                        _ => format!("{:?}", v),
                     };
 
-                    print_string((x, y), text.as_str());
+                    print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg));
                 }
             }
         }

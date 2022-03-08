@@ -2,9 +2,14 @@ use std::time::Instant;
 
 use scoundrel_common::engine;
 use scoundrel_common::engine::{force_quit, WORLD};
+use scoundrel_common::glyphs::cls;
 use scoundrel_common::keycodes::{key_action_to_name, keystate_to_name};
 use scoundrel_common::rascal::vm::{num, text};
 use scoundrel_common::rascal::world::{AddComponent, world_contains_event};
+
+pub fn clear_screen() {
+    cls();
+}
 
 pub fn pass_input_events_to_rascal() {
     let mut queue = engine::KEYBOARD_EVENTS.lock().unwrap();

@@ -8,6 +8,7 @@ use glutin::dpi::LogicalSize;
 use scoundrel_common::engine;
 use scoundrel_common::engine::{should_quit, snoop_for_data_changes, update_world};
 use scoundrel_common::keycodes::{KeyState, MouseState};
+use scoundrel_common::rascal::world::send_start_event;
 
 use crate::common::gl_error_check;
 use crate::glyph_renderer::GlyphRenderer;
@@ -50,6 +51,9 @@ pub fn window_event_loop(support_systems: Vec<fn()>) {
     let pipeline = render_prepare(&gl_context);
 
     let mut done = false;
+
+    send_start_event();
+
     while !done {
         event_loop.poll_events(|event| {
             match event {

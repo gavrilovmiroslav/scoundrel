@@ -15,14 +15,16 @@ char = {
 
 name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
-datatype = { "bool" | "entity" | "symbol" | "num" | "text" | "point" | "color" }
+datatype = { "bool" | "entity" | "symbol" | "num" | "text" }
 
-value = _{ bool_value | number | text_value | identifier }
+value = _{ bool_value | number | text_value | identifier | symbol }
 bool_value = { "true" | "false" }
 number = { ASCII_DIGIT+ }
 text_value = { inner_text }
 inner_text = { "\"" ~ inner ~ "\"" }
 identifier = { name }
+symbol = _{ "'" ~ any_char ~ "'" }
+any_char = { ASCII }
 
 // components
 tag_decl = { "tag" ~ name  ~ ";" }
@@ -50,7 +52,8 @@ owner_name = @{ name }
 comp_name = @{ name }
 // systems
 
-system_title = { "[" ~ name ~ ("|" ~ system_priority)? ~ "]" }
+system_title = { "[" ~ system_title_name ~ ("|" ~ system_priority)? ~ "]" }
+system_title_name = @{ (ASCII_ALPHANUMERIC | "_" | "@" | " ")+ }
 system_priority = { priority }
 priority = { number | "last" | "first" }
 system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }
@@ -85,7 +88,10 @@ consume_statement = { "consume" ~ "event" ~ ";" }
 destroy_statement = { "destroy" ~ identifier ~ ";" }
 update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" }
 trigger_statement = { "trigger" ~ call_site ~ ";" }
-print_statement = { "print" ~ expression ~ ";" }
+print_statement = { "print" ~ position? ~ foreground? ~ background? ~ expression ~ ";" }
+position = { "at:[" ~ expression ~ "," ~ expression ~ "]" }
+foreground = { "fg:[" ~ expression ~ "," ~ expression ~ "," ~ expression ~ "]" }
+background = { "bg:[" ~ expression ~ "," ~ expression ~ "," ~ expression ~ "]" }
 
 on_event_clause = { "on" ~ component_call }
 with_query_clause = { "with" ~ component_call_list }

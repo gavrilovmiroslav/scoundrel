@@ -10,12 +10,19 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/data/prelude.rascal" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/prelude.rasc" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/prelude.rasc" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/prelude.rasc" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -79,11 +86,11 @@
       <recent name="D:\Rust\scoundrel" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
-      <recent name="D:\Rust\scoundrel\scoundrel" />
       <recent name="D:\Rust\scoundrel\data" />
+      <recent name="D:\Rust\scoundrel\scoundrel-common\src" />
+      <recent name="D:\Rust\scoundrel\scoundrel" />
       <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs" />
       <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs\" />
-      <recent name="D:\Rust\scoundrel\scoundrel-common\src\lib" />
     </key>
   </component>
   <component name="RunManager">
@@ -141,7 +148,7 @@
       <workItem from="1645949527880" duration="5379000" />
       <workItem from="1645990815169" duration="36740000" />
       <workItem from="1646170248828" duration="128588000" />
-      <workItem from="1646572275190" duration="40543000" />
+      <workItem from="1646572275190" duration="54074000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -283,7 +290,14 @@
       <option name="project" value="LOCAL" />
       <updated>1646618474440</updated>
     </task>
-    <option name="localTasksCounter" value="21" />
+    <task id="LOCAL-00021" summary="Added tag toggling!">
+      <created>1646683732224</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1646683732224</updated>
+    </task>
+    <option name="localTasksCounter" value="22" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -326,7 +340,8 @@
     <MESSAGE value="The bug from the previous commit is mostly just about when the print statement worked. Fixed now. Added match statements!" />
     <MESSAGE value="Removed color and point. Need to add syntax for checking tag status within a system. Maybe wider query system overall? Currently, can't toggle between adding and removing UI because of system executions happening one after the other and changing the states back and forth." />
     <MESSAGE value="Execution now runs smoothly, with one extra tag and system (still ugly). Problem is with drawing: UI toggles, but the underlying things aren't redrawn because we don't have that yet!" />
-    <option name="LAST_COMMIT_MESSAGE" value="Execution now runs smoothly, with one extra tag and system (still ugly). Problem is with drawing: UI toggles, but the underlying things aren't redrawn because we don't have that yet!" />
+    <MESSAGE value="Added tag toggling!" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added tag toggling!" />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XDebuggerManager">
