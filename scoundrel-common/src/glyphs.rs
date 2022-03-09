@@ -82,4 +82,5 @@ pub fn print_string_colors(position: (u32, u32), text: &str, fore: Color, back: 
             index += 1;
         }
     }
+
 }

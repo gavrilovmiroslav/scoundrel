@@ -191,6 +191,12 @@ pub fn start_engine(opts: EngineOptions) {
     rebuild_world(parse_rascal(include_str!("..\\..\\data\\prelude.rascal").trim()));
 }
 
+pub fn set_should_redraw() { SHOULD_REDRAW.store(true, Ordering::Release) }
+
+pub fn reset_should_redraw() { SHOULD_REDRAW.store(false, Ordering::Release) }
+
+pub fn should_redraw() -> bool { SHOULD_REDRAW.load(Ordering::Acquire) }
+
 pub fn should_quit() -> bool {
     SHOULD_QUIT.load(Ordering::Acquire)
 }
@@ -217,6 +223,9 @@ fn remove_structure(world: &mut World, structure: &RascalStruct) {
 }
 
 pub fn rebuild_world(ast: Vec<RascalStruct>) {
+    use crate::rascal::world::SYSTEM_DEPENDENCIES;
+    use crate::rascal::world::CACHED_SYSTEMS_BY_PRIORITIES;
+
     let mut world = WORLD.lock().unwrap();
     for structure in ast {
         remove_structure(&mut world, &structure);
@@ -226,6 +235,12 @@ pub fn rebuild_world(ast: Vec<RascalStruct>) {
         } else {
             world.register_system(structure);
         }
+    }
+
+    let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
+    let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
+    for comp in deps.keys() {
+        cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
     }
 }
 

@@ -8,10 +8,11 @@ use bitmaps::*;
 use lazy_static::lazy_static;
 
 use crate::colors::Color;
+use crate::engine::force_quit;
 use crate::glyphs::print_string_colors;
 use crate::rascal::parser::{ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
-use crate::rascal::world::{AddComponent, ComponentId};
+use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, TriggerEvent};
 use crate::rascal::world::EntityId;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
 use crate::rascal::world::World;
@@ -46,6 +47,16 @@ impl RascalValue {
 pub fn retrieve_string(index: u32) -> String {
     let mut pool = STRING_REPOOL.lock().unwrap();
     pool.get(&index).unwrap().clone()
+}
+
+pub fn rascal_value_as_string(v: RascalValue) -> String {
+    match v {
+        RascalValue::Text(val) => retrieve_string(val),
+        RascalValue::Symbol(glyph) => {
+            format!("{}", glyph as u8 as char)
+        },
+        _ => format!("{:?}", v),
+    }
 }
 
 pub fn get_or_insert_into_string_pool(t: &String) -> u32 {
@@ -108,6 +119,8 @@ pub enum SemanticChange {
     TriggerEvent(ComponentCallSite),
     ConsumeEvent,
     Print((u32, u32), (u8, u8, u8), (u8, u8, u8), RascalExpression),
+    DebugPrint(RascalExpression),
+    Quit,
 }
 
 #[derive(Debug)]
@@ -121,21 +134,35 @@ type Offset = usize;
 #[derive(Debug)]
 pub struct RascalVM {
     current_system: Option<SystemSignature>,
-    current_event_handled: Option<usize>,
+    current_event: Option<(ComponentSignature, BinaryComponent)>,
+    event_consumed: bool,
+    something_printed: bool,
     pub bindings: HashMap<String, (ComponentId, MemberId)>,
     pub equalities: HashMap<String, EqualityWith>,
     pub push_values: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum RascalEventfulResult {
+    Propagated,
+    Consumed,
 }
 
 impl RascalVM {
     pub fn new() -> Self {
         RascalVM {
             current_system: None,
-            current_event_handled: None,
+            current_event: None,
+            event_consumed: false,
+            something_printed: false,
             bindings: HashMap::default(),
             equalities: HashMap::default(),
             push_values: Vec::default(),
         }
+    }
+
+    pub fn is_something_printed(&self) -> bool {
+        self.something_printed
     }
 
     fn query_storages(&mut self, world: &World, comps: &Vec<ComponentCallSite>) -> Bitmap<MAX_ENTRIES_PER_STORAGE> {
@@ -186,7 +213,8 @@ impl RascalVM {
     }
 
 
-    fn update_equality(&mut self, system_name: &String, world: &World, arg: &ComponentArgument, id: &MemberId, comp_signature: &ComponentSignature) {
+    fn update_equality(&mut self, system_name: &String, world: &World, arg: &ComponentArgument,
+                       id: &MemberId, comp_signature: &ComponentSignature) {
         if arg.name != "_" {
             self.bindings.insert(arg.name.clone(), (comp_signature.name.clone(), id.clone()));
 
@@ -224,20 +252,25 @@ impl RascalVM {
         let mut result = HashMap::new();
 
         for (name, (component, member)) in &self.bindings {
-            let (comp_signature, index) = match world.component_types.get(component).unwrap() {
-                ComponentType::State => (world.registered_states.get(component).unwrap(), index),
-                ComponentType::Event => (world.registered_events.get(component).unwrap(), self.current_event_handled.unwrap()),
+            let mut is_event = false;
+            let comp_signature = match world.component_types.get(component).unwrap() {
+                ComponentType::State => world.registered_states.get(component).unwrap(),
+                ComponentType::Event => { is_event = true; world.registered_events.get(component).unwrap() },
                 _ => unreachable!(),
             };
 
             let member_signature = comp_signature.members.get(member).unwrap();
             let member_size = member_signature.typ.size_in_bytes() as usize;
 
-            let start_address = comp_signature.size as usize * index + member_signature.offset as usize;
+            let start_address = member_signature.offset as usize + if is_event { 0 } else { comp_signature.size as usize * index };
             let end_address = start_address + member_size;
-            let chunk = &world.storage_pointers.get(component).unwrap()[start_address..end_address];
+            let chunk = if is_event {
+                &self.current_event.as_ref().unwrap().1
+            } else {
+                &world.storage_pointers.get(component).unwrap()
+            };
 
-            let value_from_chunk = RascalValue::parse(member_signature.typ, chunk);
+            let value_from_chunk = RascalValue::parse(member_signature.typ, &chunk[start_address..end_address]);
             result.insert(name.clone(), value_from_chunk);
         }
 
@@ -246,7 +279,7 @@ impl RascalVM {
 
     fn interpret_with(&mut self, world: &mut World, system: &SystemSignature) {
         let owner = /* CHECK FOR MULTIPLE OWNERS */ {
-            let with = system.with.clone();
+            let with = system.storage_requirements.clone();
             let mut owners: Vec<_> = with.iter().map(|o| o.owner.clone().unwrap_or(String::default())).collect();
             owners.sort();
             owners.dedup();
@@ -259,9 +292,9 @@ impl RascalVM {
             owners.first().map(|f| f.clone())
         };
 
-        let query_bitmap = self.query_storages(world, &system.with);
+        let query_bitmap = self.query_storages(world, &system.storage_requirements);
 
-        for call_site in system.with.clone() {
+        for call_site in system.storage_requirements.clone() {
             let comp_type = world.component_types.get(&call_site.name).unwrap();
             match comp_type {
                 ComponentType::State => {
@@ -289,9 +322,7 @@ impl RascalVM {
             }
         }
 
-        'entries: for index in 0..MAX_ENTRIES_PER_STORAGE {
-            if !world.entity_bitmaps.get(index as usize) { continue; }
-
+        'entries: for index in 0..world.entity_bitmaps.first_false_index().unwrap_or(MAX_ENTRIES_PER_STORAGE) {
             if query_bitmap.get(index as usize) {
                 let mut values = self.get_binding_values(world, index as usize);
                 for (id, value) in &values {
@@ -326,7 +357,7 @@ impl RascalVM {
                     Some(name) => values.insert(name.clone(), RascalValue::Entity(index)),
                 };
 
-                let changes = self.interpret_block(&system.body, &values);
+                let changes = self.interpret_block(&system.system_body_block, &values);
                 self.commit_changes(world, index, &mut values, changes);
             }
         }
@@ -492,7 +523,7 @@ impl RascalVM {
 
             RascalStatement::ConsumeEvent => {
                 let system = self.current_system.clone().unwrap();
-                if system.event.is_none() {
+                if system.activation_event.is_none() {
                     println!("Trying to consume event from a stateful system. Ignoring.");
                 } else {
                     result.push(SemanticChange::ConsumeEvent);
@@ -573,6 +604,13 @@ impl RascalVM {
                 }
             }
 
+            RascalStatement::DebugPrint(expr) => {
+                result.push(SemanticChange::DebugPrint(expr.clone()));
+            }
+
+            RascalStatement::Quit => {
+                result.push(SemanticChange::Quit);
+            }
         };
 
         result
@@ -612,9 +650,16 @@ impl RascalVM {
             }
 
             _ => {
-                println!("Events and systems cannot be added to spawned entities.");
+                println!("Events and systems cannot be added to spawned entities: {}", comp.name);
             }
         }
+    }
+
+    fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
+        let args: Vec<_> = comp.args.iter().map(|arg|
+            self.interpret_expression(arg.value.as_ref().unwrap(), values).unwrap()).collect();
+
+        world.trigger_event(&comp.name, args);
     }
 
     fn assign_value(&mut self,  world: &mut World, index: usize, name: String, new_value: RascalValue) {
@@ -719,77 +764,81 @@ impl RascalVM {
                 }
 
                 SemanticChange::TriggerEvent(event) => {
-                    let entity = world.create_entity();
-                    self.add_component(world, entity, event, values);
+                    self.trigger_event(world, event, values);
                 }
 
                 SemanticChange::ConsumeEvent => {
-                    if let Some(system) = &self.current_system {
-                        let index = self.current_event_handled.unwrap();
-                        world.storage_bitmaps.get_mut(&system.event.as_ref().unwrap().name).unwrap().set(index, false);
-                    }
+                    self.event_consumed = true;
                 }
 
                 SemanticChange::Print(xy, fg, bg, expr) => {
                     let v = self.interpret_expression(&expr, &values).unwrap();
-                    let text = match v {
-                        RascalValue::Text(val) => retrieve_string(val),
-                        RascalValue::Symbol(glyph) => {
-                            format!("{}", glyph as u8 as char)
-                        },
-                        _ => format!("{:?}", v),
-                    };
+                    let text = rascal_value_as_string(v);
 
                     print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg));
+                    self.something_printed = true;
+                }
+
+                SemanticChange::DebugPrint(expr) => {
+                    let v = self.interpret_expression(&expr, &values).unwrap();
+                    println!("{}", rascal_value_as_string(v));
+                }
+
+                SemanticChange::Quit => {
+                    force_quit();
                 }
             }
         }
     }
 
-    pub fn interpret(&mut self, world: &mut World, system: &SystemSignature) {
+    pub fn interpret_stateful(&mut self, world: &mut World, system: &SystemSignature) {
+        self.bindings.clear();
+        self.equalities.clear();
+        self.current_event = None;
+        self.current_system = Some(system.clone());
+        self.interpret_with(world, system);
+        self.current_system = None;
+    }
+
+    pub fn interpret_eventful(&mut self, world: &mut World, system: &SystemSignature,
+                              event_descriptor: &ComponentSignature, chunk: BinaryComponent) -> Option<RascalEventfulResult> {
+
         BINDING_COUNTER.store(1, Ordering::SeqCst);
 
         self.current_system = Some(system.clone());
 
-        match system.event.clone() {
-            Some(event) => {
-                let event_bitmap = world.storage_bitmaps.get(&event.name).unwrap().clone();
+        self.bindings.clear();
+        self.equalities.clear();
 
-                for index in 0..MAX_ENTRIES_PER_STORAGE {
-                    if !world.entity_bitmaps.get(index as usize) { continue; }
+        let members_len = event_descriptor.members.len();
 
-                    if event_bitmap.get(index as usize) {
-                        self.bindings.clear();
-                        self.equalities.clear();
-                        self.current_event_handled = Some(index as usize);
-                        let event_descriptor = world.registered_events.get(&event.name).unwrap().clone();
-                        let members_len = event_descriptor.members.len();
-
-                        if event.args.len() != members_len {
-                            println!("[System {}] Event {} has {} parameters, but only {} arguments found",
-                                     system.name, event.name, event_descriptor.members.len(), event.args.len());
-                            return;
-                        }
-
-                        let members_in_order: Vec<_> = event_descriptor.ptrs.iter().map(|(_, mid)| mid.clone()).collect();
-                        let zipped_arg_and_ids: Vec<_> = event.args.iter().zip(members_in_order).collect();
-                        for (arg, id) in zipped_arg_and_ids {
-                            self.update_equality(&system.name, world, arg, &id, &event_descriptor);
-                        }
-
-                        self.interpret_with(world, system);
-                        self.current_event_handled = None;
-                    }
-                }
-            }
-
-            None => {
-                self.bindings.clear();
-                self.equalities.clear();
-                self.interpret_with(world, system);
-            }
+        let event_call_site = system.activation_event.as_ref().unwrap();
+        if event_call_site.args.len() != members_len {
+            println!("[System {}] Event {} has {} parameters, but only {} arguments found",
+                     system.name, event_call_site.name, event_descriptor.members.len(), event_call_site.args.len());
+            return None;
         }
 
+        self.current_event = Some((event_descriptor.clone(), chunk));
+
+        let members_in_order: Vec<_> = event_descriptor.ptrs.iter().map(|(_, mid)| mid.clone()).collect();
+        let zipped_arg_and_ids: Vec<_> = event_call_site.args.iter().zip(members_in_order).collect();
+        for (arg, id) in zipped_arg_and_ids {
+            self.update_equality(&system.name, world, arg, &id, &event_descriptor);
+        }
+
+        self.interpret_with(world, system);
+
+        self.current_event = None;
         self.current_system = None;
+
+        let result = if self.event_consumed {
+            Some(RascalEventfulResult::Consumed)
+        } else {
+            Some(RascalEventfulResult::Propagated)
+        };
+
+        self.event_consumed = false;
+        result
     }
 }

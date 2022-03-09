@@ -29,7 +29,7 @@ any_char = { ASCII }
 // components
 tag_decl = { "tag" ~ name  ~ ";" }
 state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
-event_decl = { "event" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
+event_decl = { "event" ~ name ~ "{" ~ type_member_list? ~ "}" ~ ";" }
 
 type_member_list = { (type_member ~ ("," ~ type_member)*) }
 type_member = { name ~ ":" ~ datatype }
@@ -66,7 +66,12 @@ statement = _{
     if_statement | match_statement |
     spawn_statement | destroy_statement |
     update_statement | trigger_statement |
-    consume_statement | print_statement
+    consume_statement | print_statement |
+    debug_statement | quit_statement
+}
+
+debug_statement = _{
+    debug_print_statement
 }
 
 assignment = { identifier ~ "=" ~ expression ~ ";" }
@@ -89,9 +94,13 @@ destroy_statement = { "destroy" ~ identifier ~ ";" }
 update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" }
 trigger_statement = { "trigger" ~ call_site ~ ";" }
 print_statement = { "print" ~ position? ~ foreground? ~ background? ~ expression ~ ";" }
+quit_statement = { "quit" ~ ";" }
+
 position = { "at:[" ~ expression ~ "," ~ expression ~ "]" }
 foreground = { "fg:[" ~ expression ~ "," ~ expression ~ "," ~ expression ~ "]" }
 background = { "bg:[" ~ expression ~ "," ~ expression ~ "," ~ expression ~ "]" }
+
+debug_print_statement = { "debug" ~ "print" ~ expression ~ ";" }
 
 on_event_clause = { "on" ~ component_call }
 with_query_clause = { "with" ~ component_call_list }

@@ -6,7 +6,7 @@ use glutin::*;
 use glutin::dpi::LogicalSize;
 
 use scoundrel_common::engine;
-use scoundrel_common::engine::{should_quit, snoop_for_data_changes, update_world};
+use scoundrel_common::engine::{reset_should_redraw, should_quit, should_redraw, snoop_for_data_changes, update_world};
 use scoundrel_common::keycodes::{KeyState, MouseState};
 use scoundrel_common::rascal::world::send_start_event;
 
@@ -33,7 +33,7 @@ fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
     MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
 }
 
-pub fn window_event_loop(support_systems: Vec<fn()>) {
+pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: Vec<fn()>) {
     let mut event_loop = EventsLoop::new();
 
     let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
@@ -88,10 +88,12 @@ pub fn window_event_loop(support_systems: Vec<fn()>) {
             println!("{:?}", e);
         }
 
+        for sys in &pre_support_systems { sys(); }
+
         update_world();
         render_frame(&gl_context, &pipeline);
 
-        for sys in &support_systems { sys(); }
+        for sys in &post_support_systems { sys(); }
 
         if should_quit() { done = true; }
     }
@@ -142,8 +144,7 @@ fn render_frame(gl_context: &WindowedContext,
                 pipeline: &GlyphRenderer,) {
 
     let screen = engine::SCREEN.read().unwrap().clone();
-    if screen.is_ready() {
-
+    if screen.is_ready() && should_redraw() {
         unsafe {
             gl::ClearColor(0.0, 0.0, 0.0, 1.0);
             gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -152,6 +153,7 @@ fn render_frame(gl_context: &WindowedContext,
         pipeline.render(screen.glyphs());
 
         gl_context.swap_buffers().unwrap();
+        reset_should_redraw();
     }
 
     engine::FRAME_COUNTER.lock().unwrap().tick();

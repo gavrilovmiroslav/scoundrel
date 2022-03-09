@@ -1,47 +1,19 @@
 
 tag IsPlayer;
-tag ExitGame;
-tag UI;
 tag Changed;
+tag UI;
 
 state HasGlyph { glyph: symbol };
 state HasColor { hue: num, sat: num, val: num };
 
 state IsAt { x: num, y: num };
 
-event Start { time: num };
+event Start {};
+event Tick {};
 event FPS { fps: num };
 event KeyPress { key_name: text, action: text };
 
-[Exit On Escape Key|first]
-on KeyPress("Escape", "Released")
-{
-    trigger ExitGame;
-    consume event;
-}
-
-[Toggle UI]
-on KeyPress("U", "Released")
-{
-    update _ with toggle:UI;
-    consume event;
-}
-
-[Move By Keyboard]
-on KeyPress(key, "Pressed")
-with .IsPlayer
-   & .IsAt(x, y)
-{
-    match key {
-        case "A": x--;
-        case "D": x++;
-        case "W": y--;
-        case "S": y++;
-    }
-    consume event;
-}
-
-[Draw Glyphs Just Glyph|last]
+[Draw Glyphs Default Color|last]
 with .HasGlyph(glyph)
    & .IsAt(x, y)
    & not:.HasColor(_, _, _)
@@ -61,22 +33,5 @@ with .HasGlyph(glyph)
 on FPS(fps)
 with .UI
 {
-    print " FPS: " + fps + " ";
-    consume event;
-}
-
-[Consume Key Press At End Of Frame|last]
-on KeyPress(key, action)
-{
-    consume event;
-}
-
-[Start Game]
-on Start(_)
-{
-    spawn player with IsPlayer
-                    & IsAt(x=10, y=10)
-                    & HasGlyph(glyph='@')
-                    & HasColor(hue=255, sat=255, val=255);
-    consume event;
+    print at:[1,0] "FPS: " + fps;
 }

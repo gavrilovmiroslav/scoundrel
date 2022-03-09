@@ -6,22 +6,30 @@ use scoundrel_common::engine_options::EngineOptions;
 
 pub type ThreadState = JoinHandle<()>;
 
+pub type PreSupportSystems = Vec<fn()>;
+pub type PostSupportSystems = Vec<fn()>;
+
 pub struct Engine {
-    pub support_systems: Vec<fn()>,
+    pub pre_support_systems: PreSupportSystems,
+    pub post_support_systems: PostSupportSystems,
 }
 
 impl Engine {
     pub fn new(options: EngineOptions) -> Engine {
         engine::start_engine(options);
 
-        Engine { support_systems: Vec::new(), }
+        Engine {
+            pre_support_systems: Vec::new(),
+            post_support_systems: Vec::new()
+        }
     }
 
-    pub fn run(&self, main_loop: fn(Vec<fn()>)) {
-        let logics = self.support_systems.clone();
+    pub fn run(&self, main_loop: fn(PreSupportSystems, PostSupportSystems)) {
+        let pre = self.pre_support_systems.clone();
+        let post = self.post_support_systems.clone();
 
         thread::spawn(move || {
-            main_loop(logics)
+            main_loop(pre, post)
         }).join();
 
         println!("=| Killing main thread");

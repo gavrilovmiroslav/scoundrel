@@ -74,20 +74,20 @@ impl DataType {
             Text => 4, // ptr size
             Entity => 8, // u64
             Symbol => 2, // u16
-            ColorComponent => 1, // char
         }
     }
 }
 
 pub(crate) type MemberId = String;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MemberSignature {
     pub name: String,
     pub typ: DataType,
     pub offset: u8,
 }
 
+#[derive(Clone)]
 pub struct ComponentSignature {
     pub name: String,
     pub size: u8,
@@ -200,16 +200,21 @@ pub struct SystemSignature {
     pub id: u64,
     pub name: String,
     pub priority: SystemPriority,
-    pub event: Option<ComponentCallSite>,
-    pub with: Vec<ComponentCallSite>,
-    pub body: RascalBlock,
+    pub real_priority: SystemPrioritySize,
+    pub activation_event: Option<ComponentCallSite>,
+    pub storage_requirements: Vec<ComponentCallSite>,
+    pub system_body_block: RascalBlock,
 }
 
 impl SystemSignature {
     pub fn with_id(self, id: u64) -> Self {
         SystemSignature{
             id, name: self.name, priority: SystemPriority::Default,
-            event: self.event, with: self.with, body: self.body }
+            activation_event: self.activation_event,
+            real_priority: 0,
+            storage_requirements: self.storage_requirements,
+            system_body_block: self.system_body_block
+        }
     }
 }
 
@@ -259,6 +264,8 @@ pub enum RascalStatement {
     Match(RascalIdentifier, Vec<(RascalExpression, RascalBlock)>),
     Inc(RascalExpression, RascalExpression),
     Dec(RascalExpression, RascalExpression),
+    DebugPrint(RascalExpression),
+    Quit,
 }
 
 pub type RascalIdentifier = RascalExpression; /* could only be Identifier */
@@ -272,7 +279,8 @@ impl SystemSignature {
             is_owned: false,
             owner: None,
             name,
-            args: args.iter().map(|(name, args)| ComponentArgument::new(name.clone(), args.clone())).collect()
+            args: args.iter().map(|(name, args)|
+                ComponentArgument::new(name.clone(), args.clone())).collect()
         })
     }
 
@@ -590,6 +598,17 @@ impl SystemSignature {
                 result.push(RascalStatement::Match(key, cases));
             }
 
+            Rule::debug_print_statement => {
+                let mut print_statement = statement.into_inner();
+                if let Some(expr) = SystemSignature::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
+                    result.push(RascalStatement::DebugPrint(expr));
+                }
+            }
+
+            Rule::quit_statement => {
+                result.push(RascalStatement::Quit);
+            }
+
             _ => {
                 println!("Unknown in parse_body: {} {:?}!", statement.as_str(), statement.as_rule());
                 unreachable!()
@@ -649,7 +668,7 @@ impl SystemSignature {
             });
         }
 
-        SystemSignature{ id: 0, name, priority, event, with, body }
+        SystemSignature{ id: 0, name, priority, activation_event: event, real_priority: 0, storage_requirements: with, system_body_block: body }
     }
 }
 
@@ -679,12 +698,16 @@ pub enum ComponentType {
 pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
     fn parse_component_name_and_members(mut rule: pest::iterators::Pairs<Rule>) -> (&str, Vec<(&str, DataType)>){
         let name = rule.next().unwrap().as_str();
-        let members: Vec<(&str, DataType)> = rule.next().unwrap().into_inner().map(|p| {
-            let mut member_rule = p.into_inner();
-            let member_name = member_rule.next().unwrap().as_str();
-            let datatype_name = DataType::parse_datatype(member_rule.next().unwrap().as_str());
-            (member_name, datatype_name)
-        }).collect();
+        let members: Vec<(&str, DataType)> = if let Some(_) = rule.peek() {
+            rule.next().unwrap().into_inner().map(|p| {
+                let mut member_rule = p.into_inner();
+                let member_name = member_rule.next().unwrap().as_str();
+                let datatype_name = DataType::parse_datatype(member_rule.next().unwrap().as_str());
+                (member_name, datatype_name)
+            }).collect()
+        } else {
+            Vec::new()
+        };
 
         (name, members)
     }

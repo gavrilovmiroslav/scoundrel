@@ -1,0 +1,45 @@
+
+[Spawn Player On Start]
+on Start
+{
+    spawn player with IsPlayer
+                    & IsAt(x=10, y=10)
+                    & HasGlyph(glyph='@')
+                    & HasColor(hue=255, sat=255, val=255);
+}
+
+[Exit On Escape Key|first]
+on KeyPress("Escape", "Released")
+{
+    quit;
+}
+
+[Toggle UI]
+on KeyPress("U", "Released")
+{
+    update _ with toggle:UI;
+    consume event;
+}
+
+[Move By Keyboard]
+on KeyPress(key, "Pressed")
+with .IsPlayer
+   & .IsAt(x, y)
+{
+    match key {
+        case "A": { x--; consume event; }
+        case "D": { x++; consume event; }
+        case "W": { y--; consume event; }
+        case "S": { y++; consume event; }
+    }
+}
+
+[Leave Breadcrumb]
+on KeyPress("F5", "Released")
+with .IsPlayer
+   & .IsAt(x, y)
+{
+    spawn crumb with IsAt(x=x, y=y) & HasGlyph(glyph='x');
+    debug print crumb;
+    consume event;
+}
