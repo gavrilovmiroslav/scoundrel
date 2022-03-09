@@ -1,25 +1,17 @@
 use std::borrow::BorrowMut;
-use std::collections::HashMap;
 use std::ffi::c_void;
-use std::mem;
-use std::mem::transmute;
-use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 use gl::types::GLboolean;
-use glutin::{Api, Context, ContextBuilder, ContextTrait, ElementState, Event, EventsLoop, GlRequest, MouseButton, VirtualKeyCode, WindowBuilder, WindowedContext, WindowEvent};
+use glutin::*;
 use glutin::dpi::LogicalSize;
-use rand::Rng;
 
-use scoundrel_common::glyphs::Glyph;
-use scoundrel_common::keycodes::{KeyState, MouseState};
-use crate::common::gl_error_check;
-
-use scoundrel_common::presentation::Presentation;
 use scoundrel_common::engine;
+use scoundrel_common::engine::{reset_should_redraw, should_quit, should_redraw, snoop_for_data_changes, update_world};
+use scoundrel_common::keycodes::{KeyState, MouseState};
+use scoundrel_common::rascal::world::send_start_event;
 
-use crate::shader_pipeline::{QUAD_VERTEX_TEX_COORDS_COUNT, GlyphRenderer};
-use crate::texture::Texture;
+use crate::common::gl_error_check;
+use crate::glyph_renderer::GlyphRenderer;
 
 #[no_mangle]
 pub static NvOptimusEnablement: u64 = 0x00000001;
@@ -33,11 +25,15 @@ fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
     unsafe { std::mem::transmute(vk) }
 }
 
+fn transmute_element_state(ek: ElementState) -> scoundrel_common::keycodes::ElementState {
+    unsafe { std::mem::transmute(ek) }
+}
+
 fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
     MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
 }
 
-pub fn window_event_loop() {
+pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: Vec<fn()>) {
     let mut event_loop = EventsLoop::new();
 
     let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
@@ -55,6 +51,9 @@ pub fn window_event_loop() {
     let pipeline = render_prepare(&gl_context);
 
     let mut done = false;
+
+    send_start_event();
+
     while !done {
         event_loop.poll_events(|event| {
             match event {
@@ -67,7 +66,7 @@ pub fn window_event_loop() {
 
                 Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
                     if let Some(key) = input.virtual_keycode {
-                        engine::KEYBOARD_EVENTS.lock().unwrap().push_back(transmute_keycode(key));
+                        engine::KEYBOARD_EVENTS.lock().unwrap().push_back((transmute_keycode(key), transmute_element_state(input.state)));
                     }
                 },
 
@@ -85,7 +84,18 @@ pub fn window_event_loop() {
             }
         });
 
+        if let Some(e) = snoop_for_data_changes() {
+            println!("{:?}", e);
+        }
+
+        for sys in &pre_support_systems { sys(); }
+
+        update_world();
         render_frame(&gl_context, &pipeline);
+
+        for sys in &post_support_systems { sys(); }
+
+        if should_quit() { done = true; }
     }
 }
 
@@ -133,22 +143,17 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 fn render_frame(gl_context: &WindowedContext,
                 pipeline: &GlyphRenderer,) {
 
-    if engine::should_redraw() {
-        let screen = engine::SCREEN.read().unwrap().clone();
-        if screen.is_ready() {
-            engine::clean_redraw();
-
-            unsafe {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
-
-            pipeline.render(screen.glyphs());
-
-            gl_context.swap_buffers().unwrap();
+    let screen = engine::SCREEN.read().unwrap().clone();
+    if screen.is_ready() && should_redraw() {
+        unsafe {
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
-    } else {
-        std::thread::sleep(Duration::from_millis(1));
+
+        pipeline.render(screen.glyphs());
+
+        gl_context.swap_buffers().unwrap();
+        reset_should_redraw();
     }
 
     engine::FRAME_COUNTER.lock().unwrap().tick();

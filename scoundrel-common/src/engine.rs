@@ -1,21 +1,24 @@
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
-use std::collections::vec_deque::Iter;
 use std::collections::{HashMap, VecDeque};
-use std::ops::Deref;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::{channel, Receiver, TryRecvError};
+use std::time::Duration;
 use std::time::Instant;
-use crate::colors::Color;
+
+use lazy_static::*;
+use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher, watcher};
+
+use lazy_static;
 
 use crate::engine_options::EngineOptions;
 use crate::glyphs::Glyph;
-use crate::keycodes::{KeyState, MouseState};
+use crate::keycodes::{ElementState, KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
-
-use lazy_static;
-use lazy_static::*;
+use crate::rascal::parser::{parse_rascal, RascalStruct};
+use crate::rascal::world::REGISTERED_SYSTEMS;
+use crate::rascal::world::World;
 
 #[derive(Clone, Default)]
 pub struct FrameCounter {
@@ -41,24 +44,15 @@ impl FrameCounter {
 pub struct Screen {
     pub screen_memory: Option<Vec<Glyph>>,
     pub size: (u32, u32),
-    pub should_redraw: bool,
 }
 
 impl Screen {
     pub fn new() -> Screen {
-        Screen { screen_memory: None, size: (0, 0), should_redraw: true }
+        Screen { screen_memory: None, size: (0, 0), }
     }
 
     pub fn is_ready(&self) -> bool {
         self.screen_memory.is_some()
-    }
-
-    pub fn force_redraw(&mut self) {
-        self.should_redraw = true;
-    }
-
-    pub fn reset_redraw(&mut self) {
-        self.should_redraw = false;
     }
 
     pub fn glyphs_mut(&mut self) -> &mut Vec<Glyph>{
@@ -93,11 +87,66 @@ lazy_static! {
     pub static ref SHOULD_QUIT: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     pub static ref STOPWATCH: Arc<Mutex<Instant>> = Arc::new(Mutex::new(Instant::now()));
     pub static ref FRAME_COUNTER: Arc<Mutex<FrameCounter>> = Arc::new(Mutex::new(FrameCounter::default()));
-    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<KeyState>>> = Arc::new(Mutex::new(VecDeque::default()));
+    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<(KeyState, ElementState)>>> = Arc::new(Mutex::new(VecDeque::default()));
     pub static ref MOUSE_EVENTS: Arc<Mutex<VecDeque<MouseState>>> = Arc::new(Mutex::new(VecDeque::default()));
     pub static ref MOUSE_POSITIONS: Arc<Mutex<Point>> = Arc::new(Mutex::new((0, 0).into()));
     pub static ref SCREEN: Arc<RwLock<Screen>> = Arc::new(RwLock::new(Screen::new()));
     pub static ref SHOULD_REDRAW: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
+    pub static ref WORLD: Arc<Mutex<World>> = Arc::new(Mutex::new(World::default()));
+    pub static ref WATCHER: Mutex<Option<RecommendedWatcher>> = Mutex::new(None);
+    pub static ref WATCH_RECEIVER: Mutex<Option<Receiver<DebouncedEvent>>> = Mutex::new(None);
+}
+
+#[derive(PartialEq, Debug)]
+pub enum ChangeEventError {
+    Generic(String),
+    IO,
+    PathNotFound,
+    WatchNotFound,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum ChangeEvent {
+    NoticeWrite(PathBuf),
+    NoticeRemove(PathBuf),
+    Create(PathBuf),
+    Write(PathBuf),
+    Chmod(PathBuf),
+    Remove(PathBuf),
+    Rename(PathBuf, PathBuf),
+    Rescan,
+}
+
+#[derive(PartialEq, Debug)]
+pub enum DataChange {
+    Change(ChangeEvent),
+    NoChange,
+    Disconnected,
+    Error(ChangeEventError, Option<PathBuf>),
+}
+
+pub fn snoop_for_data_changes() -> Option<DataChange> {
+    use ChangeEvent::*;
+    use ChangeEventError::*;
+    use DataChange::*;
+    use DebouncedEvent as E;
+
+    match WATCH_RECEIVER.lock().unwrap().as_ref().unwrap().try_recv() {
+        Ok(E::NoticeWrite(p)) => Some(Change(NoticeWrite(p))),
+        Ok(E::NoticeRemove(p)) => Some(Change(NoticeRemove(p))),
+        Ok(E::Create(p)) => Some(Change(Create(p))),
+        Ok(E::Write(p)) => Some(Change(Write(p))),
+        Ok(E::Chmod(p)) => Some(Change(Chmod(p))),
+        Ok(E::Remove(p)) => Some(Change(Remove(p))),
+        Ok(E::Rename(p, q)) => Some(Change(Rename(p, q))),
+        Ok(E::Rescan) => Some(Change(Rescan)),
+        Ok(E::Error(notify::Error::Generic(s), op)) => Some(Error(Generic(s), op)),
+        Ok(E::Error(notify::Error::Io(_), op)) => Some(Error(IO, op)),
+        Ok(E::Error(notify::Error::WatchNotFound, op)) => Some(Error(WatchNotFound, op)),
+        Ok(E::Error(notify::Error::PathNotFound, op)) => Some(Error(PathNotFound, op)),
+        Err(TryRecvError::Disconnected) => Some(Disconnected),
+        Err(TryRecvError::Empty) => None,
+    }
 }
 
 pub fn start_engine(opts: EngineOptions) {
@@ -120,7 +169,33 @@ pub fn start_engine(opts: EngineOptions) {
     if presentations.is_empty() {
         panic!("No presentations, quitting!");
     }
+
+    if let Ok(mut file_watcher) = WATCHER.lock() {
+        let (tx, rx) = channel();
+        *file_watcher = watcher(tx, Duration::from_secs(1)).ok();
+
+        if let Ok(_) = file_watcher.as_mut().unwrap().watch("./data", RecursiveMode::Recursive) {
+            *WATCH_RECEIVER.lock().unwrap() = Some(rx);
+        } else {
+            panic!("WATCHER CAN'T WATCH THIS FOLDER!");
+        }
+    }
+
+    {
+        let mut world = WORLD.lock().unwrap();
+        world.register_component(RascalStruct::Tag("Main".to_string()));
+        let main_entity = world.create_entity();
+        world.add_tag(main_entity, "Main");
+    }
+
+    rebuild_world(parse_rascal(include_str!("..\\..\\data\\prelude.rascal").trim()));
 }
+
+pub fn set_should_redraw() { SHOULD_REDRAW.store(true, Ordering::Release) }
+
+pub fn reset_should_redraw() { SHOULD_REDRAW.store(false, Ordering::Release) }
+
+pub fn should_redraw() -> bool { SHOULD_REDRAW.load(Ordering::Acquire) }
 
 pub fn should_quit() -> bool {
     SHOULD_QUIT.load(Ordering::Acquire)
@@ -130,15 +205,45 @@ pub fn force_quit() {
     SHOULD_QUIT.store(true, Ordering::Release);
 }
 
-pub fn should_redraw() -> bool {
-    SHOULD_REDRAW.load(Ordering::Acquire)
+fn remove_structure(world: &mut World, structure: &RascalStruct) {
+    match structure {
+        RascalStruct::State(state) => {
+            world.registered_states.remove(&state.name);
+        }
+        RascalStruct::Event(event) => {
+            world.registered_events.remove(&event.name);
+        }
+        RascalStruct::Tag(tag) => {
+            world.registered_tags.remove(tag);
+        }
+        RascalStruct::System(sys) => {
+            REGISTERED_SYSTEMS.lock().unwrap().remove(&sys.name);
+        }
+    }
 }
 
-pub fn force_redraw() {
-    SHOULD_REDRAW.store(true, Ordering::Release);
+pub fn rebuild_world(ast: Vec<RascalStruct>) {
+    use crate::rascal::world::SYSTEM_DEPENDENCIES;
+    use crate::rascal::world::CACHED_SYSTEMS_BY_PRIORITIES;
+
+    let mut world = WORLD.lock().unwrap();
+    for structure in ast {
+        remove_structure(&mut world, &structure);
+
+        if structure.is_component() {
+            world.register_component(structure);
+        } else {
+            world.register_system(structure);
+        }
+    }
+
+    let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
+    let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
+    for comp in deps.keys() {
+        cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
+    }
 }
 
-pub fn clean_redraw() {
-    SHOULD_REDRAW.store(false, Ordering::Release);
+pub fn update_world() {
+    WORLD.lock().unwrap().run_all_systems();
 }
-

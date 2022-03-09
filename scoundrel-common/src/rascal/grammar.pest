@@ -1,0 +1,133 @@
+WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
+
+decl = _{ (system_decl | tag_decl | state_decl | event_decl) }
+program = _{ (decl ~ decl*) }
+
+// text
+
+inner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+}
+
+// components
+
+name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
+
+datatype = { "bool" | "entity" | "symbol" | "num" | "text" }
+
+value = _{ bool_value | number | text_value | identifier | symbol }
+bool_value = { "true" | "false" }
+number = { ASCII_DIGIT+ }
+text_value = { inner_text }
+inner_text = { "\"" ~ inner ~ "\"" }
+identifier = { name }
+symbol = _{ "'" ~ any_char ~ "'" }
+any_char = { ASCII }
+
+// components
+tag_decl = { "tag" ~ name  ~ ";" }
+state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
+event_decl = { "event" ~ name ~ "{" ~ type_member_list? ~ "}" ~ ";" }
+
+type_member_list = { (type_member ~ ("," ~ type_member)*) }
+type_member = { name ~ ":" ~ datatype }
+
+component_call_list = { component_call ~ ("&" ~ component_call)* }
+component_call = _{ negated_call_site | toggled_call_site | call_site }
+component_arg_list = _{ "(" ~ arg_member_list ~ ")" }
+negated_call_site = { "not:"  ~ call_site }
+toggled_call_site = { "toggle:"  ~ call_site }
+call_site = _{ (complex_call_site | simple_call_site) }
+simple_call_site = { name ~ component_arg_list? }
+complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
+
+arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
+arg_member = _{ name_with_value | name | anonymous_with_value }
+name_with_value = { name ~ "=" ~ value }
+anonymous_with_value = { value }
+
+owner_name = @{ name }
+comp_name = @{ name }
+// systems
+
+system_title = { "[" ~ system_title_name ~ ("|" ~ system_priority)? ~ "]" }
+system_title_name = @{ (ASCII_ALPHANUMERIC | "_" | "@" | " ")+ }
+system_priority = { priority }
+priority = { number | "last" | "first" }
+system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }
+
+block = { "{" ~ statements ~ "}" }
+statements = _{ statement* }
+statement = _{
+    self_mod_assignment |
+    mod_assignment | assignment |
+    if_statement | match_statement |
+    spawn_statement | destroy_statement |
+    update_statement | trigger_statement |
+    consume_statement | print_statement |
+    debug_statement | quit_statement
+}
+
+debug_statement = _{
+    debug_print_statement
+}
+
+assignment = { identifier ~ "=" ~ expression ~ ";" }
+
+self_mod_assignment = { identifier ~ self_mod_operator ~ ";" }
+self_mod_operator = { "++" | "--" }
+
+mod_assignment = { identifier ~ mod_operator ~ expression ~ ";" }
+mod_operator = { "+=" | "-=" }
+
+if_statement = { "if" ~ expression ~ block ~ else_statement? }
+else_statement = { "else" ~ (if_statement | block) }
+
+match_statement = { "match" ~ expression ~ "{" ~ match_case+ ~ "}" }
+match_case = { "case" ~ expression ~ ":" ~ (block | statement) }
+
+spawn_statement = { "spawn" ~ identifier ~ "with" ~ component_call_list ~ ";" }
+consume_statement = { "consume" ~ "event" ~ ";" }
+destroy_statement = { "destroy" ~ identifier ~ ";" }
+update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" }
+trigger_statement = { "trigger" ~ call_site ~ ";" }
+print_statement = { "print" ~ position? ~ foreground? ~ background? ~ expression ~ ";" }
+quit_statement = { "quit" ~ ";" }
+
+position = { "at:[" ~ expression ~ "," ~ expression ~ "]" }
+foreground = { "fg:[" ~ expression ~ "," ~ expression ~ "," ~ expression ~ "]" }
+background = { "bg:[" ~ expression ~ "," ~ expression ~ "," ~ expression ~ "]" }
+
+debug_print_statement = { "debug" ~ "print" ~ expression ~ ";" }
+
+on_event_clause = { "on" ~ component_call }
+with_query_clause = { "with" ~ component_call_list }
+
+binary_relation = _{ eq_rel | ne_rel | lt_rel | gt_rel | le_rel | ge_rel }
+    eq_rel = { "==" }
+    ne_rel = { "!=" }
+    lt_rel = { "<" }
+    gt_rel = { ">" }
+    le_rel = { "<=" }
+    ge_rel = { ">=" }
+
+additive_op = _{ plus_op | minus_op }
+    plus_op = { "+" }
+    minus_op = { "-" }
+
+multiplicative_op = _{ mul_op | div_op | mod_op }
+    mul_op = { "*" }
+    div_op = { "/" }
+    mod_op = { "%" }
+
+unary_op = _{ not_op | neg_op }
+    not_op = { "!" }
+    neg_op = { "-" }
+
+expression = { additive ~ (binary_relation ~ additive)* }
+additive = _{ summand ~ (additive_op ~ summand)* }
+summand = _{ factor ~ (multiplicative_op ~ factor)* }
+factor = _{ unary_op ~ "(" ~ expression ~ ")" | primary }
+primary = _{ "(" ~ expression ~ ")" | value }

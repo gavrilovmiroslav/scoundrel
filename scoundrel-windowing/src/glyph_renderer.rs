@@ -1,25 +1,21 @@
 use std::{
-    ffi::{c_void, CString},
+    ffi::CString,
     mem, ptr, str,
 };
 use std::mem::size_of;
 
 use gl::types::*;
 use glutin::dpi::LogicalSize;
-use glutin::WindowedContext;
 use nalgebra_glm::TMat4;
-use rand::{Rng, thread_rng};
 
-use scoundrel_common::colors::Color;
-use scoundrel_common::glyphs::Glyph;
-
-use crate::common::gl_error_check;
-use scoundrel_common::presentation::Presentation;
-use crate::attribute::{BufferMapping, AttribPosition, AttribSize, AttribType};
-use crate::shader_pipeline::VertexBufferInitProfile::{Data, Size};
-use crate::uniforms::Uniforms;
 use scoundrel_common::engine;
+use scoundrel_common::glyphs::Glyph;
+use scoundrel_common::presentation::Presentation;
+
+use crate::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
+use crate::common::gl_error_check;
 use crate::texture::Texture;
+use crate::uniforms::Uniforms;
 
 pub const QUAD_VERTEX_TEX_COORDS_COUNT: usize = 24;
 pub const QUAD_MEMORY_SIZE: usize = unsafe { size_of::<f32>() } * QUAD_VERTEX_TEX_COORDS_COUNT;
@@ -34,8 +30,8 @@ pub const QUAD_VERTEX_AND_TEX_COORDS: [f32; QUAD_VERTEX_TEX_COORDS_COUNT] = [
 
 pub const GLYPH_SIZE: usize = unsafe { size_of::<Glyph>() };
 
-const VERTEX: &str = include_str!("vertex_shader.glsl");
-const FRAGMENT: &str = include_str!("fragment_shader.glsl");
+const VERTEX: &str = include_str!("shaders/vertex_shader.glsl");
+const FRAGMENT: &str = include_str!("shaders/fragment_shader.glsl");
 
 fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     unsafe {

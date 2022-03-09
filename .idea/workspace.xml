@@ -9,12 +9,20 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next.">
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/data/example.rascal" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/gl_state.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/lib.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/shader_pipeline.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/prelude.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/data/prelude.rascal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/engine.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -66,9 +74,12 @@
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="cf.first.check.clang-format" value="false" />
     <property name="cidr.known.project.marker" value="true" />
-    <property name="last_opened_file_path" value="E:/Pajglanje" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../_poirogue" />
+    <property name="nodejs_package_manager_path" value="npm" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
-    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
+    <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/lib.rs" value="true" />
+    <property name="org.rust.disableDetachedFileInspectionD:/Rust/scoundrel/scoundrel-common/src/ecs/world.rs" value="true" />
+    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
   </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
@@ -76,8 +87,10 @@
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="D:\Rust\scoundrel\data" />
-      <recent name="D:\Rust\scoundrel\presentations" />
       <recent name="D:\Rust\scoundrel\scoundrel-common\src" />
+      <recent name="D:\Rust\scoundrel\scoundrel" />
+      <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs" />
+      <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs\" />
     </key>
   </component>
   <component name="RunManager">
@@ -129,6 +142,14 @@
       <workItem from="1645100348469" duration="17342000" />
       <workItem from="1645145780461" duration="10153000" />
       <workItem from="1645386839872" duration="5400000" />
+      <workItem from="1645481108710" duration="72072000" />
+      <workItem from="1645831490573" duration="2990000" />
+      <workItem from="1645864522648" duration="4013000" />
+      <workItem from="1645949527880" duration="5379000" />
+      <workItem from="1645990815169" duration="36740000" />
+      <workItem from="1646170248828" duration="128588000" />
+      <workItem from="1646572275190" duration="67671000" />
+      <workItem from="1646765532396" duration="20516000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -193,7 +214,98 @@
       <option name="project" value="LOCAL" />
       <updated>1644628781735</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Added data file watching (TODO: make the directory be read from config.ron), and full Rascal parsing!">
+      <created>1646098044488</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1646098044488</updated>
+    </task>
+    <task id="LOCAL-00011" summary="VM can loop through and run all systems! They don't do anything (not connected to storage, nor interpreting instructions), but hey!">
+      <created>1646180841349</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1646180841349</updated>
+    </task>
+    <task id="LOCAL-00012" summary="Interpreting systems half-way there. Pattern-matching arguments and assigning value equality classes done.">
+      <created>1646270529669</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1646270529669</updated>
+    </task>
+    <task id="LOCAL-00013" summary="Pattern-matching (unifying even?) system values done! Only systems that pass unification are being called, and the values passed in. Now only for system code.">
+      <created>1646360406224</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1646360406224</updated>
+    </task>
+    <task id="LOCAL-00014" summary="Fixed bug with hashmap sorting giving us random arguments in multi-argument systems. Also, fixed strings, introduced string pool.">
+      <created>1646434789817</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1646434789817</updated>
+    </task>
+    <task id="LOCAL-00015" summary="Systems are now fully implemented! Print statement added for debugging purposes.">
+      <created>1646516336000</created>
+      <option name="number" value="00015" />
+      <option name="presentableId" value="LOCAL-00015" />
+      <option name="project" value="LOCAL" />
+      <updated>1646516336000</updated>
+    </task>
+    <task id="LOCAL-00016" summary="Redid logics into a single thread with main to improve lockstep. Added system prioritization with &quot;first&quot;, &quot;last&quot; or specific priority level annotations.">
+      <created>1646532291834</created>
+      <option name="number" value="00016" />
+      <option name="presentableId" value="LOCAL-00016" />
+      <option name="project" value="LOCAL" />
+      <updated>1646532291834</updated>
+    </task>
+    <task id="LOCAL-00017" summary="Fixed the bug with call-sites receiving only values with no names (the trick was to add the anonymous bindings and equalities either way). A bug is present, seems that when we change from a key to another key, one more execution of the old key is sent? Weird... Added &quot;else if&quot; into the parser and VM.">
+      <created>1646588638289</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1646588638289</updated>
+    </task>
+    <task id="LOCAL-00018" summary="The bug from the previous commit is mostly just about when the print statement worked. Fixed now. Added match statements!">
+      <created>1646604021226</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1646604021226</updated>
+    </task>
+    <task id="LOCAL-00019" summary="Removed color and point. Need to add syntax for checking tag status within a system. Maybe wider query system overall? Currently, can't toggle between adding and removing UI because of system executions happening one after the other and changing the states back and forth.">
+      <created>1646617882800</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1646617882800</updated>
+    </task>
+    <task id="LOCAL-00020" summary="Execution now runs smoothly, with one extra tag and system (still ugly). Problem is with drawing: UI toggles, but the underlying things aren't redrawn because we don't have that yet!">
+      <created>1646618474440</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1646618474440</updated>
+    </task>
+    <task id="LOCAL-00021" summary="Added tag toggling!">
+      <created>1646683732224</created>
+      <option name="number" value="00021" />
+      <option name="presentableId" value="LOCAL-00021" />
+      <option name="project" value="LOCAL" />
+      <updated>1646683732224</updated>
+    </task>
+    <task id="LOCAL-00022" summary="Moved prelude to data. Added capabilities to work with color from script.">
+      <created>1646701308199</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1646701308199</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -224,18 +336,28 @@
     <MESSAGE value="Actually, on second thought..." />
     <MESSAGE value="Starting up a raw gl renderer to have batched rendering." />
     <MESSAGE value="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next." />
-    <option name="LAST_COMMIT_MESSAGE" value="Added instanced, automatically positioned glyph rendering. Still no glyphs, only colors, adding texture mapping next." />
+    <MESSAGE value="Added data file watching (TODO: make the directory be read from config.ron), and full Rascal parsing!" />
+    <MESSAGE value="VM can loop through and run all systems! They don't do anything (not connected to storage, nor interpreting instructions), but hey!" />
+    <MESSAGE value="Interpreting systems half-way there. Pattern-matching arguments and assigning value equality classes done." />
+    <MESSAGE value="Pattern-matching (unifying even?) system values done! Only systems that pass unification are being called, and the values passed in. Now only for system code." />
+    <MESSAGE value="Fixed bug with hashmap sorting giving us random arguments in multi-argument systems. Also, fixed strings, introduced string pool." />
+    <MESSAGE value="Systems are now fully implemented! Print statement added for debugging purposes." />
+    <MESSAGE value="Redid logics into a single thread with main to improve lockstep. Added system prioritization with &quot;first&quot;, &quot;last&quot; or specific priority level annotations." />
+    <MESSAGE value="Fixed the bug with callsites receiving only values with no names (the trick was to add the anonymous bindings and equalities either way). A bug is present, seems that when we change from a key to another key, one more execution of the old key is sent? Weird..." />
+    <MESSAGE value="Fixed the bug with call-sites receiving only values with no names (the trick was to add the anonymous bindings and equalities either way). A bug is present, seems that when we change from a key to another key, one more execution of the old key is sent? Weird... Added &quot;else if&quot; into the parser and VM." />
+    <MESSAGE value="The bug from the previous commit is mostly just about when the print statement worked. Fixed now. Added match statements!" />
+    <MESSAGE value="Removed color and point. Need to add syntax for checking tag status within a system. Maybe wider query system overall? Currently, can't toggle between adding and removing UI because of system executions happening one after the other and changing the states back and forth." />
+    <MESSAGE value="Execution now runs smoothly, with one extra tag and system (still ugly). Problem is with drawing: UI toggles, but the underlying things aren't redrawn because we don't have that yet!" />
+    <MESSAGE value="Added tag toggling!" />
+    <MESSAGE value="Moved prelude to data. Added capabilities to work with color from script." />
+    <option name="LAST_COMMIT_MESSAGE" value="Moved prelude to data. Added capabilities to work with color from script." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/scoundrel-windowing/src/texture.rs</url>
-          <line>30</line>
-          <option name="timeStamp" value="5" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="CargoCommandRunConfiguration">
+        <watch expression="self-&gt;bindings.base" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

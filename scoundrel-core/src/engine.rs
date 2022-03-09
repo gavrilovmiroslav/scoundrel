@@ -1,37 +1,36 @@
-use std::sync::atomic::Ordering;
 use std::thread;
 use std::thread::JoinHandle;
-use std::time::Duration;
-use scoundrel_common::engine;
 
+use scoundrel_common::engine;
 use scoundrel_common::engine_options::EngineOptions;
 
 pub type ThreadState = JoinHandle<()>;
 
+pub type PreSupportSystems = Vec<fn()>;
+pub type PostSupportSystems = Vec<fn()>;
+
 pub struct Engine {
-    pub logic: Vec<fn()>,
+    pub pre_support_systems: PreSupportSystems,
+    pub post_support_systems: PostSupportSystems,
 }
 
 impl Engine {
     pub fn new(options: EngineOptions) -> Engine {
         engine::start_engine(options);
 
-        Engine { logic: Vec::new(), }
+        Engine {
+            pre_support_systems: Vec::new(),
+            post_support_systems: Vec::new()
+        }
     }
 
-    pub fn run(&self, main_loop: fn()) {
-        let logics = self.logic.clone();
-        thread::spawn(move || {
-            while !engine::should_quit() {
-                if !engine::should_redraw() {
-                    for logic in &logics { logic(); }
-                    engine::force_redraw();
-                }
-                thread::sleep(Duration::from_millis(1));
-            }
-        });
+    pub fn run(&self, main_loop: fn(PreSupportSystems, PostSupportSystems)) {
+        let pre = self.pre_support_systems.clone();
+        let post = self.post_support_systems.clone();
 
-        thread::spawn(move || main_loop()).join();
+        thread::spawn(move || {
+            main_loop(pre, post)
+        }).join();
 
         println!("=| Killing main thread");
     }

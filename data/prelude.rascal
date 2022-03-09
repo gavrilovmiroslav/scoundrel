@@ -1,0 +1,37 @@
+
+tag IsPlayer;
+tag Changed;
+tag UI;
+
+state HasGlyph { glyph: symbol };
+state HasColor { hue: num, sat: num, val: num };
+
+state IsAt { x: num, y: num };
+
+event Start {};
+event Tick {};
+event FPS { fps: num };
+event KeyPress { key_name: text, action: text };
+
+[Draw Glyphs Default Color|last]
+with .HasGlyph(glyph)
+   & .IsAt(x, y)
+   & not:.HasColor(_, _, _)
+{
+    print at:[x, y] glyph;
+}
+
+[Draw Glyphs With Color|last]
+with .HasGlyph(glyph)
+   & .IsAt(x, y)
+   & .HasColor(h, s, v)
+{
+    print at:[x, y] fg:[h, s, v] glyph;
+}
+
+[FPS Counter|last]
+on FPS(fps)
+with .UI
+{
+    print at:[1,0] "FPS: " + fps;
+}
