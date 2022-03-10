@@ -1,6 +1,5 @@
 
 tag IsPlayer;
-tag Changed;
 tag UI;
 
 state HasGlyph { glyph: symbol };
@@ -12,6 +11,14 @@ event Start {};
 event Tick {};
 event FPS { fps: num };
 event KeyPress { key_name: text, action: text };
+event MouseMove { x: num, y: num };
+
+[Draw Mouse Cursor|last]
+on MouseMove(x, y)
+{
+    print at:[20, 0] "MOUSE: " + x + ", " + y;
+    print at:[x, y] fg:[0,0,0] bg:[0,0,128] " ";
+}
 
 [Draw Glyphs Default Color|last]
 with .HasGlyph(glyph)

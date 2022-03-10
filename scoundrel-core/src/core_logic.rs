@@ -17,6 +17,15 @@ pub fn pass_input_events_to_rascal() {
         let mut world = WORLD.lock().unwrap();
         world.trigger_event("KeyPress", vec![ text(keystate_to_name(key)), text(key_action_to_name(action)) ]);
     }
+    drop(queue);
+
+    let mut mouse_cursor = engine::MOUSE_POSITIONS.lock().unwrap();
+    let mut world = WORLD.lock().unwrap();
+    let (x, y) = (mouse_cursor.x, mouse_cursor.y);
+    if (x >= 0 && x < 64) && (x >= 0 && y < 48) {
+        world.trigger_event("MouseMove", vec![num(x), num(y)]);
+    }
+    drop(mouse_cursor);
 }
 
 pub fn track_fps() {
