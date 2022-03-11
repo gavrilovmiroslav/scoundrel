@@ -244,6 +244,7 @@ pub enum RascalExpression {
     SymbolLiteral(u16),
     TextLiteral(String),
     Identifier(String),
+    Tag(ComponentCallSite),
 }
 
 pub enum TokenType<'i> {
@@ -338,6 +339,9 @@ impl SystemSignature {
                         Rule::expression => {
                             Self::parse_expression(TokenType::NonTerm(pair.into_inner())).unwrap()
                         }
+                        Rule::complex_call_site => {
+                            RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap())
+                        }
                         _ => {
                             println!("UNREACHABLE: {:?} {}", pair.as_rule(), pair.as_str());
                             unreachable!()
@@ -418,6 +422,7 @@ impl SystemSignature {
     }
 
     fn parse_call_site(rule: Pair<Rule>) -> Option<ComponentCallSite> {
+        println!("{:?}", rule.as_str());
         let mut rule = rule.into_inner();
         let next = rule.next().unwrap();
 

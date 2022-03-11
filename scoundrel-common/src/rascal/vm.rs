@@ -8,7 +8,7 @@ use bitmaps::*;
 use lazy_static::lazy_static;
 
 use crate::colors::Color;
-use crate::engine::force_quit;
+use crate::engine::{force_quit, WORLD};
 use crate::glyphs::print_string_colors;
 use crate::rascal::parser::{BoolOper, ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
@@ -328,7 +328,7 @@ impl RascalVM {
                 for (id, value) in &values {
                     if self.equalities.contains_key(id) {
                         if let EqualityWith::Value(expr) = self.equalities.get(id).unwrap() {
-                            if let Some(expr_resolved) = self.interpret_expression(expr, &values) {
+                            if let Some(expr_resolved) = self.interpret_expression(expr, &values, world) {
                                 if *value != expr_resolved {
                                     continue 'entries;
                                 }
@@ -351,24 +351,26 @@ impl RascalVM {
                     }
                 }
 
+                values.insert("_".to_string(), RascalValue::Entity(index));
+
                 match &owner {
                     None => values.insert("_".to_string(), RascalValue::Entity(index)),
                     Some(name) if name.trim() == "" => values.insert("_".to_string(), RascalValue::Entity(index)),
                     Some(name) => values.insert(name.clone(), RascalValue::Entity(index)),
                 };
 
-                let changes = self.interpret_block(&system.system_body_block, &values);
+                let changes = self.interpret_block(&system.system_body_block, &values, world);
                 self.commit_changes(world, index, &mut values, changes);
             }
         }
     }
 
-    fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>) -> Option<RascalValue> {
+    fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
 
         match expr {
             RascalExpression::Relation(a, op, b) => {
-                let ia = self.interpret_expression(a.as_ref(), values).unwrap();
-                let ib = self.interpret_expression(b.as_ref(), values).unwrap();
+                let ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
+                let ib = self.interpret_expression(b.as_ref(), values, world).unwrap();
 
                 use RascalValue::*;
                 match (ia, op, ib) {
@@ -383,8 +385,8 @@ impl RascalVM {
             }
 
             RascalExpression::BoolOp(a, op, b) => {
-                let ia = self.interpret_expression(a.as_ref(), values).unwrap();
-                let ib = self.interpret_expression(b.as_ref(), values).unwrap();
+                let ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
+                let ib = self.interpret_expression(b.as_ref(), values, world).unwrap();
 
                 use RascalValue::*;
                 match (ia, op, ib) {
@@ -395,8 +397,8 @@ impl RascalVM {
             }
 
             RascalExpression::Binary(a, op, b) => {
-                let ia = self.interpret_expression(a.as_ref(), values).unwrap();
-                let ib = self.interpret_expression(b.as_ref(), values).unwrap();
+                let ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
+                let ib = self.interpret_expression(b.as_ref(), values, world).unwrap();
 
                 use RascalValue::*;
                 match (ia, op, ib) {
@@ -422,7 +424,7 @@ impl RascalVM {
             }
 
             RascalExpression::Unary(Un::Not, a) => {
-                let ia = self.interpret_expression(a.as_ref(), values).unwrap();
+                let ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
 
                 use RascalValue::*;
                 match ia {
@@ -432,7 +434,7 @@ impl RascalVM {
             }
 
             RascalExpression::Unary(Un::Neg, a) => {
-                let ia = self.interpret_expression(a.as_ref(), values).unwrap();
+                let ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
 
                 use RascalValue::*;
                 match ia {
@@ -441,9 +443,9 @@ impl RascalVM {
                 }
             }
 
-            RascalExpression::Bool(b) => self.interpret_expression(b.as_ref(), values),
-            RascalExpression::Num(n) => self.interpret_expression(n.as_ref(), values),
-            RascalExpression::Symbol(s) => self.interpret_expression(s.as_ref(), values),
+            RascalExpression::Bool(b) => self.interpret_expression(b.as_ref(), values, world),
+            RascalExpression::Num(n) => self.interpret_expression(n.as_ref(), values, world),
+            RascalExpression::Symbol(s) => self.interpret_expression(s.as_ref(), values, world),
 
             RascalExpression::BoolLiteral(b) => Some(RascalValue::Bool(*b)),
             RascalExpression::NumLiteral(n) => Some(RascalValue::Num(*n)),
@@ -455,6 +457,15 @@ impl RascalVM {
             RascalExpression::Identifier(ident) if values.contains_key(ident) => {
                 Some(values.get(ident).unwrap().clone())
             }
+            RascalExpression::Tag(c) => {
+                if let RascalValue::Entity(index) = values.get("_").unwrap() {
+                    assert_eq!(c.args.len(), 0);
+                    let storage = world.storage_bitmaps.get(&*c.name).unwrap().clone();
+                    Some(RascalValue::Bool(storage.get(*index)))
+                } else {
+                    unreachable!()
+                }
+            }
             other => {
                 println!("[parse_expression] failed to catch: {:?}", other);
                 None
@@ -462,7 +473,7 @@ impl RascalVM {
         }
     }
 
-    fn interpret_statement(&self, statement: &RascalStatement, values: &HashMap<String, RascalValue>) -> Vec<SemanticChange> {
+    fn interpret_statement(&self, statement: &RascalStatement, values: &HashMap<String, RascalValue>, world: &mut World) -> Vec<SemanticChange> {
         let mut result = Vec::new();
 
         match statement {
@@ -473,7 +484,7 @@ impl RascalVM {
                         return vec![];
                     }
 
-                    result.push(SemanticChange::ValueAssign(name.clone(), self.interpret_expression(b, values).unwrap()));
+                    result.push(SemanticChange::ValueAssign(name.clone(), self.interpret_expression(b, values, world).unwrap()));
                 } else {
                     println!("Expected identifier, got {:?}", a);
                     return vec![];
@@ -481,12 +492,12 @@ impl RascalVM {
             }
 
             RascalStatement::IfElse(body, then, or_else) => {
-                match self.interpret_expression(body, values) {
+                match self.interpret_expression(body, values, world) {
                     Some(RascalValue::Bool(is)) => {
                         if is {
-                            result.extend(self.interpret_block(then.as_ref(), values));
+                            result.extend(self.interpret_block(then.as_ref(), values, world));
                         } else if or_else.is_some() {
-                            result.extend(self.interpret_block(or_else.as_ref().unwrap(), values));
+                            result.extend(self.interpret_block(or_else.as_ref().unwrap(), values, world));
                         }
                     }
 
@@ -544,24 +555,24 @@ impl RascalVM {
 
             RascalStatement::Print(position, foreground, background,e) => {
                 let xy = {
-                    let x = self.interpret_expression(&position.0, values).unwrap();
-                    let y = self.interpret_expression(&position.1, values).unwrap();
+                    let x = self.interpret_expression(&position.0, values, world).unwrap();
+                    let y = self.interpret_expression(&position.1, values, world).unwrap();
 
                     (x.as_num().unwrap_or(0) as u32, y.as_num().unwrap_or(0) as u32)
                 };
 
                 let fg = {
-                    let h = self.interpret_expression(&foreground.0, values).unwrap();
-                    let s = self.interpret_expression(&foreground.1, values).unwrap();
-                    let v = self.interpret_expression(&foreground.2, values).unwrap();
+                    let h = self.interpret_expression(&foreground.0, values, world).unwrap();
+                    let s = self.interpret_expression(&foreground.1, values, world).unwrap();
+                    let v = self.interpret_expression(&foreground.2, values, world).unwrap();
 
                     (h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(255) as u8)
                 };
 
                 let bg = {
-                    let h = self.interpret_expression(&background.0, values).unwrap();
-                    let s = self.interpret_expression(&background.1, values).unwrap();
-                    let v = self.interpret_expression(&background.2, values).unwrap();
+                    let h = self.interpret_expression(&background.0, values, world).unwrap();
+                    let s = self.interpret_expression(&background.1, values, world).unwrap();
+                    let v = self.interpret_expression(&background.2, values, world).unwrap();
 
                     (h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(0) as u8)
                 };
@@ -570,12 +581,12 @@ impl RascalVM {
             }
 
             RascalStatement::Match(key, cases) => {
-                match self.interpret_expression(key, values) {
+                match self.interpret_expression(key, values, world) {
                     Some(value) => {
                         for (case_match, case_body) in cases {
-                            let other = self.interpret_expression(case_match, values).unwrap();
+                            let other = self.interpret_expression(case_match, values, world).unwrap();
                             if value == other {
-                                result.extend(self.interpret_block(case_body, values));
+                                result.extend(self.interpret_block(case_body, values, world));
                                 break;
                             }
                         }
@@ -595,7 +606,7 @@ impl RascalVM {
                         return vec![];
                     }
 
-                    result.push(SemanticChange::ValueInc(name.clone(), self.interpret_expression(n, values).unwrap()));
+                    result.push(SemanticChange::ValueInc(name.clone(), self.interpret_expression(n, values, world).unwrap()));
                 } else {
                     println!("Expected identifier, got {:?}", var);
                     return vec![];
@@ -609,7 +620,7 @@ impl RascalVM {
                         return vec![];
                     }
 
-                    result.push(SemanticChange::ValueDec(name.clone(), self.interpret_expression(n, values).unwrap()));
+                    result.push(SemanticChange::ValueDec(name.clone(), self.interpret_expression(n, values, world).unwrap()));
                 } else {
                     println!("Expected identifier, got {:?}", var);
                     return vec![];
@@ -628,11 +639,11 @@ impl RascalVM {
         result
     }
 
-    fn interpret_block(&self, block: &RascalBlock, values: &HashMap<String, RascalValue>) -> Vec<SemanticChange> {
+    fn interpret_block(&self, block: &RascalBlock, values: &HashMap<String, RascalValue>, world: &mut World) -> Vec<SemanticChange> {
         let mut result = Vec::new();
 
         for statement in block {
-            result.extend(self.interpret_statement(statement, values));
+            result.extend(self.interpret_statement(statement, values, world));
         }
 
         result
@@ -649,7 +660,7 @@ impl RascalVM {
                             println!("State components need to have values.");
                             return;
                         } else {
-                            args.extend(self.interpret_expression(&arg.value.unwrap(), values).unwrap().emit());
+                            args.extend(self.interpret_expression(&arg.value.unwrap(), values, world).unwrap().emit());
                         }
                     }
 
@@ -673,7 +684,7 @@ impl RascalVM {
     fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
         let args: Vec<_> = comp.args.iter().map(|arg| {
             let value_expr = arg.value.as_ref().unwrap();
-            self.interpret_expression(value_expr, values).unwrap()
+            self.interpret_expression(value_expr, values, world).unwrap()
         }).collect();
 
         world.trigger_event(&comp.name, args);
@@ -789,7 +800,7 @@ impl RascalVM {
                 }
 
                 SemanticChange::Print(xy, fg, bg, expr) => {
-                    let v = self.interpret_expression(&expr, &values).unwrap();
+                    let v = self.interpret_expression(&expr, &values, world).unwrap();
                     let text = rascal_value_as_string(v);
 
                     print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg));
@@ -797,7 +808,7 @@ impl RascalVM {
                 }
 
                 SemanticChange::DebugPrint(expr) => {
-                    let v = self.interpret_expression(&expr, &values).unwrap();
+                    let v = self.interpret_expression(&expr, &values, world).unwrap();
                     println!("{}", rascal_value_as_string(v));
                 }
 

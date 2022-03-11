@@ -19,7 +19,7 @@ datatype = { "bool" | "entity" | "symbol" | "num" | "text" }
 
 value = _{ bool_value | number | text_value | identifier | symbol }
 bool_value = { "true" | "false" }
-number = { ASCII_DIGIT+ }
+number = { "-"? ~ ASCII_DIGIT+ }
 text_value = { inner_text }
 inner_text = { "\"" ~ inner ~ "\"" }
 identifier = { name }
@@ -135,4 +135,4 @@ bin = _{ additive ~ (binary_relation ~ additive)* }
 additive = _{ summand ~ (additive_op ~ summand)* }
 summand = _{ factor ~ (multiplicative_op ~ factor)* }
 factor = _{ unary_op ~ "(" ~ expression ~ ")" | primary }
-primary = _{ "(" ~ expression ~ ")" | value }
+primary = _{ "(" ~ expression ~ ")" | complex_call_site | value }

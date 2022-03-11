@@ -89,6 +89,7 @@ pub trait TriggerEvent<T> {
 }
 
 pub fn send_start_event() {
+    println!("START");
     let mut world = WORLD.lock().unwrap();
 
     let main_entity = world.create_entity();

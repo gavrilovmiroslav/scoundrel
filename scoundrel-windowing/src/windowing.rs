@@ -52,8 +52,6 @@ pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: V
 
     let mut done = false;
 
-    send_start_event();
-
     while !done {
         event_loop.poll_events(|event| {
             match event {
@@ -88,6 +86,7 @@ pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: V
             let current_dir = std::env::current_dir().unwrap().to_str().unwrap().to_string() + "\\resources/data\\";
             let change_path = path.to_str().unwrap().replace(&current_dir, "");
             rebuild_world(&change_path);
+            send_start_event();
         }
 
         for sys in &pre_support_systems { sys(); }

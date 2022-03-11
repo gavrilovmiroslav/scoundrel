@@ -1,5 +1,6 @@
 use scoundrel_common::engine::rebuild_world;
 use scoundrel_common::engine_options::EngineOptions;
+use scoundrel_common::rascal::world::send_start_event;
 use scoundrel_core::core_logic;
 use scoundrel_core::engine::Engine;
 use scoundrel_windowing::windowing;
@@ -8,7 +9,9 @@ fn main() {
     let mut engine = Engine::new(EngineOptions::default());
 
     rebuild_world("example.rascal");
-    rebuild_world("move.rascal");
+    //rebuild_world("move.rascal");
+
+    send_start_event();
 
     for sys in [
         core_logic::clear_screen,
