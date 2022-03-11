@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::path::Path;
 use std::ptr::copy_nonoverlapping;
 use std::sync::Mutex;
 
 use bitmaps::Bitmap;
+use caves::{Cave, FileCave};
 use lazy_static::lazy_static;
 use priority_queue::PriorityQueue;
 use show_my_errors::{AnnotationList, Stylesheet};
@@ -10,6 +12,7 @@ use show_my_errors::{AnnotationList, Stylesheet};
 use crate::engine::{set_should_redraw, WORLD};
 use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
 use crate::rascal::vm::{num, RascalEventfulResult, RascalValue, RascalVM};
+use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
 pub(crate) type EntityId = usize;
 pub(crate) type ComponentId = String;
@@ -28,13 +31,15 @@ const ARENA_SIZE: usize =
 pub type BinaryComponent = Vec<u8>;
 
 pub struct World {
+    pub data: Box<dyn Cave>,
+    pub definitions_in_source: HashMap<String, Vec<(ComponentId, ComponentType)>>,
     pub component_names: Vec<ComponentId>,
     pub component_types: HashMap<ComponentId, ComponentType>,
     pub registered_states: HashMap<ComponentId, ComponentSignature>,
     pub registered_events: HashMap<ComponentId, ComponentSignature>,
     pub registered_tags: HashSet<ComponentId>,
     pub storage_pointers: HashMap<ComponentId, BinaryComponent>,
-    pub entity_bitmaps: Bitmap<MAX_ENTRIES_PER_STORAGE>,
+    pub entity_bitmap: Bitmap<MAX_ENTRIES_PER_STORAGE>,
     pub event_queues: HashMap<ComponentId, VecDeque<BinaryComponent>>,
     pub next_event_queues: HashMap<ComponentId, VecDeque<BinaryComponent>>,
     pub storage_bitmaps: HashMap<ComponentId, Bitmap<MAX_ENTRIES_PER_STORAGE>>,
@@ -44,13 +49,20 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         World {
+            data: if cfg!(debug_assertions) {
+                ReadonlyArchiveCave::make_from("resources/data", "resources/data.bin");
+                Box::new(FileCave::new(Path::new("resources/data")).unwrap())
+            } else {
+                Box::new(ReadonlyArchiveCave::open("resources/data.bin"))
+            },
+            definitions_in_source: HashMap::default(),
             component_names: Vec::default(),
             component_types: HashMap::default(),
             registered_states: HashMap::default(),
             registered_events: HashMap::default(),
             registered_tags: HashSet::default(),
             storage_pointers: HashMap::default(),
-            entity_bitmaps: Bitmap::new(),
+            entity_bitmap: Bitmap::new(),
             event_queues: HashMap::default(),
             next_event_queues: HashMap::default(),
             storage_bitmaps: HashMap::default(),
@@ -78,6 +90,10 @@ pub trait TriggerEvent<T> {
 
 pub fn send_start_event() {
     let mut world = WORLD.lock().unwrap();
+
+    let main_entity = world.create_entity();
+    world.add_tag(main_entity, "Main");
+
     world.trigger_event("Start", vec![ num(0) ]);
 }
 
@@ -86,6 +102,14 @@ pub fn world_contains_event(event_name: &str) -> bool {
 }
 
 impl World {
+    pub fn clear_entities(&mut self) {
+        for (_, b) in &mut self.storage_bitmaps {
+            *b = Bitmap::new();
+        }
+
+        self.entity_bitmap = Bitmap::new();
+    }
+
     pub fn contains_event(&self, event_name: &str) -> bool {
         !self.storage_bitmaps.get(&event_name.to_string()).unwrap().is_empty()
     }
@@ -146,8 +170,8 @@ impl World {
     }
 
     pub fn create_entity(&mut self) -> EntityId {
-        let index = self.entity_bitmaps.first_false_index().unwrap_or(0) as EntityId;
-        self.entity_bitmaps.set(index, true);
+        let index = self.entity_bitmap.first_false_index().unwrap_or(0) as EntityId;
+        self.entity_bitmap.set(index, true);
         index
     }
 

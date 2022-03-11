@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::ffi::c_void;
 use std::fmt::{Debug, Display, Formatter};
-use std::path::Path;
 
 use image::GenericImageView;
+
 use scoundrel_common::presentation::Presentation;
 
 pub struct Texture {
@@ -28,7 +28,7 @@ impl Error for TextureError {}
 
 impl Texture {
     pub fn load(render_options: &Presentation) -> Result<Texture, TextureError> {
-        let image = image::open(format!("data/{}", render_options.input_font.as_str())).map_err(|_| TextureError::LoadTextureFailed)?;
+        let image = image::open(format!("resources/data/{}", render_options.input_font.as_str())).map_err(|_| TextureError::LoadTextureFailed)?;
         let dimensions = image.dimensions();
         let reversed_data: Vec<u8> = image
             .to_rgba8()

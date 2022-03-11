@@ -6,7 +6,7 @@ use glutin::*;
 use glutin::dpi::LogicalSize;
 
 use scoundrel_common::engine;
-use scoundrel_common::engine::{reset_should_redraw, should_quit, should_redraw, snoop_for_data_changes, update_world};
+use scoundrel_common::engine::{get_filename_when_changed, rebuild_world, reset_should_redraw, should_quit, should_redraw, update_world};
 use scoundrel_common::keycodes::{KeyState, MouseState};
 use scoundrel_common::rascal::world::send_start_event;
 
@@ -84,8 +84,10 @@ pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: V
             }
         });
 
-        if let Some(e) = snoop_for_data_changes() {
-            println!("{:?}", e);
+        if let Some(path) = get_filename_when_changed() {
+            let current_dir = std::env::current_dir().unwrap().to_str().unwrap().to_string() + "\\resources/data\\";
+            let change_path = path.to_str().unwrap().replace(&current_dir, "");
+            rebuild_world(&change_path);
         }
 
         for sys in &pre_support_systems { sys(); }

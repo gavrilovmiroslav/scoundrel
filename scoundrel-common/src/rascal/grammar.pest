@@ -45,8 +45,8 @@ complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
 
 arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
 arg_member = _{ name_with_value | name | anonymous_with_value }
-name_with_value = { name ~ "=" ~ value }
-anonymous_with_value = { value }
+name_with_value = { name ~ "=" ~ expression }
+anonymous_with_value = { expression }
 
 owner_name = @{ name }
 comp_name = @{ name }
@@ -105,6 +105,10 @@ debug_print_statement = { "debug" ~ "print" ~ expression ~ ";" }
 on_event_clause = { "on" ~ component_call }
 with_query_clause = { "with" ~ component_call_list }
 
+bool_operation = _{ and_op | or_op }
+    and_op = { "&&" }
+    or_op = { "||" }
+
 binary_relation = _{ eq_rel | ne_rel | lt_rel | gt_rel | le_rel | ge_rel }
     eq_rel = { "==" }
     ne_rel = { "!=" }
@@ -126,7 +130,8 @@ unary_op = _{ not_op | neg_op }
     not_op = { "!" }
     neg_op = { "-" }
 
-expression = { additive ~ (binary_relation ~ additive)* }
+expression = { bin ~ (bool_operation ~ bin)* }
+bin = _{ additive ~ (binary_relation ~ additive)* }
 additive = _{ summand ~ (additive_op ~ summand)* }
 summand = _{ factor ~ (multiplicative_op ~ factor)* }
 factor = _{ unary_op ~ "(" ~ expression ~ ")" | primary }

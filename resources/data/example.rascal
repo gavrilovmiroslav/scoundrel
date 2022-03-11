@@ -21,19 +21,6 @@ on KeyPress("U", "Released")
     consume event;
 }
 
-[Move By Keyboard]
-on KeyPress(key, "Pressed")
-with .IsPlayer
-   & .IsAt(x, y)
-{
-    match key {
-        case "A": { x--; consume event; }
-        case "D": { x++; consume event; }
-        case "W": { y--; consume event; }
-        case "S": { y++; consume event; }
-    }
-}
-
 [Leave Breadcrumb]
 on KeyPress("F5", "Released")
 with .IsPlayer

@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use crate::colors::Color;
 use crate::engine::force_quit;
 use crate::glyphs::print_string_colors;
-use crate::rascal::parser::{ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
+use crate::rascal::parser::{BoolOper, ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, TriggerEvent};
 use crate::rascal::world::EntityId;
@@ -322,7 +322,7 @@ impl RascalVM {
             }
         }
 
-        'entries: for index in 0..world.entity_bitmaps.first_false_index().unwrap_or(MAX_ENTRIES_PER_STORAGE) {
+        'entries: for index in 0..world.entity_bitmap.first_false_index().unwrap_or(MAX_ENTRIES_PER_STORAGE) {
             if query_bitmap.get(index as usize) {
                 let mut values = self.get_binding_values(world, index as usize);
                 for (id, value) in &values {
@@ -378,6 +378,18 @@ impl RascalVM {
                     (Num(l), Rel::Gt, Num(r)) => Some(Bool(l > r)),
                     (lhs, Rel::Eq, rhs) => Some(Bool(lhs == rhs)),
                     (lhs, Rel::Ne, rhs) => Some(Bool(lhs != rhs)),
+                    _ => None
+                }
+            }
+
+            RascalExpression::BoolOp(a, op, b) => {
+                let ia = self.interpret_expression(a.as_ref(), values).unwrap();
+                let ib = self.interpret_expression(b.as_ref(), values).unwrap();
+
+                use RascalValue::*;
+                match (ia, op, ib) {
+                    (Bool(l), BoolOper::And, Bool(r)) => Some(Bool(l && r)),
+                    (Bool(l), BoolOper::Or, Bool(r)) => Some(Bool(l || r)),
                     _ => None
                 }
             }
@@ -627,37 +639,42 @@ impl RascalVM {
     }
 
     fn add_component(&self, world: &mut World, entity: EntityId, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
-        let comp_type = world.component_types.get(&comp.name).unwrap();
-        match comp_type {
-            ComponentType::State => {
-                let mut args = Vec::new();
+        if let Some(comp_type) = world.component_types.get(&comp.name) {
+            match comp_type {
+                ComponentType::State => {
+                    let mut args = Vec::new();
 
-                for arg in comp.args {
-                    if arg.value.is_none() {
-                        println!("State components need to have values.");
-                        return;
-                    } else {
-                        args.extend(self.interpret_expression(&arg.value.unwrap(), values).unwrap().emit());
+                    for arg in comp.args {
+                        if arg.value.is_none() {
+                            println!("State components need to have values.");
+                            return;
+                        } else {
+                            args.extend(self.interpret_expression(&arg.value.unwrap(), values).unwrap().emit());
+                        }
+                    }
+
+                    world.add_component(entity, comp.name.as_str(), args);
+                }
+                ComponentType::Tag => {
+                    if comp.modifier != ComponentModifier::Not {
+                        world.add_tag(entity, comp.name.as_str());
                     }
                 }
 
-                world.add_component(entity, comp.name.as_str(), args);
-            }
-            ComponentType::Tag => {
-                if comp.modifier != ComponentModifier::Not {
-                    world.add_tag(entity, comp.name.as_str());
+                _ => {
+                    println!("Events and systems cannot be added to spawned entities: {}", comp.name);
                 }
             }
-
-            _ => {
-                println!("Events and systems cannot be added to spawned entities: {}", comp.name);
-            }
+        } else {
+            println!("[!] {} not found.", comp.name);
         }
     }
 
     fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
-        let args: Vec<_> = comp.args.iter().map(|arg|
-            self.interpret_expression(arg.value.as_ref().unwrap(), values).unwrap()).collect();
+        let args: Vec<_> = comp.args.iter().map(|arg| {
+            let value_expr = arg.value.as_ref().unwrap();
+            self.interpret_expression(value_expr, values).unwrap()
+        }).collect();
 
         world.trigger_event(&comp.name, args);
     }
@@ -731,7 +748,7 @@ impl RascalVM {
                 SemanticChange::DestroyEntity(entity) => {
                     if let RascalValue::Entity(index) = values.get(&entity).unwrap() {
                         let index = *index as usize;
-                        world.entity_bitmaps.set(index, false);
+                        world.entity_bitmap.set(index, false);
 
                         for comp in &world.component_names {
                             let mut bitmap = world.storage_bitmaps.get_mut(comp).unwrap();
@@ -743,7 +760,7 @@ impl RascalVM {
                 SemanticChange::UpdateComponents(name, comps) => {
                     if let Some(RascalValue::Entity(index)) = values.get(&name) {
                         let index = *index;
-                        if world.entity_bitmaps.get(index) {
+                        if world.entity_bitmap.get(index) {
                             for comp in comps {
                                 match comp.modifier {
                                     ComponentModifier::Default =>

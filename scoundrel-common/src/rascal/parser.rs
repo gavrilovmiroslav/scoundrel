@@ -23,6 +23,9 @@ struct RascalParser;
 lazy_static! {
     static ref EXPR_PREC_CLIMBER: PrecClimber<Rule> = {
         PrecClimber::new(vec![
+            Operator::new(Rule::and_op, Left) |
+            Operator::new(Rule::or_op, Left),
+
             Operator::new(Rule::eq_rel, Left) |
             Operator::new(Rule::ne_rel, Left) |
             Operator::new(Rule::lt_rel, Left) |
@@ -219,6 +222,8 @@ impl SystemSignature {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum BoolOper { And, Or }
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Rel { Eq, Ne, Le, Lt, Ge, Gt }
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Op { Add, Sub, Mul, Div, Mod }
@@ -227,6 +232,7 @@ pub enum Un { Not, Neg }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum RascalExpression {
+    BoolOp(Box<RascalExpression>, BoolOper, Box<RascalExpression>),
     Relation(Box<RascalExpression>, Rel, Box<RascalExpression>),
     Binary(Box<RascalExpression>, Op, Box<RascalExpression>),
     Unary(Un, Box<RascalExpression>),
@@ -338,6 +344,9 @@ impl SystemSignature {
                         }
                     },
                     |lhs, op, rhs| match op.as_rule() {
+                        Rule::and_op => RascalExpression::BoolOp(Box::new(lhs), BoolOper::And, Box::new(rhs)),
+                        Rule::or_op => RascalExpression::BoolOp(Box::new(lhs), BoolOper::Or, Box::new(rhs)),
+
                         Rule::eq_rel => RascalExpression::Relation(Box::new(lhs), Rel::Eq, Box::new(rhs)),
                         Rule::ne_rel => RascalExpression::Relation(Box::new(lhs), Rel::Ne, Box::new(rhs)),
                         Rule::lt_rel => RascalExpression::Relation(Box::new(lhs), Rel::Lt, Box::new(rhs)),
@@ -688,9 +697,27 @@ impl RascalStruct {
             _ => true,
         }
     }
+
+    pub fn get_type(&self) -> ComponentType {
+        match self {
+            RascalStruct::State(_) => ComponentType::State,
+            RascalStruct::Event(_) => ComponentType::Event,
+            RascalStruct::Tag(_) => ComponentType::Tag,
+            RascalStruct::System(_) => ComponentType::System,
+        }
+    }
+
+    pub fn get_name(&self) -> &str {
+        match self {
+            RascalStruct::State(state) => state.name.as_str(),
+            RascalStruct::Event(event) => event.name.as_str(),
+            RascalStruct::Tag(tag) => tag,
+            RascalStruct::System(system) => system.name.as_str(),
+        }
+    }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ComponentType {
     State, Event, Tag, System
 }
@@ -712,7 +739,7 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
         (name, members)
     }
 
-    let program = RascalParser::parse(Rule::program, src).unwrap_or_else(|e| panic!("{}", e));
+    let program = RascalParser::parse(Rule::program, src.trim()).unwrap_or_else(|e| panic!("{}", e));
 
     let mut ast = Vec::new();
 

@@ -1,6 +1,5 @@
 use scoundrel_common::engine::rebuild_world;
 use scoundrel_common::engine_options::EngineOptions;
-use scoundrel_common::rascal::parser::parse_rascal;
 use scoundrel_core::core_logic;
 use scoundrel_core::engine::Engine;
 use scoundrel_windowing::windowing;
@@ -8,7 +7,8 @@ use scoundrel_windowing::windowing;
 fn main() {
     let mut engine = Engine::new(EngineOptions::default());
 
-    rebuild_world(parse_rascal(include_str!("..\\..\\data\\example.rascal").trim()));
+    rebuild_world("example.rascal");
+    rebuild_world("move.rascal");
 
     for sys in [
         core_logic::clear_screen,

@@ -10,9 +10,29 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/resources/data/move.rascal" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/readonly_archive_cave.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/data/prelude.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/data/prelude.rascal" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/config.ron" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/config.ron" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/example.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/example.rascal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/prelude.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/prelude.rascal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/presentations/8x8glyphs.ron" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/presentations/8x8glyphs.ron" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/presentations/classic_roguelike_white.ron" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/presentations/classic_roguelike_white.ron" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/textures/8x8glyphs.png" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/textures/8x8glyphs.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/textures/MRMOTEXTEX_rexpaintx2.png" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/textures/MRMOTEXTEX_rexpaintx2.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/textures/classic_roguelike_white.png" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/textures/classic_roguelike_white.png" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/Cargo.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine_options.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/texture.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/texture.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,11 +96,11 @@
       <recent name="D:\Rust\scoundrel" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\Rust\scoundrel\resources" />
       <recent name="D:\Rust\scoundrel\data" />
       <recent name="D:\Rust\scoundrel\scoundrel-common\src" />
       <recent name="D:\Rust\scoundrel\scoundrel" />
       <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs" />
-      <recent name="D:\Rust\scoundrel\scoundrel-common\src\ecs\" />
     </key>
   </component>
   <component name="RunManager">
@@ -141,7 +161,7 @@
       <workItem from="1646572275190" duration="67671000" />
       <workItem from="1646765532396" duration="20516000" />
       <workItem from="1646825137495" duration="15753000" />
-      <workItem from="1646911935463" duration="1000" />
+      <workItem from="1646911935463" duration="9836000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -297,7 +317,14 @@
       <option name="project" value="LOCAL" />
       <updated>1646701308199</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="Moved prelude to data. Added capabilities to work with color from script.">
+      <created>1646911965203</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1646911965203</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -346,6 +373,15 @@
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs</url>
+          <line>368</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
     <watches-manager>
       <configuration name="CargoCommandRunConfiguration">
         <watch expression="self-&gt;bindings.base" />

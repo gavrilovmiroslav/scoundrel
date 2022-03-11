@@ -11,13 +11,14 @@ use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher, watcher
 
 use lazy_static;
 
+use crate::engine::ChangeEvent::Write;
 use crate::engine_options::EngineOptions;
 use crate::glyphs::Glyph;
 use crate::keycodes::{ElementState, KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
-use crate::rascal::parser::{parse_rascal, RascalStruct};
-use crate::rascal::world::REGISTERED_SYSTEMS;
+use crate::rascal::parser::{ComponentType, parse_rascal, RascalStruct};
+use crate::rascal::world::{CACHED_SYSTEMS_BY_PRIORITIES, REGISTERED_SYSTEMS, send_start_event, SYSTEM_DEPENDENCIES};
 use crate::rascal::world::World;
 
 #[derive(Clone, Default)]
@@ -125,6 +126,17 @@ pub enum DataChange {
     Error(ChangeEventError, Option<PathBuf>),
 }
 
+pub fn get_filename_when_changed() -> Option<PathBuf> {
+    use DataChange::Change;
+    use ChangeEvent::Write;
+
+    if let Some(Change(Write(p))) = snoop_for_data_changes() {
+        Some(p)
+    } else {
+        None
+    }
+}
+
 pub fn snoop_for_data_changes() -> Option<DataChange> {
     use ChangeEvent::*;
     use ChangeEventError::*;
@@ -154,7 +166,7 @@ pub fn start_engine(opts: EngineOptions) {
 
     let mut presentations = PRESENTATIONS.lock().unwrap();
 
-    for maybe_file in std::fs::read_dir("./data/presentations/").unwrap() {
+    for maybe_file in std::fs::read_dir("resources/data/presentations/").unwrap() {
         if let Ok(file) = maybe_file {
             if let Ok(ron) = std::fs::read_to_string(file.path()) {
                 let maybe_config: Result<Presentation, _> = ron::from_str(ron.as_str());
@@ -174,7 +186,7 @@ pub fn start_engine(opts: EngineOptions) {
         let (tx, rx) = channel();
         *file_watcher = watcher(tx, Duration::from_secs(1)).ok();
 
-        if let Ok(_) = file_watcher.as_mut().unwrap().watch("./data", RecursiveMode::Recursive) {
+        if let Ok(_) = file_watcher.as_mut().unwrap().watch("resources/data", RecursiveMode::Recursive) {
             *WATCH_RECEIVER.lock().unwrap() = Some(rx);
         } else {
             panic!("WATCHER CAN'T WATCH THIS FOLDER!");
@@ -184,11 +196,9 @@ pub fn start_engine(opts: EngineOptions) {
     {
         let mut world = WORLD.lock().unwrap();
         world.register_component(RascalStruct::Tag("Main".to_string()));
-        let main_entity = world.create_entity();
-        world.add_tag(main_entity, "Main");
     }
 
-    rebuild_world(parse_rascal(include_str!("..\\..\\data\\prelude.rascal").trim()));
+    rebuild_world("prelude.rascal");
 }
 
 pub fn set_should_redraw() { SHOULD_REDRAW.store(true, Ordering::Release) }
@@ -209,39 +219,88 @@ fn remove_structure(world: &mut World, structure: &RascalStruct) {
     match structure {
         RascalStruct::State(state) => {
             world.registered_states.remove(&state.name);
+            world.storage_pointers.remove(&state.name);
+            world.storage_bitmaps.remove(&state.name);
         }
         RascalStruct::Event(event) => {
             world.registered_events.remove(&event.name);
+            world.event_queues.remove(&event.name);
+            world.next_event_queues.remove(&event.name);
         }
         RascalStruct::Tag(tag) => {
             world.registered_tags.remove(tag);
+            world.storage_bitmaps.remove(tag);
         }
         RascalStruct::System(sys) => {
             REGISTERED_SYSTEMS.lock().unwrap().remove(&sys.name);
+            SYSTEM_DEPENDENCIES.lock().unwrap().remove(&sys.name);
+            CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap().remove(&sys.name);
         }
     }
 }
 
-pub fn rebuild_world(ast: Vec<RascalStruct>) {
+pub fn rebuild_world(source_name: &str) {
+    println!("[========================================= REBUILDING WORLD ({}) =========================================================]", source_name);
+    let ast = parse_rascal(std::str::from_utf8(WORLD.lock().unwrap().data.get(source_name).unwrap().as_slice()).unwrap());
     use crate::rascal::world::SYSTEM_DEPENDENCIES;
     use crate::rascal::world::CACHED_SYSTEMS_BY_PRIORITIES;
 
-    let mut world = WORLD.lock().unwrap();
-    for structure in ast {
-        remove_structure(&mut world, &structure);
+    {
+        let mut world = WORLD.lock().unwrap();
 
-        if structure.is_component() {
-            world.register_component(structure);
-        } else {
-            world.register_system(structure);
+        world.clear_entities();
+
+        if world.definitions_in_source.contains_key(source_name) {
+            for (id, typ) in world.definitions_in_source.get(source_name).unwrap().clone() {
+                println!("[!] Resetting {}", id);
+                match typ {
+                    ComponentType::State => {
+                        world.component_types.remove(&id);
+                        world.registered_states.remove(&id);
+                        world.storage_bitmaps.remove(&id);
+                        world.storage_pointers.remove(&id);
+                    }
+                    ComponentType::Event => {
+                        world.component_types.remove(&id);
+                        world.registered_events.remove(&id);
+                        world.event_queues.remove(&id);
+                        world.next_event_queues.remove(&id);
+                    }
+                    ComponentType::Tag => {
+                        world.component_types.remove(&id);
+                        world.registered_tags.remove(&id);
+                        world.storage_bitmaps.remove(&id);
+                    }
+                    ComponentType::System => {
+                        REGISTERED_SYSTEMS.lock().unwrap().remove(&id);
+                    }
+                }
+            }
+
+            world.definitions_in_source.remove(source_name);
+        }
+
+        world.definitions_in_source.insert(source_name.to_string(), Vec::new());
+        for structure in ast {
+            println!("Defining {}", structure.get_name());
+            world.definitions_in_source.get_mut(source_name).unwrap().push((structure.get_name().to_string(), structure.get_type()));
+
+            if structure.is_component() {
+                world.register_component(structure);
+            } else {
+                world.register_system(structure);
+            }
+        }
+
+        let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
+        let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
+        for comp in deps.keys() {
+            cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
         }
     }
 
-    let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
-    let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
-    for comp in deps.keys() {
-        cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
-    }
+    send_start_event();
+    println!("[=========================================================================================================================]");
 }
 
 pub fn update_world() {
