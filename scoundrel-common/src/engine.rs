@@ -17,8 +17,8 @@ use crate::glyphs::Glyph;
 use crate::keycodes::{ElementState, KeyState, MouseState};
 use crate::point::Point;
 use crate::presentation::Presentation;
-use crate::rascal::parser::{ComponentType, parse_rascal, RascalStruct};
-use crate::rascal::world::{CACHED_SYSTEMS_BY_PRIORITIES, REGISTERED_SYSTEMS, send_start_event, SYSTEM_DEPENDENCIES};
+use crate::rascal::parser::{ComponentType, parse_rascal, RascalStruct, SystemPrioritySize};
+use crate::rascal::world::{CACHED_SYSTEMS_BY_PRIORITIES, REGISTERED_SYSTEMS, SYSTEM_DEPENDENCIES};
 use crate::rascal::world::World;
 
 #[derive(Clone, Default)]
@@ -44,12 +44,23 @@ impl FrameCounter {
 #[derive(Clone)]
 pub struct Screen {
     pub screen_memory: Option<Vec<Glyph>>,
+    pub symbol_depth: Vec<SystemPrioritySize>,
+    pub fg_depth: Vec<SystemPrioritySize>,
+    pub bg_depth: Vec<SystemPrioritySize>,
     pub size: (u32, u32),
+    pub limit: usize,
 }
 
 impl Screen {
     pub fn new() -> Screen {
-        Screen { screen_memory: None, size: (0, 0), }
+        Screen {
+            screen_memory: None,
+            symbol_depth: Vec::new(),
+            fg_depth: Vec::new(),
+            bg_depth: Vec::new(),
+            size: (0, 0),
+            limit: 0,
+        }
     }
 
     pub fn is_ready(&self) -> bool {
@@ -66,7 +77,24 @@ impl Screen {
 
     pub fn set_memory(&mut self, size: (u32, u32), memory: Vec<Glyph>) {
         self.size = size;
+        self.limit = (size.0 * size.1) as usize;
+
+        self.symbol_depth = Vec::with_capacity(self.limit);
+        for i in 0..self.limit { self.symbol_depth.push(0); }
+
+        self.fg_depth = Vec::with_capacity(self.limit);
+        for i in 0..self.limit { self.fg_depth.push(0); }
+
+        self.bg_depth = Vec::with_capacity(self.limit);
+        for i in 0..self.limit { self.bg_depth.push(0); }
+
         self.screen_memory = Some(memory);
+    }
+
+    pub fn reinit_depth(&mut self) {
+        for e in &mut self.symbol_depth { *e = 0; }
+        for e in &mut self.fg_depth { *e = 0; }
+        for e in &mut self.bg_depth { *e = 0; }
     }
 
     pub fn get_memory(&self) -> *const Glyph {

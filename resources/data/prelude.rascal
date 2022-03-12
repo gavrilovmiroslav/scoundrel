@@ -17,10 +17,10 @@ event MouseMove { x: num, y: num };
 on MouseMove(x, y)
 {
     print at:[20, 0] "MOUSE: " + x + ", " + y;
-    print at:[x, y] fg:[0,0,0] bg:[0,0,128] " ";
+    paint at:[x, y] bg:[0,0,128];
 }
 
-[Draw Glyphs Default Color|last]
+[Draw Glyphs Default Color|game]
 with .HasGlyph(glyph)
    & .IsAt(x, y)
    & not:.HasColor(_, _, _)
@@ -28,7 +28,7 @@ with .HasGlyph(glyph)
     print at:[x, y] glyph;
 }
 
-[Draw Glyphs With Color|last]
+[Draw Glyphs With Color|game]
 with .HasGlyph(glyph)
    & .IsAt(x, y)
    & .HasColor(h, s, v)
@@ -36,7 +36,7 @@ with .HasGlyph(glyph)
     print at:[x, y] fg:[h, s, v] glyph;
 }
 
-[FPS Counter|last]
+[FPS Counter|ui]
 on FPS(fps)
 with .UI
 {

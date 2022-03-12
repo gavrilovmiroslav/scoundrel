@@ -144,18 +144,20 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 fn render_frame(gl_context: &WindowedContext,
                 pipeline: &GlyphRenderer,) {
 
-    let screen = engine::SCREEN.read().unwrap().clone();
-    if screen.is_ready() && should_redraw() {
-        unsafe {
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+    if let screen = engine::SCREEN.read().unwrap() {
+        if screen.is_ready() && should_redraw() {
+            unsafe {
+                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            pipeline.render(screen.glyphs());
+
+            gl_context.swap_buffers().unwrap();
+            reset_should_redraw();
         }
-
-        pipeline.render(screen.glyphs());
-
-        gl_context.swap_buffers().unwrap();
-        reset_should_redraw();
     }
 
+    engine::SCREEN.write().unwrap().reinit_depth();
     engine::FRAME_COUNTER.lock().unwrap().tick();
 }

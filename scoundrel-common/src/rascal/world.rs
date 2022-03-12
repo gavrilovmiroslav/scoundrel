@@ -128,14 +128,13 @@ impl World {
         let systems = REGISTERED_SYSTEMS.lock().unwrap();
         let cached_dependencies = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
         for (event_name, dependent_systems) in &*events {
-            // dbg!("on {}", event_name);
             if *event_name == "Tick" { continue; }
             if let Some(original_event_queue) = self.event_queues.get(event_name) {
                 let mut event_queue = original_event_queue.clone();
                 let event_signature = self.registered_events.get(event_name).unwrap().clone();
                 while let Some(event) = event_queue.pop_front() {
                     for sys in cached_dependencies.get(event_name).unwrap() {
-                        // dbg!(" ! {}: {}", prio, sys);
+
                         let consume_result = vm.interpret_eventful(self,
                                               systems.get(sys).unwrap(),
                                               &event_signature, event.clone());
@@ -185,9 +184,11 @@ impl World {
             let p = self.system_priorities.get_mut(&sys.priority).unwrap();
             *p += 1;
 
-            let priority = SystemPrioritySize::MAX - match sys.priority {
+            let priority = match sys.priority {
                 SystemPriority::Default => RESERVED_FIRST_PRIORITY + *p as SystemPrioritySize,
-                SystemPriority::Last => SystemPrioritySize::MAX - *p,
+                SystemPriority::Last => (SystemPrioritySize::MAX - RESERVED_FIRST_PRIORITY) + *p,
+                SystemPriority::Game => (SystemPrioritySize::MAX - 3 * RESERVED_FIRST_PRIORITY) + *p,
+                SystemPriority::UI => (SystemPrioritySize::MAX - 2 * RESERVED_FIRST_PRIORITY) + *p,
                 SystemPriority::First => *p,
                 SystemPriority::At(level) => RESERVED_FIRST_PRIORITY + level,
             };

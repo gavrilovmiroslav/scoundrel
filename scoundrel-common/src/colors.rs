@@ -1,7 +1,7 @@
 use lazy_static::*;
 use rand::{Rng, thread_rng};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 #[no_mangle]
 #[repr(C)]
 pub struct Color {

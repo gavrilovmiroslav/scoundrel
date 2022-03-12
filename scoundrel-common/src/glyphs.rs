@@ -1,5 +1,6 @@
 use crate::colors::{BLACK, Color, GRAY};
 use crate::engine;
+use crate::rascal::parser::SystemPrioritySize;
 
 #[derive(Copy, Clone)]
 #[no_mangle]
@@ -31,56 +32,68 @@ pub fn cls() {
     }
 }
 
-pub fn print_glyph(position: (u32, u32), glyph: Glyph) {
+pub fn print_string_colors(position: (u32, u32), text: &str, fore: Color, back: Color, prio: SystemPrioritySize) {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         let mut index = screen.get_index_for_position(position).clone() as usize;
-        let mut glyphs = screen.glyphs_mut();
-        glyphs[index] = glyph;
-    }
-}
-
-pub fn print_string(position: (u32, u32), text: &str) {
-    let mut screen = engine::SCREEN.write().unwrap();
-    if screen.is_ready() {
-        let mut index = screen.get_index_for_position(position).clone() as usize;
-        let mut glyphs = screen.glyphs_mut();
-        for i in 0..text.len() { glyphs[index + i].symbol = 0; }
         for letter in text.chars() {
-            glyphs[index].symbol = letter as u32;
-            glyphs[index].foreground = *GRAY;
-            glyphs[index].background = *BLACK;
+            if screen.symbol_depth[index] <= prio {
+                screen.symbol_depth[index] = prio;
+                let mut glyphs = screen.glyphs_mut();
+                glyphs[index].symbol = letter as u32;
+            }
+
+            if screen.fg_depth[index] <= prio {
+                screen.fg_depth[index] = prio;
+                let mut glyphs = screen.glyphs_mut();
+                glyphs[index].foreground = fore;
+            }
+
+            if screen.bg_depth[index] <= prio {
+                screen.bg_depth[index] = prio;
+                let mut glyphs = screen.glyphs_mut();
+                glyphs[index].background = back;
+            }
+
             index += 1;
         }
     }
 }
 
-pub fn print_string_color(position: (u32, u32), text: &str, fore: Color) {
+pub fn paint_tile(position: (u32, u32), fore: Option<Color>, back: Option<Color>, prio: SystemPrioritySize) {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         let mut index = screen.get_index_for_position(position).clone() as usize;
-        let mut glyphs = screen.glyphs_mut();
-        for i in 0..text.len() { glyphs[index + i].symbol = 0; }
-        for letter in text.chars() {
-            glyphs[index].symbol = letter as u32;
-            glyphs[index].foreground = fore;
-            index += 1;
+
+        if fore.is_some() && screen.fg_depth[index] <= prio {
+            screen.fg_depth[index] = prio;
+            let mut glyphs = screen.glyphs_mut();
+            glyphs[index].foreground = fore.unwrap();
+        }
+
+        if back.is_some() && screen.bg_depth[index] <= prio {
+            screen.bg_depth[index] = prio;
+            let mut glyphs = screen.glyphs_mut();
+            glyphs[index].background = back.unwrap();
         }
     }
 }
 
-pub fn print_string_colors(position: (u32, u32), text: &str, fore: Color, back: Color) {
+pub fn paint_all_tiles(fore: Option<Color>, back: Option<Color>) {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
-        let mut index = screen.get_index_for_position(position).clone() as usize;
-        let mut glyphs = screen.glyphs_mut();
-        for i in 0..text.len() { glyphs[index + i].symbol = 0; }
-        for letter in text.chars() {
-            glyphs[index].symbol = letter as u32;
-            glyphs[index].foreground = fore;
-            glyphs[index].background = back;
-            index += 1;
+        if fore.is_some() {
+            let fg = fore.unwrap();
+            for glyph in screen.glyphs_mut() {
+                glyph.foreground = fg;
+            }
+        }
+
+        if back.is_some() {
+            let bg = back.unwrap();
+            for glyph in screen.glyphs_mut() {
+                glyph.foreground = bg;
+            }
         }
     }
-
 }

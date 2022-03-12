@@ -44,9 +44,7 @@ simple_call_site = { name ~ component_arg_list? }
 complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
 
 arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
-arg_member = _{ name_with_value | name | anonymous_with_value }
-name_with_value = { name ~ "=" ~ expression }
-anonymous_with_value = { expression }
+arg_member = { expression }
 
 owner_name = @{ name }
 comp_name = @{ name }
@@ -55,7 +53,7 @@ comp_name = @{ name }
 system_title = { "[" ~ system_title_name ~ ("|" ~ system_priority)? ~ "]" }
 system_title_name = @{ (ASCII_ALPHANUMERIC | "_" | "@" | " ")+ }
 system_priority = { priority }
-priority = { number | "last" | "first" }
+priority = { number | "last" | "first" | "game" | "ui" }
 system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }
 
 block = { "{" ~ statements ~ "}" }
@@ -67,6 +65,7 @@ statement = _{
     spawn_statement | destroy_statement |
     update_statement | trigger_statement |
     consume_statement | print_statement |
+    paint_statement |
     debug_statement | quit_statement
 }
 
@@ -94,6 +93,7 @@ destroy_statement = { "destroy" ~ identifier ~ ";" }
 update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" }
 trigger_statement = { "trigger" ~ call_site ~ ";" }
 print_statement = { "print" ~ position? ~ foreground? ~ background? ~ expression ~ ";" }
+paint_statement = { "paint" ~ position? ~ foreground? ~ background? ~ ";" }
 quit_statement = { "quit" ~ ";" }
 
 position = { "at:[" ~ expression ~ "," ~ expression ~ "]" }

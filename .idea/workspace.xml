@@ -13,11 +13,15 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/resources/data.bin" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/resources/data/example.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/example.rascal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/resources/data/prelude.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/prelude.rascal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/colors.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/engine.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/glyphs.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-windowing/src/windowing.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -105,6 +109,11 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
   </component>
   <component name="RustProjectSettings">
     <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
@@ -142,6 +151,7 @@
       <workItem from="1646765532396" duration="20516000" />
       <workItem from="1646825137495" duration="15753000" />
       <workItem from="1646911935463" duration="9836000" />
+      <workItem from="1647091093685" duration="12797000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -320,6 +330,7 @@
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
   </component>
   <component name="VcsManagerConfiguration">
     <ignored-roots>

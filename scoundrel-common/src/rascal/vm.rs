@@ -8,9 +8,9 @@ use bitmaps::*;
 use lazy_static::lazy_static;
 
 use crate::colors::Color;
-use crate::engine::{force_quit, WORLD};
-use crate::glyphs::print_string_colors;
-use crate::rascal::parser::{BoolOper, ComponentArgument, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalStatement, Rel, SystemSignature, Un};
+use crate::engine::force_quit;
+use crate::glyphs::{paint_all_tiles, paint_tile, print_string_colors};
+use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, TriggerEvent};
 use crate::rascal::world::EntityId;
@@ -109,6 +109,12 @@ impl RascalValue {
 }
 
 #[derive(Debug)]
+pub enum Position {
+    All,
+    At((u32, u32)),
+}
+
+#[derive(Debug)]
 pub enum SemanticChange {
     ValueAssign(String, RascalValue),
     ValueInc(String, RascalValue),
@@ -118,6 +124,7 @@ pub enum SemanticChange {
     UpdateComponents(String, Vec<ComponentCallSite>),
     TriggerEvent(ComponentCallSite),
     ConsumeEvent,
+    Paint(Position, Option<Color>, Option<Color>),
     Print((u32, u32), (u8, u8, u8), (u8, u8, u8), RascalExpression),
     DebugPrint(RascalExpression),
     Quit,
@@ -213,38 +220,23 @@ impl RascalVM {
     }
 
 
-    fn update_equality(&mut self, system_name: &String, world: &World, arg: &ComponentArgument,
+    fn update_equality(&mut self, system_name: &String, world: &World, arg: &Option<RascalExpression>,
                        id: &MemberId, comp_signature: &ComponentSignature) {
-        if arg.name != "_" {
-            self.bindings.insert(arg.name.clone(), (comp_signature.name.clone(), id.clone()));
 
-            if arg.value.is_some() {
-                self.equalities.insert(arg.name.clone(), EqualityWith::Value(arg.value.clone().unwrap()));
-            }
-        } else {
-            let new_id = format!("${}_{}", arg.name, BINDING_COUNTER.fetch_add(1, Ordering::SeqCst));
-            self.bindings.insert(new_id.clone(), (comp_signature.name.clone(), id.clone()));
-
-            let is_alias = arg.name != "_" && self.bindings.contains_key(&arg.name);
-
-            if is_alias {
-                self.equalities.insert(new_id.clone(), EqualityWith::Alias(arg.name.clone()));
-            } else if arg.value.is_some() {
-                self.equalities.insert(new_id.clone(), EqualityWith::Value(arg.value.clone().unwrap()));
-            }
-
-            if is_alias {
-                if self.check_latest_equality(&system_name, world, (new_id, EqualityWith::Alias(arg.name.clone()))).is_err() {
-                    println!("[System {}] Quitting due to equality errors.", system_name);
-                    return;
+        if let Some(RascalExpression::Identifier(var_id)) = arg {
+            if var_id != "_" {
+                if !self.bindings.contains_key(var_id) {
+                    self.bindings.insert(var_id.clone(), (comp_signature.name.clone(), id.clone()));
+                } else {
+                    let new_id = format!("${}_{}", id, BINDING_COUNTER.fetch_add(1, Ordering::SeqCst));
+                    self.bindings.insert(new_id.clone(), (comp_signature.name.clone(), id.clone()));
+                    self.equalities.insert(new_id.clone(), EqualityWith::Alias(var_id.to_string()));
                 }
             }
-        }
-
-        if world.component_types.get(&comp_signature.name) == Some(&ComponentType::Event) {
-            if arg.name != "_" {
-                self.push_values.push(arg.name.clone());
-            }
+        } else if let Some(expr) = arg {
+            let new_id = format!("${}_{}", id, BINDING_COUNTER.fetch_add(1, Ordering::SeqCst));
+            self.bindings.insert(new_id.clone(), (comp_signature.name.clone(), id.clone()));
+            self.equalities.insert(new_id.clone(), EqualityWith::Value(expr.clone()));
         }
     }
 
@@ -458,7 +450,8 @@ impl RascalVM {
                 Some(values.get(ident).unwrap().clone())
             }
             RascalExpression::Tag(c) => {
-                if let RascalValue::Entity(index) = values.get("_").unwrap() {
+                let owner = if c.is_owned { c.owner.as_ref().unwrap().as_str() } else { "_" };
+                if let RascalValue::Entity(index) = values.get(owner).unwrap() {
                     assert_eq!(c.args.len(), 0);
                     let storage = world.storage_bitmaps.get(&*c.name).unwrap().clone();
                     Some(RascalValue::Bool(storage.get(*index)))
@@ -471,6 +464,31 @@ impl RascalVM {
                 None
             }
         }
+    }
+
+    fn interpret_position_expression(&self, point: Option<RascalGlyphPosition>, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<(u32, u32)> {
+        if let Some(position) = point {
+            let x = self.interpret_expression(&position.0, values, world).unwrap();
+            let y = self.interpret_expression(&position.1, values, world).unwrap();
+            if let RascalValue::Num(x) = x {
+                if let RascalValue::Num(y) = y {
+                    return Some((x as u32, y as u32));
+                }
+            }
+            None
+        } else {
+            None
+        }
+    }
+
+    fn interpret_color_expression(&self, color: Option<RascalGlyphColor>, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<(u8, u8, u8)> {
+        if let Some(clr) = color {
+            let h = self.interpret_expression(&clr.0, values, world).unwrap();
+            let s = self.interpret_expression(&clr.1, values, world).unwrap();
+            let v = self.interpret_expression(&clr.2, values, world).unwrap();
+
+            Some((h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(255) as u8))
+        } else { None }
     }
 
     fn interpret_statement(&self, statement: &RascalStatement, values: &HashMap<String, RascalValue>, world: &mut World) -> Vec<SemanticChange> {
@@ -553,29 +571,24 @@ impl RascalVM {
                 }
             }
 
+            RascalStatement::Paint(position, foreground, background) => {
+                let paint_all = position.is_none();
+
+                let fg = self.interpret_color_expression(foreground.clone(), values, world);
+                let bg = self.interpret_color_expression(background.clone(), values, world);
+
+                if paint_all {
+                    result.push(SemanticChange::Paint(Position::All, fg.map(|f| Color::from(f)), bg.map(|b| Color::from(b))));
+                } else {
+                    let position = self.interpret_position_expression(position.clone(), values, world).unwrap();
+                    result.push(SemanticChange::Paint(Position::At(position), fg.map(|f| Color::from(f)), bg.map(|b| Color::from(b))));
+                }
+            }
+
             RascalStatement::Print(position, foreground, background,e) => {
-                let xy = {
-                    let x = self.interpret_expression(&position.0, values, world).unwrap();
-                    let y = self.interpret_expression(&position.1, values, world).unwrap();
-
-                    (x.as_num().unwrap_or(0) as u32, y.as_num().unwrap_or(0) as u32)
-                };
-
-                let fg = {
-                    let h = self.interpret_expression(&foreground.0, values, world).unwrap();
-                    let s = self.interpret_expression(&foreground.1, values, world).unwrap();
-                    let v = self.interpret_expression(&foreground.2, values, world).unwrap();
-
-                    (h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(255) as u8)
-                };
-
-                let bg = {
-                    let h = self.interpret_expression(&background.0, values, world).unwrap();
-                    let s = self.interpret_expression(&background.1, values, world).unwrap();
-                    let v = self.interpret_expression(&background.2, values, world).unwrap();
-
-                    (h.as_num().unwrap_or(0) as u8, s.as_num().unwrap_or(0) as u8, v.as_num().unwrap_or(0) as u8)
-                };
+                let xy = self.interpret_position_expression(Some(position.clone()), values, world).unwrap();
+                let fg = self.interpret_color_expression(Some(foreground.clone()), values, world).unwrap_or((0, 0, 255));
+                let bg = self.interpret_color_expression(Some(background.clone()), values, world).unwrap_or((0, 0, 0));
 
                 result.push(SemanticChange::Print(xy, fg, bg, e.clone()));
             }
@@ -656,12 +669,7 @@ impl RascalVM {
                     let mut args = Vec::new();
 
                     for arg in comp.args {
-                        if arg.value.is_none() {
-                            println!("State components need to have values.");
-                            return;
-                        } else {
-                            args.extend(self.interpret_expression(&arg.value.unwrap(), values, world).unwrap().emit());
-                        }
+                        args.extend(self.interpret_expression(&arg.unwrap(), values, world).unwrap().emit());
                     }
 
                     world.add_component(entity, comp.name.as_str(), args);
@@ -683,7 +691,7 @@ impl RascalVM {
 
     fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
         let args: Vec<_> = comp.args.iter().map(|arg| {
-            let value_expr = arg.value.as_ref().unwrap();
+            let value_expr = arg.as_ref().unwrap();
             self.interpret_expression(value_expr, values, world).unwrap()
         }).collect();
 
@@ -799,11 +807,26 @@ impl RascalVM {
                     self.event_consumed = true;
                 }
 
+                SemanticChange::Paint(pos, fg, bg) => {
+                    match pos {
+                        Position::All => {
+                            paint_all_tiles(fg, bg);
+                        }
+
+                        Position::At(xy) => {
+                            paint_tile(xy, fg, bg, self.current_system.as_ref().unwrap().real_priority);
+                        }
+                    }
+                    self.something_printed = true;
+                }
+
                 SemanticChange::Print(xy, fg, bg, expr) => {
                     let v = self.interpret_expression(&expr, &values, world).unwrap();
                     let text = rascal_value_as_string(v);
 
-                    print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg));
+                    print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg),
+                                        self.current_system.as_ref().unwrap().real_priority);
+
                     self.something_printed = true;
                 }
 

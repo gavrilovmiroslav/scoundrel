@@ -134,22 +134,6 @@ impl Debug for ComponentSignature {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct ComponentArgument {
-    pub name: String,
-    pub value: Option<RascalExpression>,
-}
-
-impl ComponentArgument {
-    pub fn simple(name: String) -> Self {
-        Self { name, value: None }
-    }
-
-    pub fn new(name: String, value: Option<RascalExpression>) -> Self {
-        Self { name, value }
-    }
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum ComponentModifier {
     Default,
     Not,
@@ -162,15 +146,10 @@ pub struct ComponentCallSite {
     pub is_owned: bool,
     pub owner: Option<String>,
     pub name: String,
-    pub args: Vec<ComponentArgument>,
+    pub args: Vec<Option<RascalExpression>>,
 }
 
 impl ComponentCallSite {
-    pub fn simple(name: String, args: Vec<String>) -> Self {
-        ComponentCallSite{ modifier: ComponentModifier::Default, is_owned: false, owner: None, name,
-            args: args.iter().map(|a| ComponentArgument::simple(a.clone())).collect() }
-    }
-
     pub fn negated(self) -> Self {
         let is_owned = self.is_owned;
         let owner = self.owner;
@@ -195,6 +174,8 @@ pub enum SystemPriority {
     Default,
     Last,
     First,
+    Game,
+    UI,
     At(SystemPrioritySize),
 }
 
@@ -263,6 +244,9 @@ pub enum RascalStatement {
     Destroy(RascalIdentifier),
     Update(RascalIdentifier, Vec<ComponentCallSite>),
     Trigger(ComponentCallSite),
+    Paint(Option<RascalGlyphPosition>,
+          Option<RascalGlyphColor>,
+          Option<RascalGlyphColor>),
     Print(RascalGlyphPosition,
           RascalGlyphColor,
           RascalGlyphColor,
@@ -286,8 +270,7 @@ impl SystemSignature {
             is_owned: false,
             owner: None,
             name,
-            args: args.iter().map(|(name, args)|
-                ComponentArgument::new(name.clone(), args.clone())).collect()
+            args,
         })
     }
 
@@ -300,10 +283,7 @@ impl SystemSignature {
         let (name, args) = Self::parse_name_and_args(call);
 
         Some(ComponentCallSite{ modifier: ComponentModifier::Default, is_owned: true, owner,
-            name: name.to_string(),
-            args: args.iter()
-                .map(|(name, value)|
-                    ComponentArgument::new(name.clone(), value.clone())).collect() })
+            name: name.to_string(), args })
     }
 
     fn parse_expression(exprs: TokenType) -> Option<RascalExpression> {
@@ -390,31 +370,13 @@ impl SystemSignature {
         }
     }
 
-    fn parse_name_and_args(mut name_args: Pairs<Rule>) -> (String, Vec<(String, Option<RascalExpression>)>) {
+    fn parse_name_and_args(mut name_args: Pairs<Rule>) -> (String, Vec<Option<RascalExpression>>) {
         let name = name_args.next().unwrap().as_str();
         let mut collected_args = Vec::new();
 
         if let Some(_) = name_args.peek() {
             for arg in name_args.next().unwrap().into_inner() {
-                collected_args.push(match arg.as_rule() {
-                    Rule::name_with_value => {
-                        let mut name_value = arg.into_inner();
-                        let name = name_value.next().unwrap().as_str();
-                        let value = Self::parse_expression(TokenType::NonTerm(name_value));
-                        (name.to_string(), value)
-                    }
-                    Rule::anonymous_with_value => {
-                        let value = Self::parse_expression(TokenType::NonTerm(arg.into_inner()));
-                        ("_".to_string(), value)
-                    }
-                    Rule::name => {
-                        (arg.as_str().to_string(), None)
-                    }
-                    _ => {
-                        println!("{:?}", arg.as_rule());
-                        panic!("parse_name_and_args!");
-                    }
-                });
+                collected_args.push(Self::parse_expression(TokenType::NonTerm(arg.into_inner())));
             }
         }
 
@@ -462,6 +424,35 @@ impl SystemSignature {
         }
 
         clauses
+    }
+
+    fn parse_position_expression(rule: &mut Pairs<Rule>) -> Option<(RascalExpression, RascalExpression)> {
+        if let Rule::position = rule.peek().unwrap().as_rule() {
+            let mut pos_rule = rule.next().unwrap().into_inner();
+            println!("Pos rule: {:?}", pos_rule.as_str());
+            let x = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
+            let y = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
+            Some((x, y))
+        } else {
+            None
+        }
+    }
+
+    fn parse_color_expression(kind: Rule, rule: &mut Pairs<Rule>) -> Option<(RascalExpression, RascalExpression, RascalExpression)> {
+        match rule.peek() {
+            Some(r) if r.as_rule() == kind => {
+                let mut fg_rule = rule.next().unwrap().into_inner();
+                println!("Color rule [fg]: {:?}", fg_rule.as_str());
+                let h = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                let s = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                let v = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                Some((h, s, v))
+            }
+
+            _ => {
+                None
+            }
+        }
     }
 
     fn parse_statement(statement: Pair<Rule>) -> Vec<RascalStatement> {
@@ -555,36 +546,31 @@ impl SystemSignature {
                 result.push(RascalStatement::ConsumeEvent);
             }
 
+            Rule::paint_statement => {
+                let mut paint_statement = statement.into_inner();
+                let position = Self::parse_position_expression(&mut paint_statement);
+                let foreground = Self::parse_color_expression(Rule::foreground, &mut paint_statement);
+                let background = Self::parse_color_expression(Rule::background, &mut paint_statement);
+
+                if foreground.is_none() && background.is_none() {
+                    panic!("Both foreground and background are none.");
+                }
+                result.push(RascalStatement::Paint(position, foreground, background));
+            }
+
             Rule::print_statement => {
                 let mut print_statement = statement.into_inner();
-                let position = if let Rule::position = print_statement.peek().unwrap().as_rule() {
-                    let mut pos_rule = print_statement.next().unwrap().into_inner();
-                    let x = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
-                    let y = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
-                    (x, y)
-                } else {
+                let position = Self::parse_position_expression(&mut print_statement).unwrap_or(
                     (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
-                };
+                );
 
-                let foreground = if let Rule::foreground = print_statement.peek().unwrap().as_rule() {
-                    let mut fg_rule = print_statement.next().unwrap().into_inner();
-                    let h = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
-                    let s = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
-                    let v = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
-                    (h, s, v)
-                } else {
+                let foreground = Self::parse_color_expression(Rule::foreground, &mut print_statement).unwrap_or(
                     (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(255))
-                };
+                );
 
-                let background = if let Rule::background = print_statement.peek().unwrap().as_rule() {
-                    let mut bg_rule = print_statement.next().unwrap().into_inner();
-                    let h = SystemSignature::parse_expression(NonTerm(bg_rule.next().unwrap().into_inner())).unwrap();
-                    let s = SystemSignature::parse_expression(NonTerm(bg_rule.next().unwrap().into_inner())).unwrap();
-                    let v = SystemSignature::parse_expression(NonTerm(bg_rule.next().unwrap().into_inner())).unwrap();
-                    (h, s, v)
-                } else {
+                let background = Self::parse_color_expression(Rule::background, &mut print_statement).unwrap_or(
                     (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
-                };
+                );
 
                 if let Some(expr) = SystemSignature::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
                     result.push(RascalStatement::Print(position, foreground, background, expr));
@@ -650,6 +636,8 @@ impl SystemSignature {
         let priority = system_title.next().map(|p| match p.as_str() {
             "last" => SystemPriority::Last,
             "first" => SystemPriority::Default,
+            "game" => SystemPriority::Game,
+            "ui" => SystemPriority::UI,
             num => {
                 if let Ok(v) = num.parse::<SystemPrioritySize>() {
                     SystemPriority::At(v)

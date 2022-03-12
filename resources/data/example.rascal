@@ -1,19 +1,17 @@
-event CheckCollision { x: num, y: num, velX: num, velY: num};
-event CheckMovables { x: num, y: num, velX: num, velY: num};
+event CheckCollision { x: num, y: num, velX: num, velY: num };
+event CheckMovables { x: num, y: num, velX: num, velY: num };
 
 tag IsMovable;
 
 [Spawn Player On Start]
 on Start
 {
-debug print "Start ID: " + _;
+    debug print "Start ID: " + _;
     spawn player with IsPlayer
-                    & IsAt(x=10, y=10)
-                    & HasGlyph(glyph='@')
-                    & HasColor(hue=255, sat=255, val=255);
-
+        & IsAt(10, 10)
+        & HasGlyph('@')
+        & HasColor(255, 255, 255);
 }
-
 
 [Exit On Escape Key|first]
 on KeyPress("Escape", "Released")
@@ -31,49 +29,35 @@ on KeyPress("U", "Released")
 
 [Check Collision with movable obstacles]
 on CheckCollision(x, y, velX, velY)
-with not:.IsPlayer
-& .IsAt(px, py)
+with not:.IsPlayer & .IsAt(px, py)
 {
-    if ((px - velX) == x)
-    {
-        if ((py - velY) == y)
-        {
-            if (_.IsMovable)
-            {
-                debug print "Collision with movables" + _;
-                trigger CheckMovables(x=x,y=y,velX=velX,velY=velY);            
-            }
-            else
-            {
-                consume event;
-            }
-        } 
+    if px - velX == x && py - velY == y {
+        if _.IsMovable {
+            debug print "Collision with movables" + _;
+            trigger CheckMovables(x, y, velX, velY);
+        } else {
+            consume event;
+        }
     }
 }
 
 [Move Player After Collision Check|last]
 on CheckCollision(x, y, velX, velY)
-with .IsPlayer
-& .IsAt(px, py)
+with .IsPlayer & .IsAt(px, py)
 {
-    px = (x + velX);
-    py = (y + velY);
+    px = x + velX;
+    py = y + velY;
 }
 
 [Check Movables]
 on CheckMovables(x, y, velX, velY)
-with .IsAt(px, py)
-& .IsMovable
+with .IsAt(px, py) & .IsMovable
 {
-    if ((px - velX) == x)
-    {
-        if ((py - velY) == y)
-        {
+    if px - velX == x && py - velY == y {
         debug print "Moving movable" + _;
-            px += velX;
-            py += velY;
-            consume event;
-        }
+        px += velX;
+        py += velY;
+        consume event;
     }
 }
 
@@ -83,10 +67,10 @@ with .IsPlayer
    & .IsAt(x, y)
 {
     match key {
-        case "A": { trigger CheckCollision(x=x, y=y, velX = (0-1), velY = 0); consume event; }
-        case "D": { trigger CheckCollision(x=x, y=y, velX = 1, velY = 0); consume event; }
-        case "W": { trigger CheckCollision(x=x, y=y, velX = 0, velY = (0-1)); consume event; }
-        case "S": { trigger CheckCollision(x=x, y=y, velX = 0, velY = 1); consume event; }
+        case "A": { trigger CheckCollision(x, y, -1, 0); consume event; }
+        case "D": { trigger CheckCollision(x, y, 1, 0); consume event; }
+        case "W": { trigger CheckCollision(x, y, 0, -1); consume event; }
+        case "S": { trigger CheckCollision(x, y, 0, 1); consume event; }
     }
     
 }
@@ -96,7 +80,7 @@ on KeyPress("F5", "Released")
 with .IsPlayer
    & .IsAt(x, y)
 {
-    spawn crumb with IsAt(x=x, y=y) & HasGlyph(glyph='t') & IsMovable;
+    spawn crumb with IsAt(x, y) & HasGlyph('t') & IsMovable;
     debug print "Crumb:" + crumb;
     debug print "ID:" + _;
     consume event;
