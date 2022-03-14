@@ -51,7 +51,7 @@ comp_name = @{ name }
 // systems
 
 system_title = { "[" ~ system_title_name ~ ("|" ~ system_priority)? ~ "]" }
-system_title_name = @{ (ASCII_ALPHANUMERIC | "_" | "@" | " ")+ }
+system_title_name = @{ (ASCII_ALPHANUMERIC | "_" | "@" | " " | ":" | "-" | "," | ".")+ }
 system_priority = { priority }
 priority = { number | "last" | "first" | "game" | "ui" }
 system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }

@@ -36,7 +36,11 @@ pub fn print_string_colors(position: (u32, u32), text: &str, fore: Color, back: 
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         let mut index = screen.get_index_for_position(position).clone() as usize;
+
         for letter in text.chars() {
+            if index < 0 { return; }
+            if index >= screen.limit { return; }
+
             if screen.symbol_depth[index] <= prio {
                 screen.symbol_depth[index] = prio;
                 let mut glyphs = screen.glyphs_mut();
@@ -64,6 +68,8 @@ pub fn paint_tile(position: (u32, u32), fore: Option<Color>, back: Option<Color>
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         let mut index = screen.get_index_for_position(position).clone() as usize;
+        if index < 0 { return; }
+        if index >= screen.limit { return; }
 
         if fore.is_some() && screen.fg_depth[index] <= prio {
             screen.fg_depth[index] = prio;

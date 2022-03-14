@@ -1,0 +1,140 @@
+
+tag IsWall;
+tag IsMovable;
+tag IsGoal;
+
+state HasScore { score: num };
+
+event MoveIntent { who: entity, force: bool, x: num, y: num };
+event PushIntent { who: entity, what: entity, x: num, y: num };
+event BoxInGoal { box: entity, goal: entity, x: num, y: num };
+
+
+
+[Helper: Create Box]
+on KeyPress("F5", "Released")
+with .IsPlayer & .IsAt(x, y)
+{
+    spawn box with IsAt(x, y) & HasGlyph('}') & HasColor(128, 255, 255) & IsMovable;
+    consume event;
+}
+
+[Helper: Create Wall]
+on KeyPress("F6", "Released")
+with .IsPlayer & .IsAt(x, y)
+{
+    spawn wall with IsWall & IsAt(x, y) & HasGlyph('#');
+    consume event;
+}
+
+[Helper: Create Goal]
+on KeyPress("F7", "Released")
+with .IsPlayer & .IsAt(x, y)
+{
+    spawn goal with IsGoal & IsAt(x, y) & HasGlyph('>');
+    consume event;
+}
+
+
+
+[Spawn Player On Start]
+on Start
+{
+    spawn player with IsPlayer & IsAt(10, 10) & HasGlyph('@') & HasColor(0, 0, 255) & HasScore(0);
+}
+
+[Spawn Walls on Start|first]
+on Start
+{
+    spawn wall with IsWall & IsAt(13, 10) & HasGlyph('#');
+}
+
+
+
+[Show Score|ui]
+with .HasScore(score) {
+    print "SCORE: " + score;
+}
+
+[Move By Keyboard|first]
+on KeyPress(key, "Pressed")
+with e.IsPlayer
+   & e.IsAt(x, y)
+{
+    match key {
+        case "A": { trigger MoveIntent(e, true, x-1, y); consume event; }
+        case "D": { trigger MoveIntent(e, true, x+1, y); consume event; }
+        case "W": { trigger MoveIntent(e, true, x, y-1); consume event; }
+        case "S": { trigger MoveIntent(e, true, x, y+1); consume event; }
+    }
+}
+
+
+
+[Move Intent: Stopped By Immovable Objects]
+on MoveIntent(@, _, x, y)
+with w.IsWall & w.IsAt(x, y)
+{
+    consume event;
+}
+
+[Move Intent: Accepted|last]
+on MoveIntent(@, _, x, y)
+with @.IsAt(ox, oy)
+{
+    ox = x; oy = y;
+    consume event;
+}
+
+[Move Intent: Pushing Boxes]
+on MoveIntent(@, force, x, y)
+with box.IsMovable & box.IsAt(x, y)
+{
+    consume event;
+    if force {
+        trigger PushIntent(@, box, x, y);
+    }
+}
+
+[Move Intent: Box Enters Goal]
+on MoveIntent(@, _, x, y)
+with g.IsGoal & g.IsAt(x, y)
+{
+    if @.IsMovable {
+        trigger BoxInGoal(@, g, x, y);
+    }
+}
+
+
+
+[Push Intent: Progress|last]
+on PushIntent(@, box, x, y)
+with @.IsAt(px, py)
+{
+    trigger MoveIntent(box, false, x + (x - px), y + (y - py));
+    trigger MoveIntent(@, false, x, y);
+    consume event;
+}
+
+[Push Intent: Stopped By Immovable Objects]
+on PushIntent(@, box, x, y)
+with w.IsWall & w.IsAt(x, y)
+{
+    consume event;
+}
+
+
+
+[Box In Goal: Update Graphics]
+on BoxInGoal(box, goal, x, y)
+{
+    update goal with not:IsGoal & not:HasGlyph & IsWall;
+    update box with IsWall & not:IsMovable & HasColor(70, 255, 255);
+}
+
+[Box In Goal: Update Score|last]
+on BoxInGoal(_, _, x, y)
+with _.HasScore(score)
+{
+    score += 1;
+}

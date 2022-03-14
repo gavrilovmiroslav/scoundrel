@@ -35,6 +35,15 @@ pub enum RascalValue {
 }
 
 impl RascalValue {
+    pub fn same_optic(a: RascalValue, b: RascalValue) -> bool {
+        use RascalValue::*;
+        match (a, b) {
+            (Num(x), Entity(y)) if (x as usize) == y => true,
+            (Entity(x), Num(y)) if (y as usize) == x => true,
+            (x, y) => x == y
+        }
+    }
+
     pub fn as_num(&self) -> Option<i32> {
         if let RascalValue::Num(v) = self {
             Some(*v)
@@ -245,6 +254,7 @@ impl RascalVM {
 
         for (name, (component, member)) in &self.bindings {
             let mut is_event = false;
+            if *component == "" { continue; }
             let comp_signature = match world.component_types.get(component).unwrap() {
                 ComponentType::State => world.registered_states.get(component).unwrap(),
                 ComponentType::Event => { is_event = true; world.registered_events.get(component).unwrap() },
@@ -317,14 +327,67 @@ impl RascalVM {
         'entries: for index in 0..world.entity_bitmap.first_false_index().unwrap_or(MAX_ENTRIES_PER_STORAGE) {
             if query_bitmap.get(index as usize) {
                 let mut values = self.get_binding_values(world, index as usize);
-                for (id, value) in &values {
-                    if self.equalities.contains_key(id) {
-                        if let EqualityWith::Value(expr) = self.equalities.get(id).unwrap() {
-                            if let Some(expr_resolved) = self.interpret_expression(expr, &values, world) {
-                                if *value != expr_resolved {
+
+/*
+                    println!("[PRE] System {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                         self.current_system.as_ref().unwrap().name,
+                         values, self.bindings, self.equalities);
+*/
+
+                values.insert("_".to_string(), RascalValue::Entity(index));
+
+                match &owner {
+                    None => { values.insert("_".to_string(), RascalValue::Entity(index)); }
+                    Some(name) if name.trim() == "" => { values.insert("_".to_string(), RascalValue::Entity(index)); }
+                    Some(name) => {
+                        if values.contains_key(name) {
+                            let cached_value = values.get(name).unwrap();
+                            if !RascalValue::same_optic(cached_value.clone(), RascalValue::Entity(index)) {
+                                continue 'entries;
+                            }
+                        }
+                        values.insert(name.clone(), RascalValue::Entity(index));
+                        self.bindings.insert(name.clone(), ("".to_string(), "<owner>".to_string()));
+                        if self.equalities.contains_key(name) {
+                            match self.equalities.get(name).unwrap() {
+                                EqualityWith::Value(RascalExpression::NumLiteral(x)) if (*x as usize) != index => {
                                     continue 'entries;
                                 }
+                                _ => {}
                             }
+                        }
+                        self.equalities.insert(name.clone(), EqualityWith::Value(RascalExpression::NumLiteral(index as i32)));
+                    }
+                };
+
+/*
+                    println!("[POST] System {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                         self.current_system.as_ref().unwrap().name,
+                         values, self.bindings, self.equalities);
+*/
+
+                for (id, value) in &values {
+                    if self.equalities.contains_key(id) {
+                        match self.equalities.get(id) {
+                            Some(EqualityWith::Value(expr)) => {
+                                if let Some(expr_resolved) = self.interpret_expression(expr, &values, world) {
+                                    if !RascalValue::same_optic(value.clone(), expr_resolved) {
+                                        continue 'entries;
+                                    }
+                                }
+                            }
+
+                            Some(EqualityWith::Alias(alias)) => {
+                                if let Some(alias_value) = values.get(alias) {
+                                    //println!("ALIAS EQ: {:?} == {:?}", value, alias_value);
+                                    if !RascalValue::same_optic(value.clone(), alias_value.clone()) {
+                                        //println!("  JUMPING OVER, NOT SAME!");
+                                        continue 'entries;
+                                    }
+                                }
+                            }
+
+                            None => {}
                         }
                     }
                 }
@@ -343,14 +406,6 @@ impl RascalVM {
                     }
                 }
 
-                values.insert("_".to_string(), RascalValue::Entity(index));
-
-                match &owner {
-                    None => values.insert("_".to_string(), RascalValue::Entity(index)),
-                    Some(name) if name.trim() == "" => values.insert("_".to_string(), RascalValue::Entity(index)),
-                    Some(name) => values.insert(name.clone(), RascalValue::Entity(index)),
-                };
-
                 let changes = self.interpret_block(&system.system_body_block, &values, world);
                 self.commit_changes(world, index, &mut values, changes);
             }
@@ -361,8 +416,16 @@ impl RascalVM {
 
         match expr {
             RascalExpression::Relation(a, op, b) => {
-                let ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
-                let ib = self.interpret_expression(b.as_ref(), values, world).unwrap();
+                let mut ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
+                let mut ib = self.interpret_expression(b.as_ref(), values, world).unwrap();
+
+                if let RascalValue::Entity(n) = ia {
+                    ia = RascalValue::Num(n as i32);
+                }
+
+                if let RascalValue::Entity(n) = ib {
+                    ib = RascalValue::Num(n as i32);
+                }
 
                 use RascalValue::*;
                 match (ia, op, ib) {

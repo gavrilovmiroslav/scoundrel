@@ -323,6 +323,7 @@ pub fn rebuild_world(source_name: &str) {
         let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
         let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
         for comp in deps.keys() {
+            println!("CACHED EVENT TRACE for {}: \n\t{:?}", comp, deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect::<Vec<_>>());
             cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
         }
     }

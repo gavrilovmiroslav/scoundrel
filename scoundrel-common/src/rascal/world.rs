@@ -134,7 +134,6 @@ impl World {
                 let event_signature = self.registered_events.get(event_name).unwrap().clone();
                 while let Some(event) = event_queue.pop_front() {
                     for sys in cached_dependencies.get(event_name).unwrap() {
-
                         let consume_result = vm.interpret_eventful(self,
                                               systems.get(sys).unwrap(),
                                               &event_signature, event.clone());
@@ -206,7 +205,7 @@ impl World {
 
             let mut system_dependencies = SYSTEM_DEPENDENCIES.lock().unwrap();
             let mut dependencies = system_dependencies.get_mut(&depends_on_event_queue).unwrap();
-            dependencies.push(sys_with_id.name.clone(), priority);
+            dependencies.push(sys_with_id.name.clone(), SystemPrioritySize::MAX - priority);
             registered_systems.insert(sys_with_id.name.clone(), sys_with_id);
         }
     }
