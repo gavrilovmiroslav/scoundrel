@@ -1,3 +1,4 @@
+// ===== COMPONENTS =============================================
 
 tag IsWall;
 tag IsMovable;
@@ -9,7 +10,7 @@ event MoveIntent { who: entity, force: bool, x: num, y: num };
 event PushIntent { who: entity, what: entity, x: num, y: num };
 event BoxInGoal { box: entity, goal: entity, x: num, y: num };
 
-
+// ===== HELPERS ================================================
 
 [Helper: Create Box]
 on KeyPress("F5", "Released")
@@ -35,7 +36,7 @@ with .IsPlayer & .IsAt(x, y)
     consume event;
 }
 
-
+// ===== START ================================================
 
 [Spawn Player On Start]
 on Start
@@ -49,12 +50,15 @@ on Start
     spawn wall with IsWall & IsAt(13, 10) & HasGlyph('#');
 }
 
-
+// ===== UI ===================================================
 
 [Show Score|ui]
-with .HasScore(score) {
+with .HasScore(score)
+{
     print "SCORE: " + score;
 }
+
+// ===== KEYBOARD EVENTS =====================================
 
 [Move By Keyboard|first]
 on KeyPress(key, "Pressed")
@@ -69,7 +73,7 @@ with e.IsPlayer
     }
 }
 
-
+// ===== MOVE INTENT RESOLUTION ==============================
 
 [Move Intent: Stopped By Immovable Objects]
 on MoveIntent(@, _, x, y)
@@ -105,7 +109,7 @@ with g.IsGoal & g.IsAt(x, y)
     }
 }
 
-
+// ===== PUSH INTENT RESOLUTION ==============================
 
 [Push Intent: Progress|last]
 on PushIntent(@, box, x, y)
@@ -123,7 +127,7 @@ with w.IsWall & w.IsAt(x, y)
     consume event;
 }
 
-
+// ===== GOAL MECHANICS ===================================
 
 [Box In Goal: Update Graphics]
 on BoxInGoal(box, goal, x, y)

@@ -1,6 +1,7 @@
 WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = { "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
-decl = _{ (system_decl | tag_decl | state_decl | event_decl) }
+decl = _{ (COMMENT | system_decl | tag_decl | state_decl | event_decl) }
 program = _{ (decl ~ decl*) }
 
 // text
