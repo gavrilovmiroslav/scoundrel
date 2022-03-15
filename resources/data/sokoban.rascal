@@ -87,6 +87,7 @@ on MoveIntent(@, _, x, y)
 with @.IsAt(ox, oy)
 {
     ox = x; oy = y;
+    debug print "move intent: accepted to stand on (" + x + ", " + y + ")";
     consume event;
 }
 
@@ -94,10 +95,11 @@ with @.IsAt(ox, oy)
 on MoveIntent(@, force, x, y)
 with box.IsMovable & box.IsAt(x, y)
 {
-    consume event;
+    debug print "move intent: pushing box at (" + x + ", " + y + ")";
     if force {
         trigger PushIntent(@, box, x, y);
     }
+    consume event;
 }
 
 [Move Intent: Box Enters Goal]
@@ -131,9 +133,11 @@ with w.IsWall & w.IsAt(x, y)
 
 [Box In Goal: Update Graphics]
 on BoxInGoal(box, goal, x, y)
+with goal.IsGoal
 {
-    update goal with not:IsGoal & not:HasGlyph & IsWall;
-    update box with IsWall & not:IsMovable & HasColor(70, 255, 255);
+    debug print "destroying " + goal;
+    destroy goal;
+    // update box with IsWall & not:IsMovable & HasColor(70, 255, 255);
 }
 
 [Box In Goal: Update Score|last]

@@ -609,6 +609,8 @@ impl SystemSignature {
                 result.push(RascalStatement::Quit);
             }
 
+            Rule::COMMENT => {}
+
             _ => {
                 println!("Unknown in parse_body: {} {:?}!", statement.as_str(), statement.as_rule());
                 unreachable!()

@@ -10,10 +10,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/resources/data/test.rascal" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/semantics.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/resources/data.bin" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/resources/data/sokoban.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/sokoban.rascal" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -143,7 +147,7 @@
       <workItem from="1646765532396" duration="20516000" />
       <workItem from="1646825137495" duration="15753000" />
       <workItem from="1646911935463" duration="9836000" />
-      <workItem from="1647091093685" duration="45960000" />
+      <workItem from="1647091093685" duration="53461000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -320,7 +324,14 @@
       <option name="project" value="LOCAL" />
       <updated>1647222971168</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="Comments are now available.">
+      <created>1647297388433</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1647297388433</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -342,7 +353,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/crow" />
     </ignored-roots>
-    <MESSAGE value="Updated data access" />
     <MESSAGE value="Erased old name (shared_data)" />
     <MESSAGE value="Added mouse events and glyph rendering" />
     <MESSAGE value="Added frame skipping and random color changes to test out speed bumps." />
@@ -367,7 +377,8 @@
     <MESSAGE value="Moved prelude to data. Added capabilities to work with color from script." />
     <MESSAGE value="Painting and printing is now system-priority-correct." />
     <MESSAGE value="Corrected variable equality checking (added ownership-checking). Rewrote sokoban to be shorter and more understandable." />
-    <option name="LAST_COMMIT_MESSAGE" value="Corrected variable equality checking (added ownership-checking). Rewrote sokoban to be shorter and more understandable." />
+    <MESSAGE value="Comments are now available." />
+    <option name="LAST_COMMIT_MESSAGE" value="Comments are now available." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XDebuggerManager">

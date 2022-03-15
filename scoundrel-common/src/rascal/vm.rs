@@ -8,10 +8,9 @@ use bitmaps::*;
 use lazy_static::lazy_static;
 
 use crate::colors::Color;
-use crate::engine::force_quit;
-use crate::glyphs::{paint_all_tiles, paint_tile, print_string_colors};
 use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
+use crate::rascal::semantics::{Position, SemanticChange};
 use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, TriggerEvent};
 use crate::rascal::world::EntityId;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
@@ -117,29 +116,7 @@ impl RascalValue {
     }
 }
 
-#[derive(Debug)]
-pub enum Position {
-    All,
-    At((u32, u32)),
-}
-
-#[derive(Debug)]
-pub enum SemanticChange {
-    ValueAssign(String, RascalValue),
-    ValueInc(String, RascalValue),
-    ValueDec(String, RascalValue),
-    SpawnEntity(String, Vec<ComponentCallSite>),
-    DestroyEntity(String),
-    UpdateComponents(String, Vec<ComponentCallSite>),
-    TriggerEvent(ComponentCallSite),
-    ConsumeEvent,
-    Paint(Position, Option<Color>, Option<Color>),
-    Print((u32, u32), (u8, u8, u8), (u8, u8, u8), RascalExpression),
-    DebugPrint(RascalExpression),
-    Quit,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EqualityWith {
     Alias(String),
     Value(RascalExpression),
@@ -149,10 +126,10 @@ type Offset = usize;
 
 #[derive(Debug)]
 pub struct RascalVM {
-    current_system: Option<SystemSignature>,
+    pub(crate) current_system: Option<SystemSignature>,
     current_event: Option<(ComponentSignature, BinaryComponent)>,
-    event_consumed: bool,
-    something_printed: bool,
+    pub(crate) event_consumed: bool,
+    pub(crate) something_printed: bool,
     pub bindings: HashMap<String, (ComponentId, MemberId)>,
     pub equalities: HashMap<String, EqualityWith>,
     pub push_values: Vec<String>,
@@ -324,15 +301,14 @@ impl RascalVM {
             }
         }
 
-        'entries: for index in 0..world.entity_bitmap.first_false_index().unwrap_or(MAX_ENTRIES_PER_STORAGE) {
-            if query_bitmap.get(index as usize) {
-                let mut values = self.get_binding_values(world, index as usize);
+        let saved_bindings = self.bindings.clone();
+        let saved_equalities = self.equalities.clone();
 
-/*
-                    println!("[PRE] System {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
-                         self.current_system.as_ref().unwrap().name,
-                         values, self.bindings, self.equalities);
-*/
+        'entries: for index in 0..MAX_ENTRIES_PER_STORAGE {
+            if query_bitmap.get(index as usize) {
+                self.bindings = saved_bindings.clone();
+                self.equalities = saved_equalities.clone();
+                let mut values = self.get_binding_values(world, index as usize);
 
                 values.insert("_".to_string(), RascalValue::Entity(index));
 
@@ -343,6 +319,10 @@ impl RascalVM {
                         if values.contains_key(name) {
                             let cached_value = values.get(name).unwrap();
                             if !RascalValue::same_optic(cached_value.clone(), RascalValue::Entity(index)) {
+                                println!("Continue #1: {:?} != {:?}", cached_value.clone(), RascalValue::Entity(index));
+                                println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                         self.current_system.as_ref().unwrap().name,
+                                         values, self.bindings, self.equalities);
                                 continue 'entries;
                             }
                         }
@@ -351,6 +331,10 @@ impl RascalVM {
                         if self.equalities.contains_key(name) {
                             match self.equalities.get(name).unwrap() {
                                 EqualityWith::Value(RascalExpression::NumLiteral(x)) if (*x as usize) != index => {
+                                    println!("Continue #2: {:?} != {:?}", x, index);
+                                    println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                             self.current_system.as_ref().unwrap().name,
+                                             values, self.bindings, self.equalities);
                                     continue 'entries;
                                 }
                                 _ => {}
@@ -360,18 +344,16 @@ impl RascalVM {
                     }
                 };
 
-/*
-                    println!("[POST] System {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
-                         self.current_system.as_ref().unwrap().name,
-                         values, self.bindings, self.equalities);
-*/
-
                 for (id, value) in &values {
                     if self.equalities.contains_key(id) {
                         match self.equalities.get(id) {
                             Some(EqualityWith::Value(expr)) => {
                                 if let Some(expr_resolved) = self.interpret_expression(expr, &values, world) {
-                                    if !RascalValue::same_optic(value.clone(), expr_resolved) {
+                                    if !RascalValue::same_optic(value.clone(), expr_resolved.clone()) {
+                                        println!("Continue #3: {:?} != {:?}", value.clone(), expr_resolved);
+                                        println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                                 self.current_system.as_ref().unwrap().name,
+                                                 values, self.bindings, self.equalities);
                                         continue 'entries;
                                     }
                                 }
@@ -382,6 +364,10 @@ impl RascalVM {
                                     //println!("ALIAS EQ: {:?} == {:?}", value, alias_value);
                                     if !RascalValue::same_optic(value.clone(), alias_value.clone()) {
                                         //println!("  JUMPING OVER, NOT SAME!");
+                                        println!("Continue #4: {:?} != {:?}", value.clone(), alias_value.clone());
+                                        println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                                 self.current_system.as_ref().unwrap().name,
+                                                 values, self.bindings, self.equalities);
                                         continue 'entries;
                                     }
                                 }
@@ -398,6 +384,10 @@ impl RascalVM {
                             let lhs = values.get(name).unwrap();
                             let rhs = values.get(real).unwrap();
                             if *lhs != *rhs {
+                                println!("Continue #5: {:?} != {:?}", *lhs, *rhs);
+                                println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                         self.current_system.as_ref().unwrap().name,
+                                         values, self.bindings, self.equalities);
                                 continue 'entries;
                             }
                         },
@@ -412,7 +402,7 @@ impl RascalVM {
         }
     }
 
-    fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
+    pub(crate) fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
 
         match expr {
             RascalExpression::Relation(a, op, b) => {
@@ -604,11 +594,12 @@ impl RascalVM {
             }
 
             RascalStatement::Destroy(id) => {
-                if let RascalExpression::Identifier(name) = id {
-                    result.push(SemanticChange::DestroyEntity(name.clone()));
-                } else {
-                    println!("Expected identifier, got {:?}", id);
-                    return vec![];
+                match id {
+                    RascalExpression::Identifier(name) => {
+                        result.push(SemanticChange::DestroyEntity(name.clone()));
+                    }
+
+                    _ => {}
                 }
             }
 
@@ -725,7 +716,7 @@ impl RascalVM {
         result
     }
 
-    fn add_component(&self, world: &mut World, entity: EntityId, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
+    pub(crate) fn add_component(&self, world: &mut World, entity: EntityId, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
         if let Some(comp_type) = world.component_types.get(&comp.name) {
             match comp_type {
                 ComponentType::State => {
@@ -752,7 +743,7 @@ impl RascalVM {
         }
     }
 
-    fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
+    pub(crate) fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
         let args: Vec<_> = comp.args.iter().map(|arg| {
             let value_expr = arg.as_ref().unwrap();
             self.interpret_expression(value_expr, values, world).unwrap()
@@ -761,7 +752,7 @@ impl RascalVM {
         world.trigger_event(&comp.name, args);
     }
 
-    fn assign_value(&mut self,  world: &mut World, index: usize, name: String, new_value: RascalValue) {
+    pub(crate) fn assign_value(&mut self, world: &mut World, index: usize, name: String, new_value: RascalValue) {
         let (comp_id, member_id) = self.bindings.get(&name).unwrap();
         if let ComponentType::State = world.component_types.get(comp_id).unwrap() {
             let descriptor = world.registered_states.get(comp_id).unwrap();
@@ -783,125 +774,6 @@ impl RascalVM {
             }
         } else {
             println!("Only states are mutable ({} is not writable).", name);
-        }
-    }
-
-    fn commit_changes(&mut self, world: &mut World, index: usize, values: &mut HashMap<String, RascalValue>, changes: Vec<SemanticChange>) {
-        for change in changes {
-            match change {
-
-                SemanticChange::ValueInc(name, mod_value) => {
-                    if let RascalValue::Num(mod_num) = mod_value {
-                        match values.get(&name).unwrap() {
-                            RascalValue::Num(num) => {
-                                let new_value = RascalValue::Num(*num + mod_num);
-                                values.insert(name.clone(), new_value.clone());
-                                self.assign_value(world, index, name, new_value);
-                            }
-
-                            _ => unreachable!()
-                        }
-                    }
-                }
-
-                SemanticChange::ValueDec(name, mod_value) => {
-                    if let RascalValue::Num(num) = values.get(&name).unwrap() {
-                        if let RascalValue::Num(mod_num) = mod_value {
-                            let new_value = RascalValue::Num(*num - mod_num);
-                            values.insert(name.clone(), new_value.clone());
-                            self.assign_value(world, index, name, new_value);
-                        }
-                    }
-                }
-
-                SemanticChange::ValueAssign(name, new_value) => {
-                    values.insert(name.clone(), new_value.clone());
-                    self.assign_value(world, index, name, new_value);
-                }
-
-                SemanticChange::SpawnEntity(name, comps) => {
-                    let entity = world.create_entity();
-                    for comp in comps {
-                        self.add_component(world, entity, comp, values);
-                    }
-                    values.insert(name, RascalValue::Entity(entity));
-                }
-
-                SemanticChange::DestroyEntity(entity) => {
-                    if let RascalValue::Entity(index) = values.get(&entity).unwrap() {
-                        let index = *index as usize;
-                        world.entity_bitmap.set(index, false);
-
-                        for comp in &world.component_names {
-                            let mut bitmap = world.storage_bitmaps.get_mut(comp).unwrap();
-                            bitmap.set(index, false);
-                        }
-                    }
-                }
-
-                SemanticChange::UpdateComponents(name, comps) => {
-                    if let Some(RascalValue::Entity(index)) = values.get(&name) {
-                        let index = *index;
-                        if world.entity_bitmap.get(index) {
-                            for comp in comps {
-                                match comp.modifier {
-                                    ComponentModifier::Default =>
-                                        { self.add_component(world, index, comp, values); }
-                                    ComponentModifier::Not =>
-                                        { world.storage_bitmaps.get_mut(&comp.name).unwrap().set(index, false); }
-                                    ComponentModifier::Toggle => {
-                                        if world.storage_bitmaps.get(&comp.name).unwrap().get(index) {
-                                            world.storage_bitmaps.get_mut(&comp.name).unwrap().set(index, false);
-                                        } else {
-                                            self.add_component(world, index, comp, values);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                SemanticChange::TriggerEvent(event) => {
-                    self.trigger_event(world, event, values);
-                }
-
-                SemanticChange::ConsumeEvent => {
-                    self.event_consumed = true;
-                }
-
-                SemanticChange::Paint(pos, fg, bg) => {
-                    match pos {
-                        Position::All => {
-                            paint_all_tiles(fg, bg);
-                        }
-
-                        Position::At(xy) => {
-                            paint_tile(xy, fg, bg, self.current_system.as_ref().unwrap().real_priority);
-                        }
-                    }
-                    self.something_printed = true;
-                }
-
-                SemanticChange::Print(xy, fg, bg, expr) => {
-                    let v = self.interpret_expression(&expr, &values, world).unwrap();
-                    let text = rascal_value_as_string(v);
-
-                    print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg),
-                                        self.current_system.as_ref().unwrap().real_priority);
-
-                    self.something_printed = true;
-                }
-
-                SemanticChange::DebugPrint(expr) => {
-                    let v = self.interpret_expression(&expr, &values, world).unwrap();
-                    println!("{}", rascal_value_as_string(v));
-                }
-
-                SemanticChange::Quit => {
-                    force_quit();
-                }
-            }
         }
     }
 
