@@ -269,65 +269,69 @@ fn remove_structure(world: &mut World, structure: &RascalStruct) {
 
 pub fn rebuild_world(source_name: &str) {
     println!("[========================================= REBUILDING WORLD ({}) =========================================================]", source_name);
-    let ast = parse_rascal(std::str::from_utf8(WORLD.lock().unwrap().data.get(source_name).unwrap().as_slice()).unwrap());
-    use crate::rascal::world::SYSTEM_DEPENDENCIES;
-    use crate::rascal::world::CACHED_SYSTEMS_BY_PRIORITIES;
 
-    {
-        let mut world = WORLD.lock().unwrap();
+    let mut world = WORLD.lock().unwrap();
 
-        world.clear_entities();
+    if let Ok(data) = world.data.get(source_name) {
+        let src = std::str::from_utf8(data.as_slice());
+        if let ast = parse_rascal(src.unwrap()) {
+            use crate::rascal::world::SYSTEM_DEPENDENCIES;
+            use crate::rascal::world::CACHED_SYSTEMS_BY_PRIORITIES;
 
-        if world.definitions_in_source.contains_key(source_name) {
-            for (id, typ) in world.definitions_in_source.get(source_name).unwrap().clone() {
-                println!("[!] Resetting {}", id);
-                match typ {
-                    ComponentType::State => {
-                        world.component_types.remove(&id);
-                        world.registered_states.remove(&id);
-                        world.storage_bitmaps.remove(&id);
-                        world.storage_pointers.remove(&id);
+            world.clear_entities();
+
+            if world.definitions_in_source.contains_key(source_name) {
+                for (id, typ) in world.definitions_in_source.get(source_name).unwrap().clone() {
+                    println!("[!] Resetting {}", id);
+                    match typ {
+                        ComponentType::State => {
+                            world.component_types.remove(&id);
+                            world.registered_states.remove(&id);
+                            world.storage_bitmaps.remove(&id);
+                            world.storage_pointers.remove(&id);
+                        }
+                        ComponentType::Event => {
+                            world.component_types.remove(&id);
+                            world.registered_events.remove(&id);
+                            world.event_queues.remove(&id);
+                            world.next_event_queues.remove(&id);
+                        }
+                        ComponentType::Tag => {
+                            world.component_types.remove(&id);
+                            world.registered_tags.remove(&id);
+                            world.storage_bitmaps.remove(&id);
+                        }
+                        ComponentType::System => {
+                            REGISTERED_SYSTEMS.lock().unwrap().remove(&id);
+                        }
                     }
-                    ComponentType::Event => {
-                        world.component_types.remove(&id);
-                        world.registered_events.remove(&id);
-                        world.event_queues.remove(&id);
-                        world.next_event_queues.remove(&id);
-                    }
-                    ComponentType::Tag => {
-                        world.component_types.remove(&id);
-                        world.registered_tags.remove(&id);
-                        world.storage_bitmaps.remove(&id);
-                    }
-                    ComponentType::System => {
-                        REGISTERED_SYSTEMS.lock().unwrap().remove(&id);
-                    }
+                }
+
+                world.definitions_in_source.remove(source_name);
+            }
+
+            world.definitions_in_source.insert(source_name.to_string(), Vec::new());
+            for structure in ast {
+                println!("Defining {}", structure.get_name());
+                world.definitions_in_source.get_mut(source_name).unwrap().push((structure.get_name().to_string(), structure.get_type()));
+
+                if structure.is_component() {
+                    world.register_component(structure);
+                } else {
+                    world.register_system(structure);
                 }
             }
 
-            world.definitions_in_source.remove(source_name);
-        }
-
-        world.definitions_in_source.insert(source_name.to_string(), Vec::new());
-        for structure in ast {
-            println!("Defining {}", structure.get_name());
-            world.definitions_in_source.get_mut(source_name).unwrap().push((structure.get_name().to_string(), structure.get_type()));
-
-            if structure.is_component() {
-                world.register_component(structure);
-            } else {
-                world.register_system(structure);
+            let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
+            let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
+            for comp in deps.keys() {
+                println!("CACHED EVENT TRACE for {}: \n\t{:?}", comp, deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect::<Vec<_>>());
+                cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
             }
         }
-
-        let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
-        let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
-        for comp in deps.keys() {
-            println!("CACHED EVENT TRACE for {}: \n\t{:?}", comp, deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect::<Vec<_>>());
-            cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
-        }
+    } else {
+        println!("Error: script file {} not found.", source_name);
     }
-
     println!("[=========================================================================================================================]");
 }
 
