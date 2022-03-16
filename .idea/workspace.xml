@@ -9,18 +9,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Holy shit! We have let bindings, we have a real interpreter, we have match/then/else syntax. There's a lot. We have correct keyboard key names! Big one!">
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/resources/data.bin" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data.bin" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/resources/data/sokoban.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/sokoban.rascal" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/keycodes.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/keycodes.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/semantics.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/semantics.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/interpreter.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,6 +83,11 @@
     </key>
   </component>
   <component name="RunManager">
+    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command" nameIsGenerated="true">
       <option name="command" value="run" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -106,11 +102,6 @@
       <option name="redirectInputPath" value="" />
       <method v="2">
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
-      </method>
-    </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
   </component>
@@ -152,7 +143,8 @@
       <workItem from="1646911935463" duration="9836000" />
       <workItem from="1647091093685" duration="55970000" />
       <workItem from="1647359175915" duration="611000" />
-      <workItem from="1647361125270" duration="23920000" />
+      <workItem from="1647361125270" duration="24009000" />
+      <workItem from="1647420763328" duration="2556000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -343,7 +335,14 @@
       <option name="project" value="LOCAL" />
       <updated>1647304837613</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="Holy shit! We have let bindings, we have a real interpreter, we have match/then/else syntax. There's a lot. We have correct keyboard key names! Big one!">
+      <created>1647393943096</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1647393943096</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

@@ -674,6 +674,7 @@ impl SystemSignature {
         result
     }
 
+    // THIS IS A TEMPLATE FOR EASY COPY-PASTING WHEN NEEDED ;)
     fn parse_template(statement: Pair<Rule>) -> RascalBlock {
         let mut result = Vec::new();
 
