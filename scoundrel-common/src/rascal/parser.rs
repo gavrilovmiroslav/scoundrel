@@ -187,7 +187,7 @@ pub struct SystemSignature {
     pub real_priority: SystemPrioritySize,
     pub activation_event: Option<ComponentCallSite>,
     pub storage_requirements: Vec<ComponentCallSite>,
-    pub system_body_block: RascalBlock,
+    pub body_block: RascalBlock,
 }
 
 impl SystemSignature {
@@ -197,7 +197,7 @@ impl SystemSignature {
             activation_event: self.activation_event,
             real_priority: 0,
             storage_requirements: self.storage_requirements,
-            system_body_block: self.system_body_block
+            body_block: self.body_block
         }
     }
 }
@@ -252,10 +252,11 @@ pub enum RascalStatement {
           RascalGlyphColor,
           RascalExpression),
     ConsumeEvent,
-    Match(RascalIdentifier, Vec<(RascalExpression, RascalBlock)>),
+    Match(RascalIdentifier, Vec<(RascalExpression, RascalBlock)>, Option<RascalBlock>, Option<RascalBlock>),
     Inc(RascalExpression, RascalExpression),
     Dec(RascalExpression, RascalExpression),
     DebugPrint(RascalExpression),
+    Let(RascalIdentifier, RascalExpression),
     Quit,
 }
 
@@ -286,6 +287,17 @@ impl SystemSignature {
             name: name.to_string(), args })
     }
 
+    fn parse_block_body(rule: Pair<Rule>) -> Vec<RascalStatement> {
+        use TokenType::*;
+
+        let mut result = Vec::new();
+        for statement in rule.into_inner() {
+            result.extend(Self::parse_statement(statement));
+        }
+
+        result
+    }
+
     fn parse_expression(exprs: TokenType) -> Option<RascalExpression> {
         fn recurse_by_token_type(mut pt: &mut Pairs<Rule>) -> Option<RascalExpression> {
             let xp = pt.next().unwrap();
@@ -310,18 +322,11 @@ impl SystemSignature {
                             let text = pair.as_str().to_string();
                             text[1..(text.len() - 1)].to_string()
                         }),
-                        Rule::any_char => {
-                            RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16)
-                        }
-                        Rule::identifier => {
-                            RascalExpression::Identifier(pair.as_str().to_string())
-                        }
-                        Rule::expression => {
-                            Self::parse_expression(TokenType::NonTerm(pair.into_inner())).unwrap()
-                        }
-                        Rule::complex_call_site => {
-                            RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap())
-                        }
+                        Rule::any_char => RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16),
+                        Rule::identifier => RascalExpression::Identifier(pair.as_str().to_string()),
+                        Rule::expression => Self::parse_expression(TokenType::NonTerm(pair.into_inner())).unwrap(),
+                        Rule::complex_call_site => RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap()),
+
                         _ => {
                             println!("UNREACHABLE: {:?} {}", pair.as_rule(), pair.as_str());
                             unreachable!()
@@ -360,7 +365,7 @@ impl SystemSignature {
                     Rule::number => Some(NumLiteral(expr.as_str().parse().unwrap())),
                     Rule::text_value => Some(TextLiteral(expr.as_str().to_string())),
                     Rule::identifier => Some(Identifier(expr.as_str().to_string())),
-                    Rule::expression => SystemSignature::parse_expression(TokenType::NonTerm(expr.into_inner())),
+                    Rule::expression => Self::parse_expression(TokenType::NonTerm(expr.into_inner())),
                     _ => {
                         println!("WARNING: ADD THIS TERM TOO (line 314 in parser.rs): {:?}", expr.as_rule());
                         None
@@ -430,8 +435,8 @@ impl SystemSignature {
         if let Rule::position = rule.peek().unwrap().as_rule() {
             let mut pos_rule = rule.next().unwrap().into_inner();
             println!("Pos rule: {:?}", pos_rule.as_str());
-            let x = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
-            let y = SystemSignature::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
+            let x = Self::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
+            let y = Self::parse_expression(NonTerm(pos_rule.next().unwrap().into_inner())).unwrap();
             Some((x, y))
         } else {
             None
@@ -443,9 +448,9 @@ impl SystemSignature {
             Some(r) if r.as_rule() == kind => {
                 let mut fg_rule = rule.next().unwrap().into_inner();
                 println!("Color rule [fg]: {:?}", fg_rule.as_str());
-                let h = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
-                let s = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
-                let v = SystemSignature::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                let h = Self::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                let s = Self::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
+                let v = Self::parse_expression(NonTerm(fg_rule.next().unwrap().into_inner())).unwrap();
                 Some((h, s, v))
             }
 
@@ -455,159 +460,245 @@ impl SystemSignature {
         }
     }
 
-    fn parse_statement(statement: Pair<Rule>) -> Vec<RascalStatement> {
+    fn parse_if_statement(statement: Pair<Rule>) -> RascalBlock {
         let mut result = Vec::new();
+        let mut if_statement = statement.into_inner();
+        if let Some(guard) = Self::parse_expression(NonTerm(if_statement.next().unwrap().into_inner())) {
+            let then_branch = Self::parse_block_body(if_statement.next().unwrap());
+            result.push(RascalStatement::IfElse(guard, Box::new(then_branch),
+                if_statement.next().map(|else_block| {
+                    let mut else_piece = else_block.clone().into_inner().next().unwrap();
+                    Box::new(Self::parse_else_statement(else_piece))
+                })));
+        }
 
+        result
+    }
+
+    fn parse_else_statement(statement: Pair<Rule>) -> RascalBlock {
         match statement.as_rule() {
-            Rule::assignment => {
-                let mut assign = statement.into_inner();
-                if let Some(id@RascalExpression::Identifier(_)) =
-                SystemSignature::parse_expression(Term(assign.next().unwrap())) {
+            Rule::block => Self::parse_block_body(statement),
+            Rule::if_statement => Self::parse_statement(statement),
+            _ => unreachable!(),
+        }
+    }
 
-                    if let Some(value) = SystemSignature::parse_expression(NonTerm(assign.clone())) {
-                        result.push(RascalStatement::Assign(id, value));
-                    }
+    fn parse_assignment(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut assign = statement.into_inner();
+        if let Some(id@RascalExpression::Identifier(_)) =
+            Self::parse_expression(Term(assign.next().unwrap())) {
+
+            if let Some(value) = Self::parse_expression(NonTerm(assign.clone())) {
+                result.push(RascalStatement::Assign(id, value));
+            }
+        }
+
+        result
+    }
+
+    fn parse_self_mod_assignment(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut assign = statement.into_inner();
+        if let Some(id@RascalExpression::Identifier(_)) =
+            Self::parse_expression(Term(assign.next().unwrap())) {
+
+            result.push(match assign.next().unwrap().as_str().trim() {
+                "++" => RascalStatement::Inc(id, RascalExpression::NumLiteral(1)),
+                "--" => RascalStatement::Dec(id, RascalExpression::NumLiteral(1)),
+                _ => unreachable!()
+            });
+        }
+
+        result
+    }
+
+    fn parse_mod_assignment(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut assign = statement.into_inner();
+        if let Some(id@RascalExpression::Identifier(_)) =
+        Self::parse_expression(Term(assign.next().unwrap())) {
+            result.push(match assign.next().unwrap().as_str().trim() {
+                "+=" => RascalStatement::Inc(id, Self::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
+                "-=" => RascalStatement::Dec(id, Self::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
+                _ => unreachable!()
+            });
+        }
+
+        result
+    }
+
+    fn parse_spawn_or_update_statement(statement: Pair<Rule>) -> RascalBlock {
+        let rule = statement.as_rule();
+        let mut result = Vec::new();
+        let mut spawn_statement = statement.into_inner();
+
+        if let Some(id @ RascalExpression::Identifier(_)) =
+            Self::parse_expression(Term(spawn_statement.next().unwrap())) {
+
+            let mut clauses = Vec::new();
+            for next in spawn_statement.next().unwrap().into_inner() {
+                clauses.push(Self::parse_component_call_list(next).unwrap());
+            }
+
+            result.push(match rule {
+                Rule::spawn_statement => RascalStatement::Spawn(id, clauses),
+                Rule::update_statement => RascalStatement::Update(id, clauses),
+                _ => unreachable!()
+            });
+        }
+
+        result
+    }
+
+    fn parse_destroy_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut destroy_statement = statement.into_inner();
+        if let Some(id @ RascalExpression::Identifier(_)) =
+        Self::parse_expression(Term(destroy_statement.next().unwrap())) {
+            result.push(RascalStatement::Destroy(id));
+        }
+
+        result
+    }
+
+    fn parse_trigger_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        if let Some(call_site) = Self::parse_call_site(statement.clone()) {
+            result.push(RascalStatement::Trigger(call_site));
+        }
+
+        result
+    }
+
+    fn parse_paint_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut paint_statement = statement.into_inner();
+        let position = Self::parse_position_expression(&mut paint_statement);
+        let foreground = Self::parse_color_expression(Rule::foreground, &mut paint_statement);
+        let background = Self::parse_color_expression(Rule::background, &mut paint_statement);
+
+        if foreground.is_none() && background.is_none() {
+            panic!("Both foreground and background are none.");
+        }
+        result.push(RascalStatement::Paint(position, foreground, background));
+
+        result
+    }
+
+    fn parse_print_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut print_statement = statement.into_inner();
+        let position = Self::parse_position_expression(&mut print_statement).unwrap_or(
+            (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
+        );
+
+        let foreground = Self::parse_color_expression(Rule::foreground, &mut print_statement).unwrap_or(
+            (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(255))
+        );
+
+        let background = Self::parse_color_expression(Rule::background, &mut print_statement).unwrap_or(
+            (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
+        );
+
+        if let Some(expr) = Self::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
+            result.push(RascalStatement::Print(position, foreground, background, expr));
+        }
+
+        result
+    }
+
+    fn parse_match_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut match_statement = statement.into_inner();
+        let key = Self::parse_expression(TokenType::Term(match_statement.next().unwrap())).unwrap();
+        let mut cases = Vec::new();
+        let mut then_block = None;
+        let mut else_block = None;
+
+        for case in match_statement {
+            match case.as_rule() {
+                Rule::then_block => {
+                    then_block = Some(Self::parse_block_body(case.into_inner().next().unwrap()).clone())
                 }
-            }
 
-            Rule::self_mod_assignment => {
-                let mut assign = statement.into_inner();
-                if let Some(id@RascalExpression::Identifier(_)) =
-                SystemSignature::parse_expression(Term(assign.next().unwrap())) {
-                    result.push(match assign.next().unwrap().as_str().trim() {
-                        "++" => RascalStatement::Inc(id, RascalExpression::NumLiteral(1)),
-                        "--" => RascalStatement::Dec(id, RascalExpression::NumLiteral(1)),
-                        _ => unreachable!()
-                    });
+                Rule::else_block => {
+                    let mut inner_case = case.into_inner().next().unwrap();
+                    else_block = Some(Self::parse_else_statement(inner_case));
                 }
-            }
 
-            Rule::mod_assignment => {
-                let mut assign = statement.into_inner();
-                if let Some(id@RascalExpression::Identifier(_)) =
-                SystemSignature::parse_expression(Term(assign.next().unwrap())) {
-                    result.push(match assign.next().unwrap().as_str().trim() {
-                        "+=" => RascalStatement::Inc(id, SystemSignature::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
-                        "-=" => RascalStatement::Dec(id, SystemSignature::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
-                        _ => unreachable!()
-                    });
-                }
-            }
-
-            Rule::if_statement => {
-                let mut if_statement = statement.into_inner();
-                if let Some(guard) = SystemSignature::parse_expression(NonTerm(if_statement.next().unwrap().into_inner())) {
-                    let then_branch = SystemSignature::parse_body(if_statement.next().unwrap());
-                    result.push(RascalStatement::IfElse(guard, Box::new(then_branch),
-                        if_statement.next().map(|else_block| {
-                            let mut else_piece = else_block.clone().into_inner().next().unwrap();
-                            match else_piece.as_rule() {
-                                Rule::block => Box::new(SystemSignature::parse_body(else_piece)),
-                                Rule::if_statement => Box::new(SystemSignature::parse_statement(else_piece)),
-                                _ => unreachable!(),
-                            }
-                        })));
-                }
-            }
-
-            rule@(Rule::spawn_statement | Rule::update_statement) => {
-                let mut spawn_statement = statement.into_inner();
-                if let Some(id @ RascalExpression::Identifier(_)) =
-                SystemSignature::parse_expression(Term(spawn_statement.next().unwrap())) {
-
-                    let mut clauses = Vec::new();
-                    for next in spawn_statement.next().unwrap().into_inner() {
-                        clauses.push(SystemSignature::parse_component_call_list(next).unwrap());
-                    }
-
-                    result.push(match rule {
-                        Rule::spawn_statement => RascalStatement::Spawn(id, clauses),
-                        Rule::update_statement => RascalStatement::Update(id, clauses),
-                        _ => unreachable!()
-                    });
-                }
-            }
-
-            Rule::destroy_statement => {
-                let mut destroy_statement = statement.into_inner();
-                if let Some(id @ RascalExpression::Identifier(_)) =
-                SystemSignature::parse_expression(Term(destroy_statement.next().unwrap())) {
-                    result.push(RascalStatement::Destroy(id));
-                }
-            }
-
-            Rule::trigger_statement => {
-                if let Some(call_site) = SystemSignature::parse_call_site(statement.clone()) {
-                    result.push(RascalStatement::Trigger(call_site));
-                }
-            }
-
-            Rule::consume_statement => {
-                result.push(RascalStatement::ConsumeEvent);
-            }
-
-            Rule::paint_statement => {
-                let mut paint_statement = statement.into_inner();
-                let position = Self::parse_position_expression(&mut paint_statement);
-                let foreground = Self::parse_color_expression(Rule::foreground, &mut paint_statement);
-                let background = Self::parse_color_expression(Rule::background, &mut paint_statement);
-
-                if foreground.is_none() && background.is_none() {
-                    panic!("Both foreground and background are none.");
-                }
-                result.push(RascalStatement::Paint(position, foreground, background));
-            }
-
-            Rule::print_statement => {
-                let mut print_statement = statement.into_inner();
-                let position = Self::parse_position_expression(&mut print_statement).unwrap_or(
-                    (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
-                );
-
-                let foreground = Self::parse_color_expression(Rule::foreground, &mut print_statement).unwrap_or(
-                    (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(255))
-                );
-
-                let background = Self::parse_color_expression(Rule::background, &mut print_statement).unwrap_or(
-                    (RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0), RascalExpression::NumLiteral(0))
-                );
-
-                if let Some(expr) = SystemSignature::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
-                    result.push(RascalStatement::Print(position, foreground, background, expr));
-                }
-            }
-
-            Rule::match_statement => {
-                let mut match_statement = statement.into_inner();
-                let key = SystemSignature::parse_expression(TokenType::Term(match_statement.next().unwrap())).unwrap();
-                let mut cases = Vec::new();
-                for case in match_statement {
+                _ => {
                     let mut case = case.into_inner();
-                    let case_pattern = SystemSignature::parse_expression(TokenType::Term(case.next().unwrap())).unwrap();
+                    let case_pattern = Self::parse_expression(TokenType::Term(case.next().unwrap())).unwrap();
                     let case_block = {
                         let statement = case.next().unwrap();
 
                         if let Rule::block = statement.as_rule() {
-                            SystemSignature::parse_body(statement)
+                            Self::parse_block_body(statement)
                         } else {
-                            SystemSignature::parse_statement(statement)
+                            Self::parse_statement(statement)
                         }
                     };
                     cases.push((case_pattern, case_block));
                 }
-                result.push(RascalStatement::Match(key, cases));
             }
+        }
 
-            Rule::debug_print_statement => {
-                let mut print_statement = statement.into_inner();
-                if let Some(expr) = SystemSignature::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
-                    result.push(RascalStatement::DebugPrint(expr));
+        result.push(RascalStatement::Match(key, cases, then_block, else_block));
+        result
+    }
+
+    fn parse_debug_print_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut print_statement = statement.into_inner();
+        if let Some(expr) = Self::parse_expression(NonTerm(print_statement.next().unwrap().into_inner())) {
+            result.push(RascalStatement::DebugPrint(expr));
+        }
+
+        result
+    }
+
+    fn parse_let_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        for binding in statement.into_inner() {
+            let mut bound = binding.into_inner();
+
+            if let Some(id@RascalExpression::Identifier(_)) =
+                Self::parse_expression(Term(bound.next().unwrap())) {
+
+                if let Some(value) = Self::parse_expression(NonTerm(bound)) {
+                    result.push(RascalStatement::Let(id, value));
                 }
             }
+        }
+        result
+    }
 
-            Rule::quit_statement => {
-                result.push(RascalStatement::Quit);
-            }
+    fn parse_template(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+
+        result
+    }
+
+    fn parse_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+
+        match statement.as_rule() {
+            Rule::assignment => result.extend(Self::parse_assignment(statement)),
+            Rule::self_mod_assignment => result.extend(Self::parse_self_mod_assignment(statement)),
+            Rule::mod_assignment => result.extend(Self::parse_mod_assignment(statement)),
+            Rule::if_statement => result.extend(Self::parse_if_statement(statement)),
+            Rule::spawn_statement |
+            Rule::update_statement => result.extend(Self::parse_spawn_or_update_statement(statement)),
+            Rule::destroy_statement => result.extend(Self::parse_destroy_statement(statement)),
+            Rule::trigger_statement => result.extend(Self::parse_trigger_statement(statement)),
+            Rule::paint_statement => result.extend(Self::parse_paint_statement(statement)),
+            Rule::print_statement => result.extend(Self::parse_print_statement(statement)),
+            Rule::match_statement => result.extend(Self::parse_match_statement(statement)),
+            Rule::debug_print_statement => result.extend(Self::parse_debug_print_statement(statement)),
+            Rule::let_statement => result.extend(Self::parse_let_statement(statement)),
+            Rule::consume_statement => result.push(RascalStatement::ConsumeEvent),
+            Rule::quit_statement => result.push(RascalStatement::Quit),
 
             Rule::COMMENT => {}
 
@@ -620,18 +711,7 @@ impl SystemSignature {
         result
     }
 
-    fn parse_body(rule: Pair<Rule>) -> Vec<RascalStatement> {
-        use TokenType::*;
-
-        let mut result = Vec::new();
-        for statement in rule.into_inner() {
-            result.extend(SystemSignature::parse_statement(statement));
-        }
-
-        result
-    }
-
-    pub fn new(mut rule: Pairs<Rule>) -> SystemSignature {
+    pub fn parse_system(mut rule: Pairs<Rule>) -> Self {
         let mut system_title = rule.next().unwrap().into_inner();
         let name = system_title.next().unwrap().as_str().to_string();
 
@@ -657,7 +737,7 @@ impl SystemSignature {
             match r.as_rule() {
                 Rule::on_event_clause => event = Self::parse_call_site(r),
                 Rule::with_query_clause => with = Self::parse_with_clause(r),
-                Rule::block => body = Self::parse_body(r),
+                Rule::block => body = Self::parse_block_body(r),
                 _ => {}
             }
         }
@@ -672,7 +752,7 @@ impl SystemSignature {
             });
         }
 
-        SystemSignature{ id: 0, name, priority, activation_event: event, real_priority: 0, storage_requirements: with, system_body_block: body }
+        SystemSignature{ id: 0, name, priority, activation_event: event, real_priority: 0, storage_requirements: with, body_block: body }
     }
 }
 
@@ -760,7 +840,7 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
 
             Rule::system_decl => {
                 let mut inner = parse_tree.into_inner();
-                ast.push(RascalStruct::System(SystemSignature::new(inner)));
+                ast.push(RascalStruct::System(SystemSignature::parse_system(inner)));
             }
 
             _ => {}

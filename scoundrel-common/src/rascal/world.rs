@@ -10,8 +10,8 @@ use priority_queue::PriorityQueue;
 use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::{set_should_redraw, WORLD};
+use crate::rascal::interpreter::{num, RascalEventfulResult, RascalValue, RascalVM};
 use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
-use crate::rascal::vm::{num, RascalEventfulResult, RascalValue, RascalVM};
 use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
 pub(crate) type EntityId = usize;

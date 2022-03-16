@@ -1,6 +1,9 @@
+use serde::*;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+/// Symbolic name for a keyboard key.
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[repr(u32)]
+#[derive(Serialize, Deserialize)]
 pub enum KeyState {
     /// The '1' key over the letters.
     Key1,
@@ -68,6 +71,15 @@ pub enum KeyState {
     F13,
     F14,
     F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
 
     /// Print Screen/SysRq.
     Snapshot,
@@ -98,6 +110,8 @@ pub enum KeyState {
 
     /// The "Compose" key on Linux.
     Compose,
+
+    Caret,
 
     Numlock,
     Numpad0,
@@ -133,7 +147,6 @@ pub enum KeyState {
     LAlt,
     LBracket,
     LControl,
-    LMenu,
     LShift,
     LWin,
     Mail,
@@ -158,7 +171,6 @@ pub enum KeyState {
     RAlt,
     RBracket,
     RControl,
-    RMenu,
     RShift,
     RWin,
     Semicolon,
@@ -181,7 +193,11 @@ pub enum KeyState {
     WebSearch,
     WebStop,
     Yen,
+    Copy,
+    Paste,
+    Cut,
 }
+
 
 pub fn key_action_to_name(action: ElementState) -> &'static str {
     match action {
@@ -192,6 +208,10 @@ pub fn key_action_to_name(action: ElementState) -> &'static str {
 
 pub fn keystate_to_name(keystate: KeyState) -> &'static str {
     match keystate {
+        KeyState::Caret => "Caret",
+        KeyState::Copy => "Copy",
+        KeyState::Paste => "Paste",
+        KeyState::Cut => "Cut",
         KeyState::Key1 => "Number1",
         KeyState::Key2 => "Number2",
         KeyState::Key3 => "Number3",
@@ -202,6 +222,30 @@ pub fn keystate_to_name(keystate: KeyState) -> &'static str {
         KeyState::Key8 => "Number8",
         KeyState::Key9 => "Number9",
         KeyState::Key0 => "Number0",
+        KeyState::F1 => "F1",
+        KeyState::F2 => "F2",
+        KeyState::F3 => "F3",
+        KeyState::F4 => "F4",
+        KeyState::F5 => "F5",
+        KeyState::F6 => "F6",
+        KeyState::F7 => "F7",
+        KeyState::F8 => "F8",
+        KeyState::F9 => "F9",
+        KeyState::F10 => "F10",
+        KeyState::F11 => "F11",
+        KeyState::F12 => "F12",
+        KeyState::F13 => "F13",
+        KeyState::F14 => "F14",
+        KeyState::F15 => "F15",
+        KeyState::F16 => "F16",
+        KeyState::F17 => "F17",
+        KeyState::F18 => "F18",
+        KeyState::F19 => "F19",
+        KeyState::F20 => "F20",
+        KeyState::F21 => "F21",
+        KeyState::F22 => "F22",
+        KeyState::F23 => "F23",
+        KeyState::F24 => "F24",
         KeyState::A => "A",
         KeyState::B => "B",
         KeyState::C => "C",
@@ -294,7 +338,6 @@ pub fn keystate_to_name(keystate: KeyState) -> &'static str {
         KeyState::LAlt => "LAlt",
         KeyState::LBracket => "LBracket",
         KeyState::LControl => "LControl",
-        KeyState::LMenu => "LMenu",
         KeyState::LShift => "LShift",
         KeyState::LWin => "LWin",
         KeyState::Mail => "Mail",
@@ -319,7 +362,6 @@ pub fn keystate_to_name(keystate: KeyState) -> &'static str {
         KeyState::RAlt => "RAlt",
         KeyState::RBracket => "RBracket",
         KeyState::RControl => "RControl",
-        KeyState::RMenu => "RMenu",
         KeyState::RShift => "RShift",
         KeyState::RWin => "RWin",
         KeyState::Semicolon => "Semicolon",

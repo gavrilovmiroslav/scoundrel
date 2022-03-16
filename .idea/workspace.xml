@@ -9,15 +9,18 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/resources/data/test.rascal" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/semantics.rs" afterDir="false" />
+    <list default="true" id="0cb674d9-5972-4998-be1f-87e8cfb9ed06" name="Changes" comment="Holy shit! We have let bindings, we have a real interpreter, we have match/then/else syntax. There's a lot. We have correct keyboard key names! Big one!">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/resources/data.bin" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data.bin" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/resources/data/sokoban.rascal" beforeDir="false" afterPath="$PROJECT_DIR$/resources/data/sokoban.rascal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/keycodes.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/keycodes.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/grammar.pest" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/semantics.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/semantics.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/vm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/interpreter.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-common/src/rascal/world.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" beforeDir="false" afterPath="$PROJECT_DIR$/scoundrel-core/src/core_logic.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -147,7 +150,9 @@
       <workItem from="1646765532396" duration="20516000" />
       <workItem from="1646825137495" duration="15753000" />
       <workItem from="1646911935463" duration="9836000" />
-      <workItem from="1647091093685" duration="53461000" />
+      <workItem from="1647091093685" duration="55970000" />
+      <workItem from="1647359175915" duration="611000" />
+      <workItem from="1647361125270" duration="23920000" />
     </task>
     <task id="LOCAL-00001" summary="Updated data access">
       <created>1644255975850</created>
@@ -331,7 +336,14 @@
       <option name="project" value="LOCAL" />
       <updated>1647297388433</updated>
     </task>
-    <option name="localTasksCounter" value="27" />
+    <task id="LOCAL-00027" summary="Equalities and bindings weren't being cleared between indices, so previous ownership stayed and corrupted whole systems.">
+      <created>1647304837613</created>
+      <option name="number" value="00027" />
+      <option name="presentableId" value="LOCAL-00027" />
+      <option name="project" value="LOCAL" />
+      <updated>1647304837613</updated>
+    </task>
+    <option name="localTasksCounter" value="28" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -353,8 +365,6 @@
     <ignored-roots>
       <path value="$PROJECT_DIR$/crow" />
     </ignored-roots>
-    <MESSAGE value="Erased old name (shared_data)" />
-    <MESSAGE value="Added mouse events and glyph rendering" />
     <MESSAGE value="Added frame skipping and random color changes to test out speed bumps." />
     <MESSAGE value="Added NVidia and AMD high performance flags" />
     <MESSAGE value="Adding crow to implement a renderer that batches glyph draws per frame." />
@@ -378,10 +388,21 @@
     <MESSAGE value="Painting and printing is now system-priority-correct." />
     <MESSAGE value="Corrected variable equality checking (added ownership-checking). Rewrote sokoban to be shorter and more understandable." />
     <MESSAGE value="Comments are now available." />
-    <option name="LAST_COMMIT_MESSAGE" value="Comments are now available." />
+    <MESSAGE value="Equalities and bindings weren't being cleared between indices, so previous ownership stayed and corrupted whole systems." />
+    <MESSAGE value="Holy shit! We have let bindings, we have a real interpreter, we have match/then/else syntax. There's a lot. We have correct keyboard key names! Big one!" />
+    <option name="LAST_COMMIT_MESSAGE" value="Holy shit! We have let bindings, we have a real interpreter, we have match/then/else syntax. There's a lot. We have correct keyboard key names! Big one!" />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
   <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/scoundrel-common/src/engine.rs</url>
+          <line>271</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
     <watches-manager>
       <configuration name="CargoCommandRunConfiguration">
         <watch expression="self-&gt;bindings.base" />

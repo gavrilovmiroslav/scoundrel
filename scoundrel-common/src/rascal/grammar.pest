@@ -66,7 +66,7 @@ statement = _{
     spawn_statement | destroy_statement |
     update_statement | trigger_statement |
     consume_statement | print_statement |
-    paint_statement |
+    paint_statement | let_statement |
     debug_statement | quit_statement
 }
 
@@ -82,11 +82,15 @@ self_mod_operator = { "++" | "--" }
 mod_assignment = { identifier ~ mod_operator ~ expression ~ ";" }
 mod_operator = { "+=" | "-=" }
 
-if_statement = { "if" ~ expression ~ block ~ else_statement? }
-else_statement = { "else" ~ (if_statement | block) }
+if_statement = { "if" ~ expression ~ block ~ else_block? }
+else_block = { "else" ~ (if_statement | block) }
 
-match_statement = { "match" ~ expression ~ "{" ~ match_case+ ~ "}" }
+let_statement = { "let" ~ new_value_binding ~ ("," ~ new_value_binding)* ~ ";" }
+new_value_binding = { identifier ~ "=" ~ expression }
+
+match_statement = { "match" ~ expression ~ "{" ~ match_case+ ~ "}" ~ then_block? ~ else_block? }
 match_case = { "case" ~ expression ~ ":" ~ (block | statement) }
+then_block = { "then" ~ block }
 
 spawn_statement = { "spawn" ~ identifier ~ "with" ~ component_call_list ~ ";" }
 consume_statement = { "consume" ~ "event" ~ ";" }

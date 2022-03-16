@@ -127,7 +127,8 @@ type Offset = usize;
 #[derive(Debug)]
 pub struct RascalVM {
     pub(crate) current_system: Option<SystemSignature>,
-    current_event: Option<(ComponentSignature, BinaryComponent)>,
+    pub(crate) current_index: usize,
+    pub(crate) current_event: Option<(ComponentSignature, BinaryComponent)>,
     pub(crate) event_consumed: bool,
     pub(crate) something_printed: bool,
     pub bindings: HashMap<String, (ComponentId, MemberId)>,
@@ -141,11 +142,17 @@ pub enum RascalEventfulResult {
     Consumed,
 }
 
+pub enum RascalInterpretResult {
+    Ok,
+    Err(String)
+}
+
 impl RascalVM {
     pub fn new() -> Self {
         RascalVM {
             current_system: None,
             current_event: None,
+            current_index: 0,
             event_consumed: false,
             something_printed: false,
             bindings: HashMap::default(),
@@ -306,6 +313,7 @@ impl RascalVM {
 
         'entries: for index in 0..MAX_ENTRIES_PER_STORAGE {
             if query_bitmap.get(index as usize) {
+                self.current_index = index;
                 self.bindings = saved_bindings.clone();
                 self.equalities = saved_equalities.clone();
                 let mut values = self.get_binding_values(world, index as usize);
@@ -319,10 +327,10 @@ impl RascalVM {
                         if values.contains_key(name) {
                             let cached_value = values.get(name).unwrap();
                             if !RascalValue::same_optic(cached_value.clone(), RascalValue::Entity(index)) {
-                                println!("Continue #1: {:?} != {:?}", cached_value.clone(), RascalValue::Entity(index));
-                                println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                // println!("Continue #1: {:?} != {:?}", cached_value.clone(), RascalValue::Entity(index));
+                                /*println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
                                          self.current_system.as_ref().unwrap().name,
-                                         values, self.bindings, self.equalities);
+                                         values, self.bindings, self.equalities);*/
                                 continue 'entries;
                             }
                         }
@@ -331,10 +339,10 @@ impl RascalVM {
                         if self.equalities.contains_key(name) {
                             match self.equalities.get(name).unwrap() {
                                 EqualityWith::Value(RascalExpression::NumLiteral(x)) if (*x as usize) != index => {
-                                    println!("Continue #2: {:?} != {:?}", x, index);
-                                    println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                    // println!("Continue #2: {:?} != {:?}", x, index);
+                                    /*println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
                                              self.current_system.as_ref().unwrap().name,
-                                             values, self.bindings, self.equalities);
+                                             values, self.bindings, self.equalities);*/
                                     continue 'entries;
                                 }
                                 _ => {}
@@ -350,10 +358,10 @@ impl RascalVM {
                             Some(EqualityWith::Value(expr)) => {
                                 if let Some(expr_resolved) = self.interpret_expression(expr, &values, world) {
                                     if !RascalValue::same_optic(value.clone(), expr_resolved.clone()) {
-                                        println!("Continue #3: {:?} != {:?}", value.clone(), expr_resolved);
-                                        println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                        // println!("Continue #3: {:?} != {:?}", value.clone(), expr_resolved);
+                                        /*println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
                                                  self.current_system.as_ref().unwrap().name,
-                                                 values, self.bindings, self.equalities);
+                                                 values, self.bindings, self.equalities);*/
                                         continue 'entries;
                                     }
                                 }
@@ -364,10 +372,10 @@ impl RascalVM {
                                     //println!("ALIAS EQ: {:?} == {:?}", value, alias_value);
                                     if !RascalValue::same_optic(value.clone(), alias_value.clone()) {
                                         //println!("  JUMPING OVER, NOT SAME!");
-                                        println!("Continue #4: {:?} != {:?}", value.clone(), alias_value.clone());
-                                        println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                        // println!("Continue #4: {:?} != {:?}", value.clone(), alias_value.clone());
+                                        /*println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
                                                  self.current_system.as_ref().unwrap().name,
-                                                 values, self.bindings, self.equalities);
+                                                 values, self.bindings, self.equalities);*/
                                         continue 'entries;
                                     }
                                 }
@@ -384,10 +392,10 @@ impl RascalVM {
                             let lhs = values.get(name).unwrap();
                             let rhs = values.get(real).unwrap();
                             if *lhs != *rhs {
-                                println!("Continue #5: {:?} != {:?}", *lhs, *rhs);
-                                println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
+                                // println!("Continue #5: {:?} != {:?}", *lhs, *rhs);
+                                /*println!("\tSystem {}\n\tvalues: {:?}\n\tbindings: {:?}\n\tequalities: {:?}",
                                          self.current_system.as_ref().unwrap().name,
-                                         values, self.bindings, self.equalities);
+                                         values, self.bindings, self.equalities);*/
                                 continue 'entries;
                             }
                         },
@@ -396,8 +404,7 @@ impl RascalVM {
                     }
                 }
 
-                let changes = self.interpret_block(&system.system_body_block, &values, world);
-                self.commit_changes(world, index, &mut values, changes);
+                self.interpret_block(&system.body_block, &mut values, world);
             }
         }
     }
@@ -544,21 +551,31 @@ impl RascalVM {
         } else { None }
     }
 
-    fn interpret_statement(&self, statement: &RascalStatement, values: &HashMap<String, RascalValue>, world: &mut World) -> Vec<SemanticChange> {
-        let mut result = Vec::new();
-
+    fn interpret_statement(&mut self, statement: &RascalStatement, values: &mut HashMap<String, RascalValue>, world: &mut World) -> RascalInterpretResult {
         match statement {
+            RascalStatement::Let(name, e) => {
+                if let RascalExpression::Identifier(name) = name {
+                    if values.contains_key(name) {
+                        return RascalInterpretResult::Err(format!("Variable {} already defined", name));
+                    }
+
+                    let value = self.interpret_expression(e, values, world).unwrap();
+                    self.commit_change(world, values, SemanticChange::LetBinding(name.clone(), value));
+                } else {
+                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", name))
+                }
+            }
+
             RascalStatement::Assign(a, b) => {
                 if let RascalExpression::Identifier(name) = a {
                     if !values.contains_key(name) {
-                        println!("Variable {} not found", name);
-                        return vec![];
+                        return RascalInterpretResult::Err(format!("Variable {} not found", name));
                     }
 
-                    result.push(SemanticChange::ValueAssign(name.clone(), self.interpret_expression(b, values, world).unwrap()));
+                    let value = self.interpret_expression(b, values, world).unwrap();
+                    self.commit_change(world, values, SemanticChange::ValueAssign(name.clone(), value));
                 } else {
-                    println!("Expected identifier, got {:?}", a);
-                    return vec![];
+                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", a));
                 }
             }
 
@@ -566,37 +583,34 @@ impl RascalVM {
                 match self.interpret_expression(body, values, world) {
                     Some(RascalValue::Bool(is)) => {
                         if is {
-                            result.extend(self.interpret_block(then.as_ref(), values, world));
+                            self.interpret_block(then.as_ref(), values, world);
                         } else if or_else.is_some() {
-                            result.extend(self.interpret_block(or_else.as_ref().unwrap(), values, world));
+                            self.interpret_block(or_else.as_ref().unwrap(), values, world);
                         }
                     }
 
                     Some(other) => {
-                        println!("If guard didn't evaluate to boolean, but rather to: {:?}!", other);
-                        unreachable!()
+                        return RascalInterpretResult::Err(format!("If guard didn't evaluate to boolean, but rather to: {:?}!", other));
                     }
 
                     None => {
-                        println!("It was impossible to interpret the evaluated expression: {:?}\n\t{:?}", body, values);
-                        unreachable!()
+                        return RascalInterpretResult::Err(format!("It was impossible to interpret the evaluated expression: {:?}\n\t{:?}", body, values));
                     }
                 }
             }
 
             RascalStatement::Spawn(a, b) => {
                 if let RascalExpression::Identifier(name) = a {
-                    result.push(SemanticChange::SpawnEntity(name.clone(), b.clone()));
+                    self.commit_change(world, values, SemanticChange::SpawnEntity(name.clone(), b.clone()));
                 } else {
-                    println!("Expected identifier, got {:?}", a);
-                    return vec![];
+                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", a));
                 }
             }
 
             RascalStatement::Destroy(id) => {
                 match id {
                     RascalExpression::Identifier(name) => {
-                        result.push(SemanticChange::DestroyEntity(name.clone()));
+                        self.commit_change(world, values, SemanticChange::DestroyEntity(name.clone()));
                     }
 
                     _ => {}
@@ -605,23 +619,22 @@ impl RascalVM {
 
             RascalStatement::Update(x, y) => {
                 if let RascalExpression::Identifier(name) = x {
-                    result.push(SemanticChange::UpdateComponents(name.clone(), y.clone()));
+                    self.commit_change(world, values, SemanticChange::UpdateComponents(name.clone(), y.clone()));
                 } else {
-                    println!("Expected identifier, got {:?}", x);
-                    return vec![];
+                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", x));
                 }
             }
 
             RascalStatement::Trigger(e) => {
-                result.push(SemanticChange::TriggerEvent(e.clone()));
+                self.commit_change(world, values, SemanticChange::TriggerEvent(e.clone()));
             }
 
             RascalStatement::ConsumeEvent => {
                 let system = self.current_system.clone().unwrap();
                 if system.activation_event.is_none() {
-                    println!("Trying to consume event from a stateful system. Ignoring.");
+                    return RascalInterpretResult::Err(format!("Trying to consume event from a stateful system. Ignoring."));
                 } else {
-                    result.push(SemanticChange::ConsumeEvent);
+                    self.commit_change(world, values, SemanticChange::ConsumeEvent);
                 }
             }
 
@@ -632,10 +645,10 @@ impl RascalVM {
                 let bg = self.interpret_color_expression(background.clone(), values, world);
 
                 if paint_all {
-                    result.push(SemanticChange::Paint(Position::All, fg.map(|f| Color::from(f)), bg.map(|b| Color::from(b))));
+                    self.commit_change(world, values, SemanticChange::Paint(Position::All, fg.map(|f| Color::from(f)), bg.map(|b| Color::from(b))));
                 } else {
                     let position = self.interpret_position_expression(position.clone(), values, world).unwrap();
-                    result.push(SemanticChange::Paint(Position::At(position), fg.map(|f| Color::from(f)), bg.map(|b| Color::from(b))));
+                    self.commit_change(world, values, SemanticChange::Paint(Position::At(position), fg.map(|f| Color::from(f)), bg.map(|b| Color::from(b))));
                 }
             }
 
@@ -644,76 +657,76 @@ impl RascalVM {
                 let fg = self.interpret_color_expression(Some(foreground.clone()), values, world).unwrap_or((0, 0, 255));
                 let bg = self.interpret_color_expression(Some(background.clone()), values, world).unwrap_or((0, 0, 0));
 
-                result.push(SemanticChange::Print(xy, fg, bg, e.clone()));
+                self.commit_change(world, values, SemanticChange::Print(xy, fg, bg, e.clone()));
             }
 
-            RascalStatement::Match(key, cases) => {
+            RascalStatement::Match(key, cases, then_block, else_block) => {
+                let mut found_case = false;
                 match self.interpret_expression(key, values, world) {
                     Some(value) => {
                         for (case_match, case_body) in cases {
                             let other = self.interpret_expression(case_match, values, world).unwrap();
                             if value == other {
-                                result.extend(self.interpret_block(case_body, values, world));
+                                found_case = true;
+                                self.interpret_block(case_body, values, world);
                                 break;
                             }
                         }
                     }
 
                     None => {
-                        println!("It was impossible to interpret the key of the match: {:?}\n\t{:?}", key, values);
-                        unreachable!()
+                        return RascalInterpretResult::Err(format!("It was impossible to interpret the key of the match: {:?}\n\t{:?}", key, values));
                     }
                 }
+
+                let block_to_call = if found_case { then_block } else { else_block };
+                block_to_call.as_ref().map(|block| self.interpret_block(block, values, world));
             }
 
             RascalStatement::Inc(var, n) => {
                 if let RascalExpression::Identifier(name) = var {
                     if !values.contains_key(name) {
-                        println!("Variable {} not found", name);
-                        return vec![];
+                        return RascalInterpretResult::Err(format!("Variable {} not found", name));
                     }
 
-                    result.push(SemanticChange::ValueInc(name.clone(), self.interpret_expression(n, values, world).unwrap()));
+                    let value = self.interpret_expression(n, values, world).unwrap();
+                    self.commit_change(world, values, SemanticChange::ValueInc(name.clone(), value));
                 } else {
-                    println!("Expected identifier, got {:?}", var);
-                    return vec![];
+                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", var));
                 }
             }
 
             RascalStatement::Dec(var, n) => {
                 if let RascalExpression::Identifier(name) = var {
                     if !values.contains_key(name) {
-                        println!("Variable {} not found", name);
-                        return vec![];
+                        return RascalInterpretResult::Err(format!("Variable {} not found", name));
                     }
 
-                    result.push(SemanticChange::ValueDec(name.clone(), self.interpret_expression(n, values, world).unwrap()));
+                    let value = self.interpret_expression(n, values, world).unwrap();
+                    self.commit_change(world, values, SemanticChange::ValueDec(name.clone(), value));
                 } else {
-                    println!("Expected identifier, got {:?}", var);
-                    return vec![];
+                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", var));
                 }
             }
 
             RascalStatement::DebugPrint(expr) => {
-                result.push(SemanticChange::DebugPrint(expr.clone()));
+                self.commit_change(world, values, SemanticChange::DebugPrint(expr.clone()));
             }
 
             RascalStatement::Quit => {
-                result.push(SemanticChange::Quit);
+                self.commit_change(world, values, SemanticChange::Quit);
             }
         };
 
-        result
+        RascalInterpretResult::Ok
     }
 
-    fn interpret_block(&self, block: &RascalBlock, values: &HashMap<String, RascalValue>, world: &mut World) -> Vec<SemanticChange> {
-        let mut result = Vec::new();
-
+    fn interpret_block(&mut self, block: &RascalBlock, values: &mut HashMap<String, RascalValue>, world: &mut World) {
         for statement in block {
-            result.extend(self.interpret_statement(statement, values, world));
+            if let RascalInterpretResult::Err(what) = self.interpret_statement(statement, values, world) {
+                panic!("{}", what);
+            }
         }
-
-        result
     }
 
     pub(crate) fn add_component(&self, world: &mut World, entity: EntityId, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {

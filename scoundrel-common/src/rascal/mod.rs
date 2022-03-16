@@ -1,5 +1,5 @@
 
 pub mod world;
 pub mod parser;
-pub mod vm;
+pub mod interpreter;
 pub mod semantics;

@@ -41,13 +41,18 @@ with .IsPlayer & .IsAt(x, y)
 [Spawn Player On Start]
 on Start
 {
-    spawn player with IsPlayer & IsAt(10, 10) & HasGlyph('@') & HasColor(0, 0, 255) & HasScore(0);
+    spawn player with
+        IsPlayer
+      & IsAt(20, 20)
+      & HasGlyph('@')
+      & HasColor(0, 0, 255)
+      & HasScore(0);
 }
 
 [Spawn Walls on Start|first]
 on Start
 {
-    spawn wall with IsWall & IsAt(13, 10) & HasGlyph('#');
+    spawn wall with IsWall & IsAt(13, 14) & HasGlyph('#');
 }
 
 // ===== UI ===================================================
@@ -62,14 +67,17 @@ with .HasScore(score)
 
 [Move By Keyboard|first]
 on KeyPress(key, "Pressed")
-with e.IsPlayer
-   & e.IsAt(x, y)
+with e.IsPlayer & e.IsAt(x, y)
 {
+    let p = x, q = y;
     match key {
-        case "A": { trigger MoveIntent(e, true, x-1, y); consume event; }
-        case "D": { trigger MoveIntent(e, true, x+1, y); consume event; }
-        case "W": { trigger MoveIntent(e, true, x, y-1); consume event; }
-        case "S": { trigger MoveIntent(e, true, x, y+1); consume event; }
+        case "Left": p = x - 1;
+        case "Right": p = x + 1;
+        case "Up": q = y - 1;
+        case "Down": q = y + 1;
+    } then {
+        trigger MoveIntent(e, true, p, q);
+        consume event;
     }
 }
 

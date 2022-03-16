@@ -4,7 +4,7 @@ use scoundrel_common::engine;
 use scoundrel_common::engine::WORLD;
 use scoundrel_common::glyphs::cls;
 use scoundrel_common::keycodes::{key_action_to_name, keystate_to_name};
-use scoundrel_common::rascal::vm::{num, text};
+use scoundrel_common::rascal::interpreter::{num, text};
 use scoundrel_common::rascal::world::TriggerEvent;
 
 pub fn clear_screen() {
