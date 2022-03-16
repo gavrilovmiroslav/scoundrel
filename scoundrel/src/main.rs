@@ -8,8 +8,9 @@ use scoundrel_windowing::windowing;
 fn main() {
     let mut engine = Engine::new(EngineOptions::default());
 
-    rebuild_world("default.rascal");
-    rebuild_world("sokoban.rascal");
+    for script in engine.options.scripts.clone() {
+        rebuild_world(script.as_str());
+    }
 
     send_start_event();
 

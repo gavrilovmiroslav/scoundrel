@@ -4,4 +4,9 @@
 
     vsync: false,
     presentation: "classic_roguelike_white",
+
+    scripts: [
+        "default.rascal",
+        "sokoban.rascal",
+    ]
 )

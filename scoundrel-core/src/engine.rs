@@ -10,15 +10,17 @@ pub type PreSupportSystems = Vec<fn()>;
 pub type PostSupportSystems = Vec<fn()>;
 
 pub struct Engine {
+    pub options: EngineOptions,
     pub pre_support_systems: PreSupportSystems,
     pub post_support_systems: PostSupportSystems,
 }
 
 impl Engine {
     pub fn new(options: EngineOptions) -> Engine {
-        engine::start_engine(options);
+        engine::start_engine(options.clone());
 
         Engine {
+            options,
             pre_support_systems: Vec::new(),
             post_support_systems: Vec::new()
         }

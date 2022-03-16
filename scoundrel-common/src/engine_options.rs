@@ -7,6 +7,7 @@ pub struct EngineOptions {
     pub window_size: (u32, u32),
     pub title: String,
     pub presentation: String,
+    pub scripts: Vec<String>,
 }
 
 impl Default for EngineOptions {
