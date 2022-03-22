@@ -12,9 +12,12 @@ use pest_derive;
 use pest_derive::Parser;
 
 use lazy_static;
+use crate::rascal::interpreter::RascalValue;
+use crate::rascal::interpreter::RascalValue::{Entity, Symbol};
 
 use crate::rascal::parser::RascalExpression::{BoolLiteral, Identifier, NumLiteral, TextLiteral};
 use crate::rascal::parser::TokenType::{NonTerm, Term};
+use crate::rascal::world::UniqueValue;
 
 #[derive(Parser)]
 #[grammar = "rascal/grammar.pest"]
@@ -79,6 +82,17 @@ impl DataType {
             Symbol => 2, // u16
         }
     }
+
+    fn default(&self) -> RascalValue {
+        use DataType::*;
+        match self {
+            Num => RascalValue::Num(0),
+            Bool => RascalValue::Bool(false),
+            Text => RascalValue::Text(0),
+            Entity => RascalValue::Entity(0),
+            Symbol => RascalValue::Symbol(0),
+        }
+    }
 }
 
 pub(crate) type MemberId = String;
@@ -141,6 +155,12 @@ pub enum ComponentModifier {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum ComponentOrUnique {
+    Comp(ComponentCallSite),
+    Uniq(String),
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct ComponentCallSite {
     pub modifier: ComponentModifier,
     pub is_owned: bool,
@@ -187,6 +207,7 @@ pub struct SystemSignature {
     pub real_priority: SystemPrioritySize,
     pub activation_event: Option<ComponentCallSite>,
     pub storage_requirements: Vec<ComponentCallSite>,
+    pub unique_requirements: Vec<String>,
     pub body_block: RascalBlock,
 }
 
@@ -197,6 +218,7 @@ impl SystemSignature {
             activation_event: self.activation_event,
             real_priority: 0,
             storage_requirements: self.storage_requirements,
+            unique_requirements: self.unique_requirements,
             body_block: self.body_block
         }
     }
@@ -389,7 +411,6 @@ impl SystemSignature {
     }
 
     fn parse_call_site(rule: Pair<Rule>) -> Option<ComponentCallSite> {
-        println!("{:?}", rule.as_str());
         let mut rule = rule.into_inner();
         let next = rule.next().unwrap();
 
@@ -419,16 +440,22 @@ impl SystemSignature {
         }
     }
 
-    fn parse_with_clause(rule: Pair<Rule>) -> Vec<ComponentCallSite> {
+    fn parse_with_clause(rule: Pair<Rule>) -> (Vec<ComponentCallSite>, Vec<String>) {
         let mut clauses = Vec::new();
+        let mut uniques = Vec::new();
         let mut rule = rule.into_inner();
         let next = rule.next().unwrap();
 
         for next in next.into_inner() {
-            clauses.push(Self::parse_component_call_list(next).unwrap());
+            if let Rule::unique_call = next.as_rule() {
+                uniques.push(next.as_str().to_string());
+            } else {
+                println!("   ??? {:?}", next.as_rule());
+                clauses.push(Self::parse_component_call_list(next).unwrap());
+            }
         }
 
-        clauses
+        (clauses, uniques)
     }
 
     fn parse_position_expression(rule: &mut Pairs<Rule>) -> Option<(RascalExpression, RascalExpression)> {
@@ -731,7 +758,7 @@ impl SystemSignature {
         }).unwrap_or(SystemPriority::Default);
 
         let mut event = None;
-        let mut with = Vec::new();
+        let mut with = (Vec::new(), Vec::new());
         let mut body = Vec::new();
 
         for r in rule {
@@ -743,8 +770,8 @@ impl SystemSignature {
             }
         }
 
-        if with.len() == 0 {
-            with.push(ComponentCallSite{
+        if with.0.len() == 0 {
+            with.0.push(ComponentCallSite{
                 modifier: ComponentModifier::Default,
                 is_owned: true,
                 owner: None,
@@ -753,7 +780,7 @@ impl SystemSignature {
             });
         }
 
-        SystemSignature{ id: 0, name, priority, activation_event: event, real_priority: 0, storage_requirements: with, body_block: body }
+        SystemSignature{ id: 0, name, priority, activation_event: event, real_priority: 0, storage_requirements: with.0, unique_requirements: with.1, body_block: body }
     }
 }
 
@@ -763,6 +790,7 @@ pub enum RascalStruct {
     Event(ComponentSignature),
     Tag(String),
     System(SystemSignature),
+    Unique(String, UniqueValue),
 }
 
 impl RascalStruct {
@@ -780,6 +808,7 @@ impl RascalStruct {
             RascalStruct::Event(_) => ComponentType::Event,
             RascalStruct::Tag(_) => ComponentType::Tag,
             RascalStruct::System(_) => ComponentType::System,
+            RascalStruct::Unique(_, _) => ComponentType::Unique,
         }
     }
 
@@ -789,13 +818,14 @@ impl RascalStruct {
             RascalStruct::Event(event) => event.name.as_str(),
             RascalStruct::Tag(tag) => tag,
             RascalStruct::System(system) => system.name.as_str(),
+            RascalStruct::Unique(name, _) => name,
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ComponentType {
-    State, Event, Tag, System
+    State, Event, Tag, System, Unique,
 }
 
 pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
@@ -842,6 +872,31 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
             Rule::system_decl => {
                 let mut inner = parse_tree.into_inner();
                 ast.push(RascalStruct::System(SystemSignature::parse_system(inner)));
+            }
+
+            Rule::unique_decl => {
+                let mut inner = parse_tree.into_inner();
+                let name = inner.next().unwrap().as_str().to_string();
+                let datatype = inner.next().unwrap();
+                match datatype.as_rule() {
+                    Rule::field => {
+                        let datatype = DataType::parse_datatype(datatype.into_inner().next().unwrap().as_str());
+                        let field = UniqueValue::Field { datatype, map: Default::default() };
+                        let uniq = RascalStruct::Unique(name, field);
+                        ast.push(uniq);
+                    },
+
+                    Rule::datatype => {
+                        let datatype = DataType::parse_datatype(datatype.as_str());
+                        let uniq = RascalStruct::Unique(name, UniqueValue::Var { datatype, value: datatype.default() });
+                        ast.push(uniq);
+                    },
+
+                    _ => {
+                        println!("{:?}", datatype);
+                        unreachable!()
+                    },
+                }
             }
 
             _ => {}

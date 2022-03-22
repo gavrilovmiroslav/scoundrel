@@ -280,6 +280,15 @@ impl RascalVM {
 
         let query_bitmap = self.query_storages(world, &system.storage_requirements);
 
+        for uniq in &system.unique_requirements {
+            let index = get_or_insert_into_string_pool(uniq);
+            if !world.unique_storage.contains_key(&index) {
+                println!("[System {}] Unique value {} required but not found!",
+                         system.name, uniq.as_str());
+                return;
+            }
+        }
+
         for call_site in system.storage_requirements.clone() {
             let comp_type = world.component_types.get(&call_site.name).unwrap();
             match comp_type {

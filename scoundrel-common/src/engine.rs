@@ -264,6 +264,9 @@ fn remove_structure(world: &mut World, structure: &RascalStruct) {
             SYSTEM_DEPENDENCIES.lock().unwrap().remove(&sys.name);
             CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap().remove(&sys.name);
         }
+        RascalStruct::Unique(name, val) => {
+            unreachable!()
+        }
     }
 }
 
@@ -303,6 +306,9 @@ pub fn rebuild_world(source_name: &str) {
                         }
                         ComponentType::System => {
                             REGISTERED_SYSTEMS.lock().unwrap().remove(&id);
+                        }
+                        ComponentType::Unique => {
+                            unreachable!()
                         }
                     }
                 }

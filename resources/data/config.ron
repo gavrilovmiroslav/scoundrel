@@ -7,6 +7,6 @@
 
     scripts: [
         "default.rascal",
-        "sokoban.rascal",
+        //"sokoban.rascal",
     ]
 )

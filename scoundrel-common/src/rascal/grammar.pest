@@ -1,7 +1,7 @@
 WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = { "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
-decl = _{ (COMMENT | system_decl | tag_decl | state_decl | event_decl) }
+decl = _{ (COMMENT | system_decl | tag_decl | state_decl | event_decl | unique_decl) }
 program = _{ (decl ~ decl*) }
 
 // text
@@ -31,18 +31,21 @@ any_char = { ASCII }
 tag_decl = { "tag" ~ name  ~ ";" }
 state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
 event_decl = { "event" ~ name ~ "{" ~ type_member_list? ~ "}" ~ ";" }
-
+unique_decl = { "unique" ~ name ~ ":" ~ complex_datatype ~ ";" }
+complex_datatype = _{ field | datatype }
+field = { "field" ~ "of" ~ datatype }
 type_member_list = { (type_member ~ ("," ~ type_member)*) }
 type_member = { name ~ ":" ~ datatype }
 
 component_call_list = { component_call ~ ("&" ~ component_call)* }
-component_call = _{ negated_call_site | toggled_call_site | call_site }
+component_call = _{ unique_call | negated_call_site | toggled_call_site | call_site }
 component_arg_list = _{ "(" ~ arg_member_list ~ ")" }
 negated_call_site = { "not:"  ~ call_site }
 toggled_call_site = { "toggle:"  ~ call_site }
 call_site = _{ (complex_call_site | simple_call_site) }
 simple_call_site = { name ~ component_arg_list? }
 complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
+unique_call = { "#" ~ name }
 
 arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
 arg_member = { expression }

@@ -10,8 +10,8 @@ use priority_queue::PriorityQueue;
 use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::{set_should_redraw, WORLD};
-use crate::rascal::interpreter::{num, RascalEventfulResult, RascalValue, RascalVM};
-use crate::rascal::parser::{ComponentSignature, ComponentType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
+use crate::rascal::interpreter::{get_or_insert_into_string_pool, num, RascalEventfulResult, RascalValue, RascalVM};
+use crate::rascal::parser::{ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
 use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
 pub(crate) type EntityId = usize;
@@ -30,6 +30,12 @@ const ARENA_SIZE: usize =
 
 pub type BinaryComponent = Vec<u8>;
 
+#[derive(Debug)]
+pub enum UniqueValue {
+    Field { datatype: DataType, map: HashMap<usize, RascalValue> },
+    Var { datatype: DataType, value: RascalValue }
+}
+
 pub struct World {
     pub data: Box<dyn Cave>,
     pub definitions_in_source: HashMap<String, Vec<(ComponentId, ComponentType)>>,
@@ -44,6 +50,7 @@ pub struct World {
     pub next_event_queues: HashMap<ComponentId, VecDeque<BinaryComponent>>,
     pub storage_bitmaps: HashMap<ComponentId, Bitmap<MAX_ENTRIES_PER_STORAGE>>,
     pub system_priorities: HashMap<SystemPriority, u16>,
+    pub unique_storage: HashMap<u32, UniqueValue>,
 }
 
 impl Default for World {
@@ -67,6 +74,7 @@ impl Default for World {
             next_event_queues: HashMap::default(),
             storage_bitmaps: HashMap::default(),
             system_priorities: HashMap::default(),
+            unique_storage: HashMap::default(),
         }
     }
 }
@@ -241,6 +249,11 @@ impl World {
                 // no storage pointer here, bitmap only!
                 self.registered_tags.insert(tag.clone());
                 self.component_names.push(tag.clone());
+            }
+
+            RascalStruct::Unique(name, value) => {
+                let index = get_or_insert_into_string_pool(&name);
+                self.unique_storage.insert(index, value);
             }
 
             _ => unreachable!()

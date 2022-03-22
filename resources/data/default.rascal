@@ -9,3 +9,6 @@ on KeyPress("Escape", "Released")
 with .IsPlayer & .IsAt(x, y) & .HasGlyph(glyph) & .HasColor(h, s, v) {
     print at:[x, y] fg:[h, s, v] glyph;
 }
+
+unique score: num;
+unique rooms: field of num;
