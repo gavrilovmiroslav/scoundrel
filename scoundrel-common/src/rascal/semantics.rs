@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::colors::Color;
 use crate::engine::force_quit;
 use crate::glyphs::{paint_all_tiles, paint_tile, print_string_colors};
-use crate::rascal::interpreter::{rascal_value_as_string, RascalValue, RascalVM};
+use crate::rascal::interpreter::{get_or_insert_into_string_pool, rascal_value_as_string, RascalValue, RascalVM};
 use crate::rascal::parser::{ComponentCallSite, ComponentModifier, RascalExpression};
 use crate::rascal::world::World;
 
@@ -36,14 +36,20 @@ impl RascalVM {
         match change {
             SemanticChange::ValueInc(name, mod_value) => {
                 if let RascalValue::Num(mod_num) = mod_value {
-                    match values.get(&name).unwrap() {
-                        RascalValue::Num(num) => {
+                    if values.contains_key(&name) {
+                        if let RascalValue::Num(num) = values.get(&name).unwrap() {
                             let new_value = RascalValue::Num(*num + mod_num);
                             values.insert(name.clone(), new_value.clone());
                             self.assign_value(world, index, name, new_value);
                         }
-
-                        _ => unreachable!()
+                    } else {
+                        let name_index = get_or_insert_into_string_pool(&name);
+                        if world.unique_storage.contains_key(&name_index) {
+                            if let RascalValue::Num(num) = world.unique_storage.get(&name_index).unwrap() {
+                                let new_value = RascalValue::Num(*num + mod_num);
+                                world.unique_storage.insert(name_index, new_value);
+                            }
+                        }
                     }
                 }
             }
@@ -59,9 +65,14 @@ impl RascalVM {
             }
 
             SemanticChange::ValueAssign(name, new_value) => {
-                values.insert(name.clone(), new_value.clone());
-                if self.bindings.contains_key(&name) {
-                    self.assign_value(world, index, name, new_value);
+                let name_index = get_or_insert_into_string_pool(&name);
+                if world.unique_storage.contains_key(&name_index) {
+                    *world.unique_storage.get_mut(&name_index).unwrap() = new_value;
+                } else {
+                    values.insert(name.clone(), new_value.clone());
+                    if self.bindings.contains_key(&name) {
+                        self.assign_value(world, index, name, new_value);
+                    }
                 }
             }
 

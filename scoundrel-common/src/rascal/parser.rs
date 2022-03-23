@@ -12,12 +12,11 @@ use pest_derive;
 use pest_derive::Parser;
 
 use lazy_static;
-use crate::rascal::interpreter::RascalValue;
+use crate::rascal::interpreter::{get_or_insert_into_string_pool, RascalValue};
 use crate::rascal::interpreter::RascalValue::{Entity, Symbol};
 
 use crate::rascal::parser::RascalExpression::{BoolLiteral, Identifier, NumLiteral, TextLiteral};
 use crate::rascal::parser::TokenType::{NonTerm, Term};
-use crate::rascal::world::UniqueValue;
 
 #[derive(Parser)]
 #[grammar = "rascal/grammar.pest"]
@@ -42,9 +41,6 @@ lazy_static! {
             Operator::new(Rule::mul_op, Left) |
             Operator::new(Rule::div_op, Left) |
             Operator::new(Rule::mod_op, Left),
-
-            Operator::new(Rule::not_op, Left) |
-            Operator::new(Rule::neg_op, Left)
         ])
     };
 }
@@ -57,6 +53,7 @@ pub enum DataType {
     Text,
     Entity,
     Symbol,
+    Field,
 }
 
 impl DataType {
@@ -68,6 +65,7 @@ impl DataType {
             "bool" => Bool,
             "entity" => Entity,
             "symbol" => Symbol,
+            _ if text.starts_with("field") => Field,
             _ => panic!("Wrong datatype: {}", text)
         }
     }
@@ -80,6 +78,7 @@ impl DataType {
             Text => 4, // ptr size
             Entity => 8, // u64
             Symbol => 2, // u16
+            Field => 4, // u32
         }
     }
 
@@ -91,6 +90,7 @@ impl DataType {
             Text => RascalValue::Text(0),
             Entity => RascalValue::Entity(0),
             Symbol => RascalValue::Symbol(0),
+            Field => panic!("Cannot default a field!"),
         }
     }
 }
@@ -335,50 +335,68 @@ impl SystemSignature {
 
         match exprs {
             TokenType::NonTerm(expr) => {
-                let result = EXPR_PREC_CLIMBER.climb(
+                EXPR_PREC_CLIMBER.climb(
                     expr,
                     |pair| match pair.as_rule() {
-                        Rule::bool_value => BoolLiteral(pair.as_str().starts_with("true")),
-                        Rule::number => NumLiteral(pair.as_str().trim().parse().unwrap()),
-                        Rule::text_value => TextLiteral({
+                        Rule::bool_value => Some(BoolLiteral(pair.as_str().starts_with("true"))),
+                        Rule::number => Some(NumLiteral(pair.as_str().trim().parse().unwrap())),
+                        Rule::text_value => Some(TextLiteral({
                             let text = pair.as_str().to_string();
                             text[1..(text.len() - 1)].to_string()
-                        }),
-                        Rule::any_char => RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16),
-                        Rule::identifier => RascalExpression::Identifier(pair.as_str().to_string()),
-                        Rule::expression => Self::parse_expression(TokenType::NonTerm(pair.into_inner())).unwrap(),
-                        Rule::complex_call_site => RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap()),
+                        })),
+                        Rule::any_char => Some(RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16)),
+                        Rule::identifier => Some(RascalExpression::Identifier(pair.as_str().to_string())),
+                        Rule::expression => Self::parse_expression(TokenType::NonTerm(pair.into_inner())),
+                        Rule::complex_call_site => Some(RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap())),
+                        Rule::negated_primary => {
+                            let mut p = pair.into_inner();
+                            let un = match p.next().unwrap().as_str() {
+                                "!" => Un::Not,
+                                "-" => Un::Neg,
+                                _ => unreachable!()
+                            };
+                            let negated = p.next().unwrap();
+                            if let Some(exp) = SystemSignature::parse_expression(
+                                TokenType::NonTerm(negated.clone().into_inner())) {
 
+                                Some(RascalExpression::Unary(un, Box::new(exp)))
+                            } else {
+                                if let Some(exp) = SystemSignature::parse_expression(TokenType::Term(negated)) {
+                                    Some(RascalExpression::Unary(un, Box::new(exp)))
+                                } else {
+                                    None
+                                }
+                            }
+                        }
                         _ => {
-                            println!("UNREACHABLE: {:?} {}", pair.as_rule(), pair.as_str());
-                            unreachable!()
+                            None
                         }
                     },
-                    |lhs, op, rhs| match op.as_rule() {
-                        Rule::and_op => RascalExpression::BoolOp(Box::new(lhs), BoolOper::And, Box::new(rhs)),
-                        Rule::or_op => RascalExpression::BoolOp(Box::new(lhs), BoolOper::Or, Box::new(rhs)),
+                    |lhs, op, rhs| {
+                        let lhs = lhs.unwrap();
+                        let rhs = rhs.unwrap();
+                        match op.as_rule() {
 
-                        Rule::eq_rel => RascalExpression::Relation(Box::new(lhs), Rel::Eq, Box::new(rhs)),
-                        Rule::ne_rel => RascalExpression::Relation(Box::new(lhs), Rel::Ne, Box::new(rhs)),
-                        Rule::lt_rel => RascalExpression::Relation(Box::new(lhs), Rel::Lt, Box::new(rhs)),
-                        Rule::gt_rel => RascalExpression::Relation(Box::new(lhs), Rel::Gt, Box::new(rhs)),
-                        Rule::le_rel => RascalExpression::Relation(Box::new(lhs), Rel::Le, Box::new(rhs)),
-                        Rule::ge_rel => RascalExpression::Relation(Box::new(lhs), Rel::Ge, Box::new(rhs)),
+                            Rule::and_op => Some(RascalExpression::BoolOp(Box::new(lhs), BoolOper::And, Box::new(rhs))),
+                            Rule::or_op => Some(RascalExpression::BoolOp(Box::new(lhs), BoolOper::Or, Box::new(rhs))),
 
-                        Rule::plus_op => RascalExpression::Binary(Box::new(lhs), Op::Add, Box::new(rhs)),
-                        Rule::minus_op => RascalExpression::Binary(Box::new(lhs), Op::Sub, Box::new(rhs)),
-                        Rule::mul_op => RascalExpression::Binary(Box::new(lhs), Op::Mul, Box::new(rhs)),
-                        Rule::div_op => RascalExpression::Binary(Box::new(lhs), Op::Div, Box::new(rhs)),
-                        Rule::mod_op => RascalExpression::Binary(Box::new(lhs), Op::Mod, Box::new(rhs)),
+                            Rule::eq_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Eq, Box::new(rhs))),
+                            Rule::ne_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Ne, Box::new(rhs))),
+                            Rule::lt_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Lt, Box::new(rhs))),
+                            Rule::gt_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Gt, Box::new(rhs))),
+                            Rule::le_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Le, Box::new(rhs))),
+                            Rule::ge_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Ge, Box::new(rhs))),
 
-                        Rule::not_op => RascalExpression::Unary(Un::Not, Box::new(lhs)),
-                        Rule::neg_op => RascalExpression::Unary(Un::Neg, Box::new(lhs)),
+                            Rule::plus_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Add, Box::new(rhs))),
+                            Rule::minus_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Sub, Box::new(rhs))),
+                            Rule::mul_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mul, Box::new(rhs))),
+                            Rule::div_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Div, Box::new(rhs))),
+                            Rule::mod_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mod, Box::new(rhs))),
 
-                        _ => unreachable!()
+                            _ => None
+                        }
                     }
-                );
-
-                Some(result)
+                )
             }
 
             TokenType::Term(expr) => {
@@ -448,7 +466,7 @@ impl SystemSignature {
 
         for next in next.into_inner() {
             if let Rule::unique_call = next.as_rule() {
-                uniques.push(next.as_str().to_string());
+                uniques.push(next.into_inner().next().unwrap().as_str().to_string());
             } else {
                 println!("   ??? {:?}", next.as_rule());
                 clauses.push(Self::parse_component_call_list(next).unwrap());
@@ -790,7 +808,7 @@ pub enum RascalStruct {
     Event(ComponentSignature),
     Tag(String),
     System(SystemSignature),
-    Unique(String, UniqueValue),
+    Unique(String, DataType, RascalValue),
 }
 
 impl RascalStruct {
@@ -808,7 +826,7 @@ impl RascalStruct {
             RascalStruct::Event(_) => ComponentType::Event,
             RascalStruct::Tag(_) => ComponentType::Tag,
             RascalStruct::System(_) => ComponentType::System,
-            RascalStruct::Unique(_, _) => ComponentType::Unique,
+            RascalStruct::Unique(_, _, _) => ComponentType::Unique,
         }
     }
 
@@ -818,7 +836,7 @@ impl RascalStruct {
             RascalStruct::Event(event) => event.name.as_str(),
             RascalStruct::Tag(tag) => tag,
             RascalStruct::System(system) => system.name.as_str(),
-            RascalStruct::Unique(name, _) => name,
+            RascalStruct::Unique(name, _, _) => name,
         }
     }
 }
@@ -880,15 +898,16 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                 let datatype = inner.next().unwrap();
                 match datatype.as_rule() {
                     Rule::field => {
+                        let name_index = get_or_insert_into_string_pool(&name);
+                        let field = RascalValue::Field(name_index);
                         let datatype = DataType::parse_datatype(datatype.into_inner().next().unwrap().as_str());
-                        let field = UniqueValue::Field { datatype, map: Default::default() };
-                        let uniq = RascalStruct::Unique(name, field);
+                        let uniq = RascalStruct::Unique(name, datatype, field);
                         ast.push(uniq);
                     },
 
-                    Rule::datatype => {
+                    Rule::scalar => {
                         let datatype = DataType::parse_datatype(datatype.as_str());
-                        let uniq = RascalStruct::Unique(name, UniqueValue::Var { datatype, value: datatype.default() });
+                        let uniq = RascalStruct::Unique(name, datatype, datatype.default());
                         ast.push(uniq);
                     },
 

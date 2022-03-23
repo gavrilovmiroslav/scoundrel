@@ -16,7 +16,7 @@ char = {
 
 name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
-datatype = { "bool" | "entity" | "symbol" | "num" | "text" }
+scalar = { "bool" | "entity" | "symbol" | "num" | "text" }
 
 value = _{ bool_value | number | text_value | identifier | symbol }
 bool_value = { "true" | "false" }
@@ -31,9 +31,9 @@ any_char = { ASCII }
 tag_decl = { "tag" ~ name  ~ ";" }
 state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
 event_decl = { "event" ~ name ~ "{" ~ type_member_list? ~ "}" ~ ";" }
-unique_decl = { "unique" ~ name ~ ":" ~ complex_datatype ~ ";" }
-complex_datatype = _{ field | datatype }
-field = { "field" ~ "of" ~ datatype }
+unique_decl = { "unique" ~ name ~ ":" ~ datatype ~ ";" }
+datatype = _{ field | scalar }
+field = { "field" ~ "of" ~ scalar }
 type_member_list = { (type_member ~ ("," ~ type_member)*) }
 type_member = { name ~ ":" ~ datatype }
 
@@ -45,7 +45,7 @@ toggled_call_site = { "toggle:"  ~ call_site }
 call_site = _{ (complex_call_site | simple_call_site) }
 simple_call_site = { name ~ component_arg_list? }
 complex_call_site = { owner_name? ~ "." ~ comp_name ~ component_arg_list? }
-unique_call = { "#" ~ name }
+unique_call = { "unique" ~ "(" ~ name ~ ")" }
 
 arg_member_list = { (arg_member ~ ("," ~ arg_member)*) }
 arg_member = { expression }
@@ -142,5 +142,6 @@ expression = { bin ~ (bool_operation ~ bin)* }
 bin = _{ additive ~ (binary_relation ~ additive)* }
 additive = _{ summand ~ (additive_op ~ summand)* }
 summand = _{ factor ~ (multiplicative_op ~ factor)* }
-factor = _{ unary_op ~ "(" ~ expression ~ ")" | primary }
-primary = _{ "(" ~ expression ~ ")" | complex_call_site | value }
+factor = _{ primary }
+negated_primary = { unary_op ~ primary }
+primary = _{ negated_primary | "(" ~ expression ~ ")" | complex_call_site | value }

@@ -30,10 +30,11 @@ const ARENA_SIZE: usize =
 
 pub type BinaryComponent = Vec<u8>;
 
-#[derive(Debug)]
-pub enum UniqueValue {
-    Field { datatype: DataType, map: HashMap<usize, RascalValue> },
-    Var { datatype: DataType, value: RascalValue }
+pub type FieldId = u32;
+
+pub struct Field {
+    pub datatype: DataType,
+    pub map: HashMap<usize, RascalValue>,
 }
 
 pub struct World {
@@ -50,7 +51,8 @@ pub struct World {
     pub next_event_queues: HashMap<ComponentId, VecDeque<BinaryComponent>>,
     pub storage_bitmaps: HashMap<ComponentId, Bitmap<MAX_ENTRIES_PER_STORAGE>>,
     pub system_priorities: HashMap<SystemPriority, u16>,
-    pub unique_storage: HashMap<u32, UniqueValue>,
+    pub unique_storage: HashMap<u32, RascalValue>,
+    pub field_storage: HashMap<FieldId, Field>,
 }
 
 impl Default for World {
@@ -75,6 +77,7 @@ impl Default for World {
             storage_bitmaps: HashMap::default(),
             system_priorities: HashMap::default(),
             unique_storage: HashMap::default(),
+            field_storage: HashMap::default(),
         }
     }
 }
@@ -251,8 +254,11 @@ impl World {
                 self.component_names.push(tag.clone());
             }
 
-            RascalStruct::Unique(name, value) => {
+            RascalStruct::Unique(name, datatype, value) => {
                 let index = get_or_insert_into_string_pool(&name);
+                if let DataType::Field = datatype {
+                    self.field_storage.insert(index, Field { datatype, map: Default::default() });
+                }
                 self.unique_storage.insert(index, value);
             }
 

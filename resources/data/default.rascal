@@ -11,4 +11,29 @@ with .IsPlayer & .IsAt(x, y) & .HasGlyph(glyph) & .HasColor(h, s, v) {
 }
 
 unique score: num;
+unique fifth_score: num;
 unique rooms: field of num;
+unique rise: bool;
+
+[Increase and print score if rise enabled]
+with unique(score) & unique(fifth_score) & unique(rise)
+{
+    if rise {
+        score += 1;
+        if (score % 5) == 0 {
+            fifth_score += 1;
+        }
+        debug print score + ", " + fifth_score;
+    }
+}
+
+
+[Stop rise on X]
+on KeyPress("X", "Released")
+with unique(rise) & unique(score)
+{
+    debug print rise;
+    rise = !rise;
+    score = -score;
+    debug print score;
+}
