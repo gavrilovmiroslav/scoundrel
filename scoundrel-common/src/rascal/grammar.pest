@@ -23,7 +23,10 @@ bool_value = { "true" | "false" }
 number = { "-"? ~ ASCII_DIGIT+ }
 text_value = { inner_text }
 inner_text = { "\"" ~ inner ~ "\"" }
+array_accessor = { name ~ "[" ~ expression ~ "]" }
+field_accessor = { name ~ "[" ~ expression ~ "," ~ expression ~ "]" }
 identifier = { name }
+general_accessor = _{ array_accessor | field_accessor | identifier }
 symbol = _{ "'" ~ any_char ~ "'" }
 any_char = { ASCII }
 
@@ -77,12 +80,12 @@ debug_statement = _{
     debug_print_statement
 }
 
-assignment = { identifier ~ "=" ~ expression ~ ";" }
+assignment = { general_accessor ~ "=" ~ expression ~ ";" }
 
-self_mod_assignment = { identifier ~ self_mod_operator ~ ";" }
+self_mod_assignment = { general_accessor ~ self_mod_operator ~ ";" }
 self_mod_operator = { "++" | "--" }
 
-mod_assignment = { identifier ~ mod_operator ~ expression ~ ";" }
+mod_assignment = { general_accessor ~ mod_operator ~ expression ~ ";" }
 mod_operator = { "+=" | "-=" }
 
 if_statement = { "if" ~ expression ~ block ~ else_block? }
@@ -144,4 +147,4 @@ additive = _{ summand ~ (additive_op ~ summand)* }
 summand = _{ factor ~ (multiplicative_op ~ factor)* }
 factor = _{ primary }
 negated_primary = { unary_op ~ primary }
-primary = _{ negated_primary | "(" ~ expression ~ ")" | complex_call_site | value }
+primary = _{ negated_primary | "(" ~ expression ~ ")" | complex_call_site | array_accessor | field_accessor | value }

@@ -53,6 +53,7 @@ pub struct World {
     pub system_priorities: HashMap<SystemPriority, u16>,
     pub unique_storage: HashMap<u32, RascalValue>,
     pub field_storage: HashMap<FieldId, Field>,
+    pub size: (u32, u32),
 }
 
 impl Default for World {
@@ -78,6 +79,7 @@ impl Default for World {
             system_priorities: HashMap::default(),
             unique_storage: HashMap::default(),
             field_storage: HashMap::default(),
+            size: (0, 0),
         }
     }
 }

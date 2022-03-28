@@ -55,11 +55,21 @@ impl RascalVM {
             }
 
             SemanticChange::ValueDec(name, mod_value) => {
-                if let RascalValue::Num(num) = values.get(&name).unwrap() {
-                    if let RascalValue::Num(mod_num) = mod_value {
-                        let new_value = RascalValue::Num(*num - mod_num);
-                        values.insert(name.clone(), new_value.clone());
-                        self.assign_value(world, index, name, new_value);
+                if let RascalValue::Num(mod_num) = mod_value {
+                    if values.contains_key(&name) {
+                        if let RascalValue::Num(num) = values.get(&name).unwrap() {
+                            let new_value = RascalValue::Num(*num - mod_num);
+                            values.insert(name.clone(), new_value.clone());
+                            self.assign_value(world, index, name, new_value);
+                        }
+                    } else {
+                        let name_index = get_or_insert_into_string_pool(&name);
+                        if world.unique_storage.contains_key(&name_index) {
+                            if let RascalValue::Num(num) = world.unique_storage.get(&name_index).unwrap() {
+                                let new_value = RascalValue::Num(*num - mod_num);
+                                world.unique_storage.insert(name_index, new_value);
+                            }
+                        }
                     }
                 }
             }

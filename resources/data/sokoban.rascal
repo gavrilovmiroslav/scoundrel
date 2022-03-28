@@ -4,7 +4,7 @@ tag IsWall;
 tag IsMovable;
 tag IsGoal;
 
-state HasScore { score: num };
+unique score: field of num;
 
 event MoveIntent { who: entity, force: bool, x: num, y: num };
 event PushIntent { who: entity, what: entity, x: num, y: num };
@@ -46,7 +46,6 @@ on Start
       & IsAt(20, 20)
       & HasGlyph('@')
       & HasColor(0, 0, 255)
-      & HasScore(0);
 }
 
 [Spawn Walls on Start|first]
@@ -58,9 +57,10 @@ on Start
 // ===== UI ===================================================
 
 [Show Score|ui]
-with .HasScore(score)
+with .IsPlayer & unique(score)
 {
-    print "SCORE: " + score;
+    score[1,3] = 5;
+    debug print "SCORE: " + score[1,3];
 }
 
 // ===== KEYBOARD EVENTS =====================================
@@ -153,4 +153,5 @@ on BoxInGoal(_, _, x, y)
 with _.HasScore(score)
 {
     score += 1;
+    debug print score;
 }

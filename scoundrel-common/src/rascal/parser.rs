@@ -15,7 +15,7 @@ use lazy_static;
 use crate::rascal::interpreter::{get_or_insert_into_string_pool, RascalValue};
 use crate::rascal::interpreter::RascalValue::{Entity, Symbol};
 
-use crate::rascal::parser::RascalExpression::{BoolLiteral, Identifier, NumLiteral, TextLiteral};
+use crate::rascal::parser::RascalExpression::{BoolLiteral, FieldAccessor, Identifier, NumLiteral, TextLiteral};
 use crate::rascal::parser::TokenType::{NonTerm, Term};
 
 #[derive(Parser)]
@@ -46,7 +46,7 @@ lazy_static! {
 }
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum DataType {
     Num,
     Bool,
@@ -246,6 +246,8 @@ pub enum RascalExpression {
     NumLiteral(i32),
     SymbolLiteral(u16),
     TextLiteral(String),
+    ArrayAccessor(String, Box<RascalExpression>),
+    FieldAccessor(String, Box<RascalExpression>, Box<RascalExpression>),
     Identifier(String),
     Tag(ComponentCallSite),
 }
@@ -320,6 +322,14 @@ impl SystemSignature {
         result
     }
 
+    fn parse_array_accessor(exprs: &mut Pairs<Rule>) -> Option<RascalExpression> {
+        Self::parse_general_accessor(exprs.next().unwrap())
+    }
+
+    fn parse_field_accessor(exprs: &mut Pairs<Rule>) -> Option<RascalExpression> {
+        Self::parse_general_accessor(exprs.next().unwrap())
+    }
+
     fn parse_expression(exprs: TokenType) -> Option<RascalExpression> {
         fn recurse_by_token_type(mut pt: &mut Pairs<Rule>) -> Option<RascalExpression> {
             let xp = pt.next().unwrap();
@@ -345,7 +355,7 @@ impl SystemSignature {
                             text[1..(text.len() - 1)].to_string()
                         })),
                         Rule::any_char => Some(RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16)),
-                        Rule::identifier => Some(RascalExpression::Identifier(pair.as_str().to_string())),
+                        Rule::identifier | Rule::name => Some(RascalExpression::Identifier(pair.as_str().to_string())),
                         Rule::expression => Self::parse_expression(TokenType::NonTerm(pair.into_inner())),
                         Rule::complex_call_site => Some(RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap())),
                         Rule::negated_primary => {
@@ -404,8 +414,10 @@ impl SystemSignature {
                     Rule::bool_value => Some(BoolLiteral(expr.as_str().starts_with("true"))),
                     Rule::number => Some(NumLiteral(expr.as_str().parse().unwrap())),
                     Rule::text_value => Some(TextLiteral(expr.as_str().to_string())),
-                    Rule::identifier => Some(Identifier(expr.as_str().to_string())),
+                    Rule::identifier | Rule::name => Some(Identifier(expr.as_str().to_string())),
                     Rule::expression => Self::parse_expression(TokenType::NonTerm(expr.into_inner())),
+                    Rule::array_accessor => Self::parse_array_accessor(&mut expr.into_inner()),
+                    Rule::field_accessor => Self::parse_field_accessor(&mut expr.into_inner()),
                     _ => {
                         println!("WARNING: ADD THIS TERM TOO (line 314 in parser.rs): {:?}", expr.as_rule());
                         None
@@ -528,15 +540,50 @@ impl SystemSignature {
         }
     }
 
+    fn parse_general_accessor(expr: Pair<Rule>) -> Option<RascalExpression> {
+        match expr.as_rule() {
+            Rule::field_accessor => {
+                let mut child = expr.into_inner();
+                let name = child.next().unwrap().as_str();
+                if let Some(x) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
+                    if let Some(y) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
+                        return Some(RascalExpression::FieldAccessor(
+                            name.to_string(),
+                            Box::new(x),
+                            Box::new(y)))
+                    }
+                }
+            }
+
+            Rule::array_accessor => {
+                let mut child = expr.into_inner();
+                let name = child.next().unwrap().as_str();
+                if let Some(index) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
+                    return Some(RascalExpression::ArrayAccessor(
+                        name.to_string(),Box::new(index)))
+                }
+            }
+
+            Rule::identifier => {
+                return Self::parse_expression(TokenType::Term(expr))
+            }
+
+            _ => unreachable!()
+        }
+
+        None
+    }
+
     fn parse_assignment(statement: Pair<Rule>) -> RascalBlock {
         let mut result = Vec::new();
         let mut assign = statement.into_inner();
-        if let Some(id@RascalExpression::Identifier(_)) =
-            Self::parse_expression(Term(assign.next().unwrap())) {
+        let ass = assign.next().unwrap();
+        let lhs = Self::parse_general_accessor(ass).unwrap();
 
-            if let Some(value) = Self::parse_expression(NonTerm(assign.clone())) {
-                result.push(RascalStatement::Assign(id, value));
-            }
+        if let Some(rhs) = Self::parse_expression(NonTerm(assign.clone())) {
+            result.push(RascalStatement::Assign(lhs, rhs));
+        } else {
+            unreachable!()
         }
 
         result
@@ -545,15 +592,13 @@ impl SystemSignature {
     fn parse_self_mod_assignment(statement: Pair<Rule>) -> RascalBlock {
         let mut result = Vec::new();
         let mut assign = statement.into_inner();
-        if let Some(id@RascalExpression::Identifier(_)) =
-            Self::parse_expression(Term(assign.next().unwrap())) {
+        let lhs = Self::parse_general_accessor(assign.next().unwrap()).unwrap();
 
-            result.push(match assign.next().unwrap().as_str().trim() {
-                "++" => RascalStatement::Inc(id, RascalExpression::NumLiteral(1)),
-                "--" => RascalStatement::Dec(id, RascalExpression::NumLiteral(1)),
-                _ => unreachable!()
-            });
-        }
+        result.push(match assign.next().unwrap().as_str().trim() {
+            "++" => RascalStatement::Inc(lhs, RascalExpression::NumLiteral(1)),
+            "--" => RascalStatement::Dec(lhs, RascalExpression::NumLiteral(1)),
+            _ => unreachable!()
+        });
 
         result
     }
@@ -561,14 +606,13 @@ impl SystemSignature {
     fn parse_mod_assignment(statement: Pair<Rule>) -> RascalBlock {
         let mut result = Vec::new();
         let mut assign = statement.into_inner();
-        if let Some(id@RascalExpression::Identifier(_)) =
-        Self::parse_expression(Term(assign.next().unwrap())) {
-            result.push(match assign.next().unwrap().as_str().trim() {
-                "+=" => RascalStatement::Inc(id, Self::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
-                "-=" => RascalStatement::Dec(id, Self::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
-                _ => unreachable!()
-            });
-        }
+        let mut lhs = Self::parse_general_accessor(assign.next().unwrap()).unwrap();
+
+        result.push(match assign.next().unwrap().as_str().trim() {
+            "+=" => RascalStatement::Inc(lhs, Self::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
+            "-=" => RascalStatement::Dec(lhs, Self::parse_expression(NonTerm(assign.next().unwrap().into_inner())).unwrap()),
+            _ => unreachable!()
+        });
 
         result
     }

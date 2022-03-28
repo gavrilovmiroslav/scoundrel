@@ -9,6 +9,7 @@ use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
 use scoundrel_common::engine;
+use scoundrel_common::engine::WORLD;
 use scoundrel_common::glyphs::Glyph;
 use scoundrel_common::presentation::Presentation;
 
@@ -197,6 +198,7 @@ impl GlyphRenderer {
             }
 
             screen.set_memory((glyph_count_by_width as u32, glyph_count_by_height as u32), glyphs);
+            WORLD.lock().unwrap().size = (glyph_count_by_width as u32, glyph_count_by_height as u32);
 
             gl::BufferData(gl::ARRAY_BUFFER, (screen.len() * std::mem::size_of::<Glyph>()) as GLsizeiptr,
                            screen.get_memory().cast(), gl::STREAM_DRAW, );
