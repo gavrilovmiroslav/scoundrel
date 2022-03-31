@@ -11,7 +11,7 @@ use crate::colors::Color;
 use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, Op, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::semantics::{Position, SemanticChange};
-use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, FieldId, TriggerEvent};
+use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, Field, FieldId, TriggerEvent};
 use crate::rascal::world::EntityId;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
 use crate::rascal::world::World;
@@ -35,6 +35,17 @@ pub enum RascalValue {
 }
 
 impl RascalValue {
+    pub fn default_for(d: DataType) -> RascalValue {
+        match d {
+            DataType::Num => RascalValue::Num(0),
+            DataType::Bool => RascalValue::Bool(false),
+            DataType::Text => RascalValue::Text(0),
+            DataType::Entity => RascalValue::Entity(0),
+            DataType::Symbol => RascalValue::Symbol('.' as u16),
+            DataType::Field => RascalValue::Field(0),
+        }
+    }
+
     pub fn get_datatype(&self) -> DataType {
         match self {
             RascalValue::Num(_) => DataType::Num,
@@ -67,6 +78,13 @@ impl RascalValue {
 pub fn retrieve_string(index: u32) -> String {
     let mut pool = STRING_REPOOL.lock().unwrap();
     pool.get(&index).unwrap().clone()
+}
+
+pub fn rascal_value_as_sym(v: &RascalValue) -> u16 {
+    match v {
+        RascalValue::Symbol(u) => *u,
+        _ => ' ' as u16
+    }
 }
 
 pub fn rascal_value_as_string(v: RascalValue) -> String {
@@ -542,6 +560,34 @@ impl RascalVM {
                     None
                 }
             }
+            RascalExpression::FieldAccessor(name, x, y) => {
+                let width = world.size.0 as i32;
+                let id = get_or_insert_into_string_pool(name);
+                if world.field_storage.contains_key(&id) {
+                    if let Some(RascalValue::Num(x)) = self.interpret_expression(x.as_ref(), values, world) {
+                        if let Some(RascalValue::Num(y)) = self.interpret_expression(y.as_ref(), values, world) {
+                            let index = (y * width + x) as usize;
+                            let def = world.field_storage.get(&id).unwrap().datatype;
+                            return Some(world.field_storage.get(&id).unwrap()
+                                .field_map.get(&index).unwrap_or(&RascalValue::default_for(def)).clone());
+                        }
+                    }
+                }
+
+                None
+            }
+            RascalExpression::ArrayAccessor(name, index) => {
+                let id = get_or_insert_into_string_pool(name);
+                if world.field_storage.contains_key(&id) {
+                    if let Some(RascalValue::Num(index)) = self.interpret_expression(index.as_ref(), values, world) {
+                        let def = world.field_storage.get(&id).unwrap().datatype;
+                        return Some(world.field_storage.get(&id).unwrap()
+                            .field_map.get(&(index as usize)).unwrap_or(&RascalValue::default_for(def)).clone());
+                    }
+                }
+
+                None
+            }
             other => {
                 println!("[parse_expression] failed to catch: {:?}", other);
                 None
@@ -574,6 +620,39 @@ impl RascalVM {
         } else { None }
     }
 
+    fn get_access_to_field_by_coordinates(&mut self, values: &mut HashMap<String, RascalValue>, world: &mut World,
+                                          name: &String, x: &Box<RascalExpression>, y: &Box<RascalExpression>) -> Result<(FieldId, usize), String> {
+        let width = world.size.0;
+        let name_index = get_or_insert_into_string_pool(&name);
+        if !world.field_storage.contains_key(&name_index) {
+            return Err(format!("Field '{}' not found", name));
+        } else {
+            if let Some(RascalValue::Num(x)) = self.interpret_expression(x.as_ref(), values, world) {
+                if let Some(RascalValue::Num(y)) = self.interpret_expression(y.as_ref(), values, world) {
+                    return Ok((name_index, (y * width as i32 + x) as usize));
+                } else {
+                    return Err(format!("Field access: argument y, expected a num, found {:?}", y));
+                }
+            } else {
+                return Err(format!("Field access: argument y, expected a num, found {:?}", x));
+            }
+        }
+    }
+
+    fn get_access_to_field_by_index(&mut self, values: &mut HashMap<String, RascalValue>, world: &mut World,
+                                    name: &String, index: &Box<RascalExpression>) -> Result<(FieldId, usize), String> {
+        let name_index = get_or_insert_into_string_pool(&name);
+        if !world.field_storage.contains_key(&name_index) {
+            return Err(format!("Field '{}' not found", name));
+        } else {
+            if let Some(RascalValue::Num(index)) = self.interpret_expression(&index, values, world) {
+                return Ok((name_index, index as usize));
+            } else {
+                return Err(format!("Field access: argument index, expected a num, found {:?}", index));
+            }
+        }
+    }
+
     fn interpret_statement(&mut self, statement: &RascalStatement, values: &mut HashMap<String, RascalValue>, world: &mut World) -> RascalInterpretResult {
         match statement {
             RascalStatement::Let(name, e) => {
@@ -604,37 +683,24 @@ impl RascalVM {
                     }
 
                     RascalExpression::FieldAccessor(name, x, y) => {
-                        let width = world.size.0;
                         let name_index = get_or_insert_into_string_pool(&name);
-                        if !world.field_storage.contains_key(&name_index) {
-                            return RascalInterpretResult::Err(format!("Field '{}' not found", name));
-                        } else {
-                            let value = self.interpret_expression(b, values, world).unwrap().clone();
-                            if world.field_storage.get(&name_index).unwrap().datatype != value.get_datatype() {
-                                return RascalInterpretResult::Err(format!("Cannot assign value of different type to field {}", name));
-                            }
-                            if let Some(RascalValue::Num(x)) = self.interpret_expression(x, values, world) {
-                                if let Some(RascalValue::Num(y)) = self.interpret_expression(y, values, world) {
-                                    world.field_storage.get_mut(&name_index).unwrap().map.insert((y * width as i32 + x) as usize, value);
-                                }
-                            }
+                        let value = self.interpret_expression(b, values, world).unwrap().clone();
+                        if world.field_storage.get(&name_index).unwrap().datatype != value.get_datatype() {
+                            return RascalInterpretResult::Err(format!("Cannot assign value of different type to field {}", name));
+                        }
+                        if let Ok((field, index)) = self.get_access_to_field_by_coordinates(values, world, name, x, y) {
+                            world.field_storage.get_mut(&field).unwrap().field_map.insert(index, value);
                         }
                     }
 
-
                     RascalExpression::ArrayAccessor(name, index) => {
-                        let width = world.size.0;
                         let name_index = get_or_insert_into_string_pool(&name);
-                        if !world.field_storage.contains_key(&name_index) {
-                            return RascalInterpretResult::Err(format!("Field '{}' not found", name));
-                        } else {
-                            let value = self.interpret_expression(b, values, world).unwrap().clone();
-                            if world.field_storage.get(&name_index).unwrap().datatype != value.get_datatype() {
-                                return RascalInterpretResult::Err(format!("Cannot assign value of different type to field {}", name));
-                            }
-                            if let Some(RascalValue::Num(index)) = self.interpret_expression(index, values, world) {
-                                world.field_storage.get_mut(&name_index).unwrap().map.insert(index as usize, value);
-                            }
+                        let value = self.interpret_expression(b, values, world).unwrap().clone();
+                        if world.field_storage.get(&name_index).unwrap().datatype != value.get_datatype() {
+                            return RascalInterpretResult::Err(format!("Cannot assign value of different type to field {}", name));
+                        }
+                        if let Ok((field, index)) = self.get_access_to_field_by_index(values, world, name, index) {
+                            world.field_storage.get_mut(&field).unwrap().field_map.insert(index, value);
                         }
                     }
 
@@ -751,42 +817,100 @@ impl RascalVM {
             RascalStatement::Inc(var, n) => {
                 let mut result = RascalInterpretResult::Ok;
 
-                if let RascalExpression::Identifier(name) = var {
-                    if values.contains_key(name) {
-                        let value = self.interpret_expression(n, values, world).unwrap();
-                        self.commit_change(world, values, SemanticChange::ValueInc(name.clone(), value));
-                    } else {
-                        let name_index = get_or_insert_into_string_pool(&name);
-                        let value = self.interpret_expression(n, values, world).unwrap();
-                        if world.unique_storage.contains_key(&name_index) {
+                match var {
+                    RascalExpression::Identifier(name) => {
+                        if values.contains_key(name) {
+                            let value = self.interpret_expression(n, values, world).unwrap();
                             self.commit_change(world, values, SemanticChange::ValueInc(name.clone(), value));
                         } else {
-                            result = RascalInterpretResult::Err(format!("Variable '{}' not found", name));
+                            let name_index = get_or_insert_into_string_pool(&name);
+                            let value = self.interpret_expression(n, values, world).unwrap();
+                            if world.unique_storage.contains_key(&name_index) {
+                                self.commit_change(world, values, SemanticChange::ValueInc(name.clone(), value));
+                            } else {
+                                result = RascalInterpretResult::Err(format!("Variable '{}' not found", name));
+                            }
                         }
                     }
-                } else {
-                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", var));
+
+                    RascalExpression::FieldAccessor(name, x, y) => {
+                        if let Ok((field, index)) = self.get_access_to_field_by_coordinates(values, world, name, x, y) {
+                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
+                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
+
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value + 1));
+                            } else {
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(1));
+                            }
+                        }
+                    }
+
+                    RascalExpression::ArrayAccessor(name, index) => {
+                        if let Ok((field, index)) = self.get_access_to_field_by_index(values, world, name, index) {
+                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
+                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
+
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value + 1));
+                            } else {
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(1));
+                            }
+                        }
+                    }
+
+
+                    _ => {
+                        return RascalInterpretResult::Err(format ! ("Expected identifier, got {:?}", var));
+                    }
                 }
             }
 
             RascalStatement::Dec(var, n) => {
                 let mut result = RascalInterpretResult::Ok;
 
-                if let RascalExpression::Identifier(name) = var {
-                    if values.contains_key(name) {
-                        let value = self.interpret_expression(n, values, world).unwrap();
-                        self.commit_change(world, values, SemanticChange::ValueDec(name.clone(), value));
-                    } else {
-                        let name_index = get_or_insert_into_string_pool(&name);
-                        let value = self.interpret_expression(n, values, world).unwrap();
-                        if world.unique_storage.contains_key(&name_index) {
+                match var {
+                    RascalExpression::Identifier(name) => {
+                        if values.contains_key(name) {
+                            let value = self.interpret_expression(n, values, world).unwrap();
                             self.commit_change(world, values, SemanticChange::ValueDec(name.clone(), value));
                         } else {
-                            result = RascalInterpretResult::Err(format!("Variable '{}' not found", name));
+                            let name_index = get_or_insert_into_string_pool(&name);
+                            let value = self.interpret_expression(n, values, world).unwrap();
+                            if world.unique_storage.contains_key(&name_index) {
+                                self.commit_change(world, values, SemanticChange::ValueDec(name.clone(), value));
+                            } else {
+                                result = RascalInterpretResult::Err(format!("Variable '{}' not found", name));
+                            }
                         }
                     }
-                } else {
-                    return RascalInterpretResult::Err(format!("Expected identifier, got {:?}", var));
+
+                    RascalExpression::FieldAccessor(name, x, y) => {
+                        if let Ok((field, index)) = self.get_access_to_field_by_coordinates(values, world, name, x, y) {
+                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
+                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
+
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value - 1));
+                            } else {
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(-1));
+                            }
+                        }
+                    }
+
+                    RascalExpression::ArrayAccessor(name, index) => {
+                        if let Ok((field, index)) = self.get_access_to_field_by_index(values, world, name, index) {
+                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
+                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
+
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value - 1));
+                            } else {
+                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(-1));
+                            }
+                        }
+                    }
+
+
+                    _ => {
+                        return RascalInterpretResult::Err(format ! ("Expected identifier, got {:?}", var));
+                    }
                 }
             }
 

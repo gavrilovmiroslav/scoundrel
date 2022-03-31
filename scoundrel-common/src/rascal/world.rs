@@ -34,7 +34,7 @@ pub type FieldId = u32;
 
 pub struct Field {
     pub datatype: DataType,
-    pub map: HashMap<usize, RascalValue>,
+    pub field_map: HashMap<usize, RascalValue>,
 }
 
 pub struct World {
@@ -256,10 +256,11 @@ impl World {
                 self.component_names.push(tag.clone());
             }
 
-            RascalStruct::Unique(name, datatype, value) => {
+            RascalStruct::Unique(name, datatype, subtype, value) => {
                 let index = get_or_insert_into_string_pool(&name);
+                println!("datatype: {:?}", datatype);
                 if let DataType::Field = datatype {
-                    self.field_storage.insert(index, Field { datatype, map: Default::default() });
+                    self.field_storage.insert(index, Field { datatype: subtype.unwrap(), field_map: Default::default() });
                 }
                 self.unique_storage.insert(index, value);
             }

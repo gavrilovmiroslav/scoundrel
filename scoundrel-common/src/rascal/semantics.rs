@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
 use crate::colors::Color;
+use crate::engine;
 use crate::engine::force_quit;
-use crate::glyphs::{paint_all_tiles, paint_tile, print_string_colors};
+use crate::glyphs::{paint_all_tiles, paint_tile, print_field, print_string_colors};
 use crate::rascal::interpreter::{get_or_insert_into_string_pool, rascal_value_as_string, RascalValue, RascalVM};
 use crate::rascal::parser::{ComponentCallSite, ComponentModifier, RascalExpression};
 use crate::rascal::world::World;
@@ -156,12 +157,17 @@ impl RascalVM {
 
             SemanticChange::Print(xy, fg, bg, expr) => {
                 let v = self.interpret_expression(&expr, &values, world).unwrap();
-                let text = rascal_value_as_string(v);
+                if let RascalValue::Field(fid) = v {
+                    print_field(&world.field_storage.get(&fid).unwrap().field_map, Color::from(fg), Color::from(bg),
+                                self.current_system.as_ref().unwrap().real_priority);
+                } else {
+                    let text = rascal_value_as_string(v);
 
-                print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg),
-                                    self.current_system.as_ref().unwrap().real_priority);
+                    print_string_colors((xy.0, xy.1), text.as_str(), Color::from(fg), Color::from(bg),
+                                        self.current_system.as_ref().unwrap().real_priority);
 
-                self.something_printed = true;
+                    self.something_printed = true;
+                }
             }
 
             SemanticChange::DebugPrint(expr) => {

@@ -264,7 +264,8 @@ fn remove_structure(world: &mut World, structure: &RascalStruct) {
             SYSTEM_DEPENDENCIES.lock().unwrap().remove(&sys.name);
             CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap().remove(&sys.name);
         }
-        RascalStruct::Unique(name, datatype, val) => {
+
+        RascalStruct::Unique(name, datatype, subtype, val) => {
             unreachable!()
         }
     }

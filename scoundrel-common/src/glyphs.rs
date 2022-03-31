@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use crate::colors::{BLACK, Color, GRAY};
 use crate::engine;
+use crate::rascal::interpreter::{rascal_value_as_string, rascal_value_as_sym, RascalValue};
 use crate::rascal::parser::SystemPrioritySize;
 
 #[derive(Copy, Clone)]
@@ -28,6 +30,23 @@ pub fn cls() {
             glyph.symbol = '.' as u32;
             glyph.foreground = *GRAY;
             glyph.background = *BLACK;
+        }
+    }
+}
+
+
+pub fn print_field(field: &HashMap<usize, RascalValue>, fore: Color, back: Color, prio: SystemPrioritySize) {
+    let mut screen = engine::SCREEN.write().unwrap();
+    if screen.is_ready() {
+        for (&index, v) in field {
+            if index < 0 { return; }
+            if index >= screen.limit { return; }
+
+            if screen.symbol_depth[index] <= prio {
+                screen.symbol_depth[index] = prio;
+                let mut glyphs = screen.glyphs_mut();
+                glyphs[index].symbol = rascal_value_as_sym(v) as u32;
+            }
         }
     }
 }

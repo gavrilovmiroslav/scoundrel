@@ -378,11 +378,44 @@ impl SystemSignature {
                                 }
                             }
                         }
-                        _ => {
+                        Rule::field_accessor => {
+                            let mut field = pair.into_inner();
+                            let name = field.next().unwrap().as_str();
+                            let x = Self::parse_expression(TokenType::NonTerm(field.next().unwrap().into_inner()));
+                            let y = Self::parse_expression(TokenType::NonTerm(field.next().unwrap().into_inner()));
+
+                            if let Some(x) = x {
+                                if let Some(y) = y {
+                                    return Some(RascalExpression::FieldAccessor(
+                                        name.to_string(),
+                                        Box::new(x),
+                                        Box::new(y)))
+                                }
+                            }
+
+                            None
+                        }
+                        Rule::array_accessor => {
+                            let mut field = pair.into_inner();
+                            let name = field.next().unwrap().as_str();
+                            let index = Self::parse_expression(TokenType::NonTerm(field.next().unwrap().into_inner()));
+
+                            if let Some(index) = index {
+                                return Some(RascalExpression::ArrayAccessor(
+                                    name.to_string(),
+                                    Box::new(index)))
+                            }
+
+                            None
+                        }
+
+                        e => {
+                            println!("Returning none: {:?}", e);
                             None
                         }
                     },
                     |lhs, op, rhs| {
+                        println!("{:?} {:?} {:?}", lhs, op, rhs);
                         let lhs = lhs.unwrap();
                         let rhs = rhs.unwrap();
                         match op.as_rule() {
@@ -852,7 +885,7 @@ pub enum RascalStruct {
     Event(ComponentSignature),
     Tag(String),
     System(SystemSignature),
-    Unique(String, DataType, RascalValue),
+    Unique(String, DataType, Option<DataType>, RascalValue),
 }
 
 impl RascalStruct {
@@ -870,7 +903,7 @@ impl RascalStruct {
             RascalStruct::Event(_) => ComponentType::Event,
             RascalStruct::Tag(_) => ComponentType::Tag,
             RascalStruct::System(_) => ComponentType::System,
-            RascalStruct::Unique(_, _, _) => ComponentType::Unique,
+            RascalStruct::Unique(_, _, _, _) => ComponentType::Unique,
         }
     }
 
@@ -880,7 +913,7 @@ impl RascalStruct {
             RascalStruct::Event(event) => event.name.as_str(),
             RascalStruct::Tag(tag) => tag,
             RascalStruct::System(system) => system.name.as_str(),
-            RascalStruct::Unique(name, _, _) => name,
+            RascalStruct::Unique(name, _, _, _) => name,
         }
     }
 }
@@ -912,6 +945,7 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
     let mut ast = Vec::new();
 
     for parse_tree in program {
+        println!("- {:?} {:?}", parse_tree.as_rule(), parse_tree.as_str());
         match parse_tree.as_rule() {
             Rule::state_decl => {
                 let mut state_rule = parse_tree.into_inner();
@@ -945,13 +979,13 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                         let name_index = get_or_insert_into_string_pool(&name);
                         let field = RascalValue::Field(name_index);
                         let datatype = DataType::parse_datatype(datatype.into_inner().next().unwrap().as_str());
-                        let uniq = RascalStruct::Unique(name, datatype, field);
+                        let uniq = RascalStruct::Unique(name, DataType::Field, Some(datatype), field);
                         ast.push(uniq);
                     },
 
                     Rule::scalar => {
                         let datatype = DataType::parse_datatype(datatype.as_str());
-                        let uniq = RascalStruct::Unique(name, datatype, datatype.default());
+                        let uniq = RascalStruct::Unique(name, datatype, None, datatype.default());
                         ast.push(uniq);
                     },
 
@@ -962,7 +996,12 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                 }
             }
 
-            _ => {}
+            Rule::COMMENT => {}
+
+            e => {
+                println!("Error: {:?}", e);
+                unreachable!()
+            }
         }
     }
 

@@ -1,42 +1,6 @@
-// ===== COMPONENTS =============================================
 
-tag IsWall;
-tag IsMovable;
-tag IsGoal;
-
-unique score: field of num;
-
-event MoveIntent { who: entity, force: bool, x: num, y: num };
-event PushIntent { who: entity, what: entity, x: num, y: num };
-event BoxInGoal { box: entity, goal: entity, x: num, y: num };
-
-// ===== HELPERS ================================================
-
-[Helper: Create Box]
-on KeyPress("F5", "Released")
-with .IsPlayer & .IsAt(x, y)
-{
-    spawn box with IsAt(x, y) & HasGlyph('}') & HasColor(128, 255, 255) & IsMovable;
-    consume event;
-}
-
-[Helper: Create Wall]
-on KeyPress("F6", "Released")
-with .IsPlayer & .IsAt(x, y)
-{
-    spawn wall with IsWall & IsAt(x, y) & HasGlyph('#');
-    consume event;
-}
-
-[Helper: Create Goal]
-on KeyPress("F7", "Released")
-with .IsPlayer & .IsAt(x, y)
-{
-    spawn goal with IsGoal & IsAt(x, y) & HasGlyph('>');
-    consume event;
-}
-
-// ===== START ================================================
+unique terrain: field of symbol;
+event MoveIntent { e: entity, p: num, q: num };
 
 [Spawn Player On Start]
 on Start
@@ -45,22 +9,11 @@ on Start
         IsPlayer
       & IsAt(20, 20)
       & HasGlyph('@')
-      & HasColor(0, 0, 255)
-}
+      & HasColor(0, 0, 255);
 
-[Spawn Walls on Start|first]
-on Start
-{
-    spawn wall with IsWall & IsAt(13, 14) & HasGlyph('#');
-}
-
-// ===== UI ===================================================
-
-[Show Score|ui]
-with .IsPlayer & unique(score)
-{
-    score[1,3] = 5;
-    debug print "SCORE: " + score[1,3];
+    terrain[17, 19] = '#';
+    terrain[18, 19] = '#';
+    terrain[19, 19] = '#';
 }
 
 // ===== KEYBOARD EVENTS =====================================
@@ -76,82 +29,22 @@ with e.IsPlayer & e.IsAt(x, y)
         case "Up": q = y - 1;
         case "Down": q = y + 1;
     } then {
-        trigger MoveIntent(e, true, p, q);
+        trigger MoveIntent(e, p, q);
         consume event;
     }
 }
 
-// ===== MOVE INTENT RESOLUTION ==============================
-
-[Move Intent: Stopped By Immovable Objects]
-on MoveIntent(@, _, x, y)
-with w.IsWall & w.IsAt(x, y)
+[Do Move Intent|last]
+on MoveIntent(e, p, q)
+with e.IsPlayer & e.IsAt(x, y)
 {
+    x = p;
+    y = q;
     consume event;
 }
 
-[Move Intent: Accepted|last]
-on MoveIntent(@, _, x, y)
-with @.IsAt(ox, oy)
+[Draw Terrain]
+with unique(terrain)
 {
-    ox = x; oy = y;
-    debug print "move intent: accepted to stand on (" + x + ", " + y + ")";
-    consume event;
-}
-
-[Move Intent: Pushing Boxes]
-on MoveIntent(@, force, x, y)
-with box.IsMovable & box.IsAt(x, y)
-{
-    debug print "move intent: pushing box at (" + x + ", " + y + ")";
-    if force {
-        trigger PushIntent(@, box, x, y);
-    }
-    consume event;
-}
-
-[Move Intent: Box Enters Goal]
-on MoveIntent(@, _, x, y)
-with g.IsGoal & g.IsAt(x, y)
-{
-    if @.IsMovable {
-        trigger BoxInGoal(@, g, x, y);
-    }
-}
-
-// ===== PUSH INTENT RESOLUTION ==============================
-
-[Push Intent: Progress|last]
-on PushIntent(@, box, x, y)
-with @.IsAt(px, py)
-{
-    trigger MoveIntent(box, false, x + (x - px), y + (y - py));
-    trigger MoveIntent(@, false, x, y);
-    consume event;
-}
-
-[Push Intent: Stopped By Immovable Objects]
-on PushIntent(@, box, x, y)
-with w.IsWall & w.IsAt(x, y)
-{
-    consume event;
-}
-
-// ===== GOAL MECHANICS ===================================
-
-[Box In Goal: Update Graphics]
-on BoxInGoal(box, goal, x, y)
-with goal.IsGoal
-{
-    debug print "destroying " + goal;
-    destroy goal;
-    // update box with IsWall & not:IsMovable & HasColor(70, 255, 255);
-}
-
-[Box In Goal: Update Score|last]
-on BoxInGoal(_, _, x, y)
-with _.HasScore(score)
-{
-    score += 1;
-    debug print score;
+    print terrain;
 }
