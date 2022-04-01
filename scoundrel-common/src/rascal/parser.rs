@@ -54,6 +54,7 @@ pub enum DataType {
     Entity,
     Symbol,
     Field,
+    Set,
 }
 
 impl DataType {
@@ -65,6 +66,7 @@ impl DataType {
             "bool" => Bool,
             "entity" => Entity,
             "symbol" => Symbol,
+            "set" => Set,
             _ if text.starts_with("field") => Field,
             _ => panic!("Wrong datatype: {}", text)
         }
@@ -79,6 +81,7 @@ impl DataType {
             Entity => 8, // u64
             Symbol => 2, // u16
             Field => 4, // u32
+            Set => 0,
         }
     }
 
@@ -90,6 +93,7 @@ impl DataType {
             Text => RascalValue::Text(0),
             Entity => RascalValue::Entity(0),
             Symbol => RascalValue::Symbol(0),
+            Set => panic!("Cannot default a set!"),
             Field => panic!("Cannot default a field!"),
         }
     }
@@ -233,6 +237,20 @@ pub enum Op { Add, Sub, Mul, Div, Mod }
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Un { Not, Neg }
 
+pub enum GeometryOp { Un, Int, Diff }
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum GeometryQuery {
+    Rect(Box<RascalExpression>, Box<RascalExpression>,
+         Box<RascalExpression>, Box<RascalExpression>),
+    Circle(Box<RascalExpression>, Box<RascalExpression>, Box<RascalExpression>),
+    Line(Box<RascalExpression>, Box<RascalExpression>,
+         Box<RascalExpression>, Box<RascalExpression>),
+    Union(Box<RascalExpression>, Box<RascalExpression>),
+    Intersect(Box<RascalExpression>, Box<RascalExpression>),
+    Diff(Box<RascalExpression>, Box<RascalExpression>),
+}
+
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum RascalExpression {
     BoolOp(Box<RascalExpression>, BoolOper, Box<RascalExpression>),
@@ -242,6 +260,7 @@ pub enum RascalExpression {
     Bool(Box<RascalExpression>),
     Num(Box<RascalExpression>),
     Symbol(Box<RascalExpression>),
+    Query(GeometryQuery),
     BoolLiteral(bool),
     NumLiteral(i32),
     SymbolLiteral(u16),
@@ -407,6 +426,58 @@ impl SystemSignature {
                             }
 
                             None
+                        }
+                        Rule::rect_query => {
+                            let mut rect = pair.into_inner();
+                            let x1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+                            let y1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+                            let x2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+                            let y2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+                            Some(RascalExpression::Query(GeometryQuery::Rect(Box::new(x1), Box::new(y1),
+                                                                             Box::new(x2), Box::new(y2))))
+                        }
+
+                        Rule::circle_query => {
+                            let mut circ = pair.into_inner();
+                            let x = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
+                            let y = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
+                            let r = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
+                            Some(RascalExpression::Query(GeometryQuery::Circle(Box::new(x), Box::new(y),
+                                                                             Box::new(r))))
+                        }
+
+                        Rule::line_query => {
+                            let mut line = pair.into_inner();
+                            let x1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+                            let y1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+                            let x2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+                            let y2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+                            Some(RascalExpression::Query(GeometryQuery::Line(Box::new(x1), Box::new(y1),
+                                                                             Box::new(x2), Box::new(y2))))
+                        }
+
+                        Rule::union_query => {
+                            let mut un = pair.into_inner();
+                            let e1 = Self::parse_expression(TokenType::NonTerm(un.next().unwrap().into_inner())).unwrap();
+                            let e2 = Self::parse_expression(TokenType::NonTerm(un.next().unwrap().into_inner())).unwrap();
+
+                            Some(RascalExpression::Query(GeometryQuery::Union(Box::new(e1), Box::new(e2))))
+                        }
+
+                        Rule::intersect_query => {
+                            let mut int = pair.into_inner();
+                            let e1 = Self::parse_expression(TokenType::NonTerm(int.next().unwrap().into_inner())).unwrap();
+                            let e2 = Self::parse_expression(TokenType::NonTerm(int.next().unwrap().into_inner())).unwrap();
+
+                            Some(RascalExpression::Query(GeometryQuery::Intersect(Box::new(e1), Box::new(e2))))
+                        }
+
+                        Rule::diff_query => {
+                            let mut diff = pair.into_inner();
+                            let e1 = Self::parse_expression(TokenType::NonTerm(diff.next().unwrap().into_inner())).unwrap();
+                            let e2 = Self::parse_expression(TokenType::NonTerm(diff.next().unwrap().into_inner())).unwrap();
+                            println!("{:?} {:?}", e1, e2);
+                            Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
                         }
 
                         e => {

@@ -31,6 +31,7 @@ const ARENA_SIZE: usize =
 pub type BinaryComponent = Vec<u8>;
 
 pub type FieldId = u32;
+pub type SetId = u32;
 
 pub struct Field {
     pub datatype: DataType,
@@ -53,6 +54,7 @@ pub struct World {
     pub system_priorities: HashMap<SystemPriority, u16>,
     pub unique_storage: HashMap<u32, RascalValue>,
     pub field_storage: HashMap<FieldId, Field>,
+    pub set_storage: HashMap<SetId, HashSet<(i32, i32)>>,
     pub size: (u32, u32),
 }
 
@@ -79,6 +81,7 @@ impl Default for World {
             system_priorities: HashMap::default(),
             unique_storage: HashMap::default(),
             field_storage: HashMap::default(),
+            set_storage: HashMap::default(),
             size: (0, 0),
         }
     }

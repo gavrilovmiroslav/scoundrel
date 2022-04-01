@@ -11,9 +11,9 @@ on Start
       & HasGlyph('@')
       & HasColor(0, 0, 255);
 
-    terrain[17, 19] = '#';
-    terrain[18, 19] = '#';
-    terrain[19, 19] = '#';
+    let di = diff( rectangle(5, 5; 25, 25), circle(15, 15; 5));
+
+    terrain[di] = '#';
 }
 
 // ===== KEYBOARD EVENTS =====================================

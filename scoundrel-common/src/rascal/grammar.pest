@@ -18,7 +18,16 @@ name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
 scalar = { "bool" | "entity" | "symbol" | "num" | "text" }
 
-value = _{ bool_value | number | text_value | identifier | symbol }
+value = _{ set_query | bool_value | number | text_value | identifier | symbol }
+indirect_set_query = _{ set_query | identifier }
+set_query = _{ rect_query | circle_query | line_query | union_query | intersect_query | diff_query }
+rect_query = { "rectangle" ~ "(" ~ expression ~ "," ~ expression ~ ";" ~ expression ~ "," ~ expression ~ ")" }
+circle_query = { "circle" ~ "(" ~ expression ~ "," ~ expression ~ ";" ~ expression ~ ")" }
+line_query = { "line" ~ "(" ~ expression ~ "," ~ expression ~ ";" ~ expression ~ "," ~ expression ~  ")" }
+union_query = { "union" ~ "(" ~ indirect_set_query ~ "," ~ indirect_set_query ~ ")" }
+intersect_query = { "intersect" ~ "(" ~ indirect_set_query ~ "," ~ indirect_set_query ~ ")" }
+diff_query = { "diff" ~ "(" ~ indirect_set_query ~ "," ~ indirect_set_query ~ ")" }
+
 bool_value = { "true" | "false" }
 number = { "-"? ~ ASCII_DIGIT+ }
 text_value = { inner_text }
