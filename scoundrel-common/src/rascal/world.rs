@@ -7,6 +7,8 @@ use bitmaps::Bitmap;
 use caves::{Cave, FileCave};
 use lazy_static::lazy_static;
 use priority_queue::PriorityQueue;
+use rand_chacha::ChaCha20Rng;
+use rand_chacha::rand_core::SeedableRng;
 use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::{set_should_redraw, WORLD};
@@ -39,6 +41,7 @@ pub struct Field {
 }
 
 pub struct World {
+    pub random: ChaCha20Rng,
     pub data: Box<dyn Cave>,
     pub definitions_in_source: HashMap<String, Vec<(ComponentId, ComponentType)>>,
     pub component_names: Vec<ComponentId>,
@@ -61,6 +64,7 @@ pub struct World {
 impl Default for World {
     fn default() -> Self {
         World {
+            random: ChaCha20Rng::seed_from_u64(0u64),
             data: if cfg!(debug_assertions) {
                 ReadonlyArchiveCave::make_from("resources/data", "resources/data.bin");
                 Box::new(FileCave::new(Path::new("resources/data")).unwrap())

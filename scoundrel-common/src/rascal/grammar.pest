@@ -18,7 +18,8 @@ name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
 scalar = { "bool" | "entity" | "symbol" | "num" | "text" }
 
-value = _{ set_query | bool_value | number | text_value | identifier | symbol }
+value = _{ random | set_query | bool_value | number | text_value | identifier | symbol }
+random = { "rand" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
 indirect_set_query = _{ set_query | identifier }
 set_query = _{ rect_query | circle_query | line_query | union_query | intersect_query | diff_query }
 rect_query = { "rectangle" ~ "(" ~ expression ~ "," ~ expression ~ ";" ~ expression ~ "," ~ expression ~ ")" }
@@ -75,7 +76,7 @@ system_decl = { system_title ~ on_event_clause? ~ with_query_clause? ~ block }
 block = { "{" ~ statements ~ "}" }
 statements = _{ statement* }
 statement = _{
-    self_mod_assignment |
+    self_mod_assignment | for_loop_statement |
     mod_assignment | assignment |
     if_statement | match_statement |
     spawn_statement | destroy_statement |
@@ -103,6 +104,7 @@ else_block = { "else" ~ (if_statement | block) }
 let_statement = { "let" ~ new_value_binding ~ ("," ~ new_value_binding)* ~ ";" }
 new_value_binding = { identifier ~ "=" ~ expression }
 
+for_loop_statement = { "for" ~ identifier ~ "in" ~ expression ~ "to" ~ expression ~ block }
 match_statement = { "match" ~ expression ~ "{" ~ match_case+ ~ "}" ~ then_block? ~ else_block? }
 match_case = { "case" ~ expression ~ ":" ~ (block | statement) }
 then_block = { "then" ~ block }

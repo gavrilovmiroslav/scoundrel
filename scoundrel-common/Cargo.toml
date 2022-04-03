@@ -24,3 +24,5 @@ priority-queue = "1.2.1"
 caves = "0.2.1"
 filearco = "0.1.0"
 bresenham = "0.1.1"
+
+rand_chacha = "0.3.1"

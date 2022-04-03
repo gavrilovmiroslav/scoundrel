@@ -1,6 +1,6 @@
 use std::cmp::{max, min};
 use std::collections::{HashMap, HashSet};
-use std::ops::{BitAnd, Not};
+use std::ops::{BitAnd, Not, Range};
 use std::ptr::copy_nonoverlapping;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -8,6 +8,7 @@ use std::sync::Mutex;
 use bitmaps::*;
 use bresenham::Bresenham;
 use lazy_static::lazy_static;
+use rand::{random, Rng};
 
 use crate::colors::Color;
 use crate::point::{distance, Point};
@@ -36,6 +37,7 @@ pub enum RascalValue {
     Symbol(u16),
     Field(FieldId),
     Set(SetId),
+    Range(i32, i32),
 }
 
 impl RascalValue {
@@ -48,6 +50,7 @@ impl RascalValue {
             DataType::Symbol => RascalValue::Symbol('.' as u16),
             DataType::Field => RascalValue::Field(0),
             DataType::Set => RascalValue::Set(0),
+            DataType::Range => RascalValue::Range(0, 0),
         }
     }
 
@@ -60,6 +63,7 @@ impl RascalValue {
             RascalValue::Symbol(_) => DataType::Symbol,
             RascalValue::Field(_) => DataType::Field,
             RascalValue::Set(_) => DataType::Set,
+            RascalValue::Range(_, _) => DataType::Range,
         }
     }
 
@@ -140,6 +144,8 @@ impl RascalValue {
             DataType::Symbol => RascalValue::Symbol(u16::from_ne_bytes(<[u8; 2]>::try_from(chunk).unwrap())),
             DataType::Field => RascalValue::Field(u32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
             DataType::Set => RascalValue::Set(u32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
+            DataType::Range => RascalValue::Range(i32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap()),
+                                                  i32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
         }
     }
 
@@ -152,6 +158,11 @@ impl RascalValue {
             RascalValue::Symbol(s) => Vec::from(s.to_ne_bytes()),
             RascalValue::Field(f) => Vec::from(f.to_ne_bytes()),
             RascalValue::Set(s) => Vec::from(s.to_ne_bytes()),
+            RascalValue::Range(a, b) => {
+                let mut v = Vec::from(a.to_ne_bytes());
+                v.extend(b.to_ne_bytes());
+                v
+            },
         }
     }
 }
@@ -496,6 +507,7 @@ impl RascalVM {
                             RascalValue::Entity(u) => format!("#{}", u),
                             RascalValue::Field(f) => format!("<field {}>", f),
                             RascalValue::Set(s) => s.to_string(),
+                            RascalValue::Range(a, b) => format!("{}..{}", a, b),
                         };
                         let new_index = get_or_insert_into_string_pool(&format!("{}{}", string, right));
                         Some(Text(new_index))
@@ -510,6 +522,7 @@ impl RascalVM {
                             RascalValue::Entity(u) => format!("#{}", u),
                             RascalValue::Field(f) => format!("<field {}>", f),
                             RascalValue::Set(s) => s.to_string(),
+                            RascalValue::Range(a, b) => format!("{}..{}", a, b),
                         };
                         let new_index = get_or_insert_into_string_pool(&format!("{}{}", left, string));
                         Some(Text(new_index))
@@ -697,6 +710,18 @@ impl RascalVM {
                 }
 
                 println!("Couldn't figure out query!");
+                None
+            }
+
+            RascalExpression::RandomNumLiteral(a, b) => {
+                if let RascalValue::Num(a) = self.interpret_expression(a.as_ref(), values, world).unwrap() {
+                    if let RascalValue::Num(b) = self.interpret_expression(b.as_ref(), values, world).unwrap() {
+                        let min = a.min(b);
+                        let max = a.max(b);
+                        return Some(RascalValue::Num(world.random.gen_range(min..max)));
+                    }
+                }
+
                 None
             }
 
@@ -1073,7 +1098,6 @@ impl RascalVM {
                         }
                     }
 
-
                     _ => {
                         return RascalInterpretResult::Err(format ! ("Expected identifier, got {:?}", var));
                     }
@@ -1082,6 +1106,20 @@ impl RascalVM {
 
             RascalStatement::DebugPrint(expr) => {
                 self.commit_change(world, values, SemanticChange::DebugPrint(expr.clone()));
+            }
+
+            RascalStatement::ForLoopStatement(counter, (a, b), body) => {
+                if let RascalExpression::Identifier(id) = counter {
+                    if let Some(RascalValue::Num(a)) = self.interpret_expression(a, values, world) {
+                        if let Some(RascalValue::Num(b)) = self.interpret_expression(b, values, world) {
+                            for i in a..b {
+                                let mut pushed_values = values.clone();
+                                pushed_values.insert(id.clone(), RascalValue::Num(i));
+                                self.interpret_block(body, &mut pushed_values, world);
+                            }
+                        }
+                    }
+                }
             }
 
             RascalStatement::Quit => {
