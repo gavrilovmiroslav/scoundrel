@@ -630,6 +630,23 @@ impl RascalVM {
 
             RascalExpression::Query(geometry) => {
                 match geometry {
+                    GeometryQuery::Set => {
+                        let set = HashSet::new();
+                        let set_index = (world.set_storage.len() + 1) as SetId;
+                        world.set_storage.insert(set_index, set);
+                        return Some(RascalValue::Set(set_index))
+                    }
+
+                    GeometryQuery::Empty(a) => {
+                        let set = self.interpret_expression(a.as_ref(), values, world);
+                        if let RascalValue::Set(id) = set.unwrap() {
+                            return Some(RascalValue::Bool(world.set_storage.get(&id).unwrap().is_empty()));
+                        } else {
+                            println!("Empty query can't be done with non-set argument: {:?}.", a);
+                            unreachable!()
+                        }
+                    }
+
                     GeometryQuery::Rect(x1, y1, x2, y2) => {
                         if let RascalValue::Num(x1) = self.interpret_expression(x1.as_ref(), values, world).unwrap() {
                             if let RascalValue::Num(y1) = self.interpret_expression(y1.as_ref(), values, world).unwrap() {
@@ -1112,10 +1129,14 @@ impl RascalVM {
                 if let RascalExpression::Identifier(id) = counter {
                     if let Some(RascalValue::Num(a)) = self.interpret_expression(a, values, world) {
                         if let Some(RascalValue::Num(b)) = self.interpret_expression(b, values, world) {
+                            let keys = values.keys().map(|x| x.clone()).collect::<Vec<_>>();
                             for i in a..b {
                                 let mut pushed_values = values.clone();
                                 pushed_values.insert(id.clone(), RascalValue::Num(i));
                                 self.interpret_block(body, &mut pushed_values, world);
+                                for k in keys.clone() {
+                                    values.insert(k.clone(), pushed_values.get(&k).unwrap().clone());
+                                }
                             }
                         }
                     }

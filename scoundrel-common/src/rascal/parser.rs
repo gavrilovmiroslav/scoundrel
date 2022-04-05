@@ -244,6 +244,7 @@ pub enum GeometryOp { Un, Int, Diff }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum GeometryQuery {
+    Set,
     Rect(Box<RascalExpression>, Box<RascalExpression>,
          Box<RascalExpression>, Box<RascalExpression>),
     Circle(Box<RascalExpression>, Box<RascalExpression>, Box<RascalExpression>),
@@ -252,6 +253,7 @@ pub enum GeometryQuery {
     Union(Box<RascalExpression>, Box<RascalExpression>),
     Intersect(Box<RascalExpression>, Box<RascalExpression>),
     Diff(Box<RascalExpression>, Box<RascalExpression>),
+    Empty(Box<RascalExpression>)
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -468,6 +470,12 @@ impl SystemSignature {
                                                                              Box::new(x2), Box::new(y2))))
                         }
 
+                        Rule::empty_query => {
+                            let mut line = pair.into_inner();
+                            let a = Self::parse_expression(TokenType::Term(line.next().unwrap())).unwrap();
+                            Some(RascalExpression::Query(GeometryQuery::Empty(Box::new(a))))
+                        }
+
                         Rule::union_query => {
                             let mut un = pair.into_inner();
                             let d1 = un.next().unwrap();
@@ -496,6 +504,10 @@ impl SystemSignature {
                             let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
 
                             Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
+                        }
+
+                        Rule::make_set_query => {
+                            Some(RascalExpression::Query(GeometryQuery::Set))
                         }
 
                         e => {
@@ -541,13 +553,21 @@ impl SystemSignature {
                         let b = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
                         Some(RandomNumLiteral(Box::new(a), Box::new(b)))
                     },
+                    Rule::empty_query => {
+                        println!("LINE {:?} {:?}", expr.as_rule(), expr.as_str());
+                        let mut line = expr.into_inner();
+                        let a = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+                        Some(RascalExpression::Query(GeometryQuery::Empty(Box::new(a))))
+                    }
                     Rule::bool_value => Some(BoolLiteral(expr.as_str().starts_with("true"))),
                     Rule::number => Some(NumLiteral(expr.as_str().parse().unwrap())),
                     Rule::text_value => Some(TextLiteral(expr.as_str().to_string())),
+
                     Rule::identifier | Rule::name => Some(Identifier(expr.as_str().to_string())),
                     Rule::expression => Self::parse_expression(TokenType::NonTerm(expr.into_inner())),
                     Rule::array_accessor => Self::parse_array_accessor(&mut expr.into_inner()),
                     Rule::field_accessor => Self::parse_field_accessor(&mut expr.into_inner()),
+
                     Rule::rect_query => {
                         let mut rect = expr.into_inner();
                         let x1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
@@ -575,6 +595,36 @@ impl SystemSignature {
                         let y2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
                         Some(RascalExpression::Query(GeometryQuery::Line(Box::new(x1), Box::new(y1),
                                                                          Box::new(x2), Box::new(y2))))
+                    }
+
+                    Rule::union_query => {
+                        let mut un = expr.into_inner();
+                        let d1 = un.next().unwrap();
+                        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
+                        let d2 = un.next().unwrap();
+                        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
+
+                        Some(RascalExpression::Query(GeometryQuery::Union(Box::new(e1), Box::new(e2))))
+                    }
+
+                    Rule::intersect_query => {
+                        let mut int = expr.into_inner();
+                        let d1 = int.next().unwrap();
+                        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
+                        let d2 = int.next().unwrap();
+                        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
+
+                        Some(RascalExpression::Query(GeometryQuery::Intersect(Box::new(e1), Box::new(e2))))
+                    }
+
+                    Rule::diff_query => {
+                        let mut diff = expr.into_inner();
+                        let d1 = diff.next().unwrap();
+                        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
+                        let d2 = diff.next().unwrap();
+                        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
+
+                        Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
                     }
 
                     _ => {

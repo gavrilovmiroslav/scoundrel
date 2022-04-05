@@ -11,13 +11,51 @@ on Start
       & HasGlyph('@')
       & HasColor(0, 0, 255);
 
-    for i in 0 to 10 {
-        let x = rand(2, 50);
-        let y = rand(2, 30);
-        let w = rand(5, 15);
-        let h = rand(5, 10);
+    let room_space = make_set();
 
-        terrain[rectangle(x, y; x + w, y + h)] = '#';
+    for i in 0 to 10 {
+        let w = rand(10, 15);
+        let h = rand(8, 12);
+        let x = rand(1, 64 - w);
+        let y = rand(1, 48 - h);
+
+        let outer = rectangle(x, y; x + w, y + h);
+        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
+        if empty(intersect(room_space, inner)) {
+            room_space = union(room_space, outer);
+            terrain[diff(outer, inner)] = '#';
+            terrain[inner] = '-';
+        }
+    }
+
+    for i in 0 to 200 {
+        let w = rand(5, 8);
+        let h = rand(5, 7);
+        let x = rand(1, 64 - w);
+        let y = rand(1, 48 - h);
+
+        let outer = rectangle(x, y; x + w, y + h);
+        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
+        if empty(intersect(room_space, inner)) {
+            room_space = union(room_space, outer);
+            terrain[diff(outer, inner)] = '#';
+            terrain[inner] = '-';
+        }
+    }
+
+    for i in 0 to 100 {
+        let w = rand(4, 6);
+        let h = rand(4, 5);
+        let x = rand(1, 64 - w);
+        let y = rand(1, 48 - h);
+
+        let outer = rectangle(x, y; x + w, y + h);
+        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
+        if empty(intersect(room_space, inner)) {
+            room_space = union(room_space, outer);
+            terrain[diff(outer, inner)] = '#';
+            terrain[inner] = '-';
+        }
     }
 }
 
