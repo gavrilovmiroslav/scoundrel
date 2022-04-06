@@ -6,6 +6,7 @@ use crate::engine::force_quit;
 use crate::glyphs::{paint_all_tiles, paint_tile, print_field, print_string_colors};
 use crate::rascal::interpreter::{get_or_insert_into_string_pool, rascal_value_as_string, RascalValue, RascalVM};
 use crate::rascal::parser::{ComponentCallSite, ComponentModifier, RascalExpression};
+use crate::rascal::value_stack::{Call, ValueContext};
 use crate::rascal::world::World;
 
 #[derive(Debug)]
@@ -32,16 +33,16 @@ pub enum SemanticChange {
 }
 
 impl RascalVM {
-    pub(crate) fn commit_change(&mut self, world: &mut World, values: &mut HashMap<String, RascalValue>, change: SemanticChange) {
+    pub(crate) fn commit_change(&mut self, world: &mut World, values: &mut ValueContext, change: SemanticChange) {
         let index = self.current_index;
         match change {
             SemanticChange::ValueInc(name, mod_value) => {
                 if let RascalValue::Num(mod_num) = mod_value {
                     if values.contains_key(&name) {
-                        if let RascalValue::Num(num) = values.get(&name).unwrap() {
-                            let new_value = RascalValue::Num(*num + mod_num);
-                            values.insert(name.clone(), new_value.clone());
-                            self.assign_value(world, index, name, new_value);
+                        if let RascalValue::Num(num) = values.get(&name).unwrap().get_value().unwrap() {
+                            let new_value = RascalValue::Num(num + mod_num);
+                            values.add_value(name.clone(), new_value.clone());
+                            self.assign_value(values, world, index, name, Call::ByVal(new_value));
                         }
                     } else {
                         let name_index = get_or_insert_into_string_pool(&name);
@@ -58,16 +59,16 @@ impl RascalVM {
             SemanticChange::ValueDec(name, mod_value) => {
                 if let RascalValue::Num(mod_num) = mod_value {
                     if values.contains_key(&name) {
-                        if let RascalValue::Num(num) = values.get(&name).unwrap() {
-                            let new_value = RascalValue::Num(*num - mod_num);
-                            values.insert(name.clone(), new_value.clone());
-                            self.assign_value(world, index, name, new_value);
+                        if let RascalValue::Num(num) = values.get(&name).unwrap().get_value().unwrap() {
+                            let new_value = RascalValue::Num(num - mod_num);
+                            values.add_value(name.clone(), new_value.clone());
+                            self.assign_value(values, world, index, name, Call::ByVal(new_value));
                         }
                     } else {
                         let name_index = get_or_insert_into_string_pool(&name);
                         if world.unique_storage.contains_key(&name_index) {
                             if let RascalValue::Num(num) = world.unique_storage.get(&name_index).unwrap() {
-                                let new_value = RascalValue::Num(*num - mod_num);
+                                let new_value = RascalValue::Num(num - mod_num);
                                 world.unique_storage.insert(name_index, new_value);
                             }
                         }
@@ -80,15 +81,22 @@ impl RascalVM {
                 if world.unique_storage.contains_key(&name_index) {
                     *world.unique_storage.get_mut(&name_index).unwrap() = new_value;
                 } else {
-                    values.insert(name.clone(), new_value.clone());
-                    if self.bindings.contains_key(&name) {
-                        self.assign_value(world, index, name, new_value);
+                    if let RascalValue::Set(id) = &new_value {
+                        values.add_value(name.clone(), new_value.clone());
+                        if world.set_storage.contains_key(&name_index) {
+                            world.set_storage.insert(name_index, world.set_storage.get(id).unwrap().clone());
+                        }
+                    } else {
+                        values.add_value(name.clone(), new_value.clone());
+                        if self.bindings.contains_key(&name) {
+                            self.assign_value(values, world, index, name, Call::ByVal(new_value.clone()));
+                        }
                     }
                 }
             }
 
             SemanticChange::LetBinding(name, new_value) => {
-                values.insert(name.clone(), new_value.clone());
+                values.add_value(name.clone(), new_value.clone());
             }
 
             SemanticChange::SpawnEntity(name, comps) => {
@@ -96,12 +104,11 @@ impl RascalVM {
                 for comp in comps {
                     self.add_component(world, entity, comp, values);
                 }
-                values.insert(name, RascalValue::Entity(entity));
+                values.add_value(name, RascalValue::Entity(entity));
             }
 
             SemanticChange::DestroyEntity(entity) => {
-                if let RascalValue::Entity(index) = values.get(&entity).unwrap() {
-                    let index = *index as usize;
+                if let RascalValue::Entity(index) = values.get(&entity).unwrap().get_value().unwrap() {
                     world.entity_bitmap.set(index, false);
 
                     for comp in &world.component_names {
@@ -112,8 +119,7 @@ impl RascalVM {
             }
 
             SemanticChange::UpdateComponents(name, comps) => {
-                if let Some(RascalValue::Entity(index)) = values.get(&name) {
-                    let index = *index;
+                if let Some(RascalValue::Entity(index)) = values.get(&name).unwrap().get_value() {
                     if world.entity_bitmap.get(index) {
                         for comp in comps {
                             match comp.modifier {
@@ -156,7 +162,7 @@ impl RascalVM {
             }
 
             SemanticChange::Print(xy, fg, bg, expr) => {
-                let v = self.interpret_expression(&expr, &values, world).unwrap();
+                let v = self.interpret_expression(&expr, values, world).unwrap();
                 if let RascalValue::Field(fid) = v {
                     print_field(&world.field_storage.get(&fid).unwrap().field_map, Color::from(fg), Color::from(bg),
                                 self.current_system.as_ref().unwrap().real_priority);
@@ -171,7 +177,8 @@ impl RascalVM {
             }
 
             SemanticChange::DebugPrint(expr) => {
-                let v = self.interpret_expression(&expr, &values, world).unwrap();
+                println!("VALUES: {:?}", values);
+                let v = self.interpret_expression(&expr, values, world).unwrap();
                 println!("{}", rascal_value_as_string(v));
             }
 

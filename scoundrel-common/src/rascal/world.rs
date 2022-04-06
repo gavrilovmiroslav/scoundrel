@@ -13,7 +13,7 @@ use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::{set_should_redraw, WORLD};
 use crate::rascal::interpreter::{get_or_insert_into_string_pool, num, RascalEventfulResult, RascalValue, RascalVM};
-use crate::rascal::parser::{ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
+use crate::rascal::parser::{ComponentSignature, ComponentType, DataType, RascalBlock, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
 use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
 pub(crate) type EntityId = usize;
@@ -34,10 +34,18 @@ pub type BinaryComponent = Vec<u8>;
 
 pub type FieldId = u32;
 pub type SetId = u32;
+pub type FuncId = u32;
 
 pub struct Field {
     pub datatype: DataType,
     pub field_map: HashMap<usize, RascalValue>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Func {
+    pub name: String,
+    pub params: Vec<(String, DataType)>,
+    pub body: RascalBlock,
 }
 
 pub struct World {
@@ -58,6 +66,7 @@ pub struct World {
     pub unique_storage: HashMap<u32, RascalValue>,
     pub field_storage: HashMap<FieldId, Field>,
     pub set_storage: HashMap<SetId, HashSet<(i32, i32)>>,
+    pub func_storage: HashMap<FuncId, Func>,
     pub size: (u32, u32),
 }
 
@@ -86,6 +95,7 @@ impl Default for World {
             unique_storage: HashMap::default(),
             field_storage: HashMap::default(),
             set_storage: HashMap::default(),
+            func_storage: HashMap::default(),
             size: (0, 0),
         }
     }
@@ -270,6 +280,12 @@ impl World {
                     self.field_storage.insert(index, Field { datatype: subtype.unwrap(), field_map: Default::default() });
                 }
                 self.unique_storage.insert(index, value);
+            }
+
+            RascalStruct::Func(name, args, body) => {
+                let index = get_or_insert_into_string_pool(&name);
+                let func = Func { name, params: args, body };
+                self.func_storage.insert(index, func);
             }
 
             _ => unreachable!()

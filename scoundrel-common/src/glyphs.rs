@@ -16,7 +16,7 @@ pub struct Glyph {
 impl Default for Glyph {
     fn default() -> Self {
         Glyph {
-            symbol: '.' as u32,
+            symbol: '#' as u32,
             foreground: *GRAY,
             background: *BLACK,
         }
@@ -27,7 +27,7 @@ pub fn cls() {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         for glyph in screen.glyphs_mut() {
-            glyph.symbol = '.' as u32;
+            glyph.symbol = '#' as u32;
             glyph.foreground = *GRAY;
             glyph.background = *BLACK;
         }

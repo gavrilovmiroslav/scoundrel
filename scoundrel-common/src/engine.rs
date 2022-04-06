@@ -264,7 +264,9 @@ fn remove_structure(world: &mut World, structure: &RascalStruct) {
             SYSTEM_DEPENDENCIES.lock().unwrap().remove(&sys.name);
             CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap().remove(&sys.name);
         }
-
+        RascalStruct::Func(name, args, block) => {
+            unreachable!()
+        }
         RascalStruct::Unique(name, datatype, subtype, val) => {
             unreachable!()
         }
@@ -308,7 +310,7 @@ pub fn rebuild_world(source_name: &str) {
                         ComponentType::System => {
                             REGISTERED_SYSTEMS.lock().unwrap().remove(&id);
                         }
-                        ComponentType::Unique => {
+                        ComponentType::Func | ComponentType::Unique => {
                             unreachable!()
                         }
                     }
@@ -319,8 +321,8 @@ pub fn rebuild_world(source_name: &str) {
 
             world.definitions_in_source.insert(source_name.to_string(), Vec::new());
             for structure in ast {
-                println!("Defining {}", structure.get_name());
-                world.definitions_in_source.get_mut(source_name).unwrap().push((structure.get_name().to_string(), structure.get_type()));
+                world.definitions_in_source.get_mut(source_name).unwrap()
+                    .push((structure.get_name().to_string(), structure.get_type()));
 
                 if structure.is_component() {
                     world.register_component(structure);
@@ -332,8 +334,9 @@ pub fn rebuild_world(source_name: &str) {
             let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
             let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
             for comp in deps.keys() {
-                println!("CACHED EVENT TRACE for {}: \n\t{:?}", comp, deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect::<Vec<_>>());
-                cache.insert(comp.clone(), deps.get(comp).unwrap().clone().into_sorted_iter().map(|(s, p)| s).collect());
+                cache.insert(comp.clone(),
+                             deps.get(comp).unwrap().clone()
+                                 .into_sorted_iter().map(|(s, p)| s).collect());
             }
         }
     } else {

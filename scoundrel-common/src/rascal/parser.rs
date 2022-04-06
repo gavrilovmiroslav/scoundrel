@@ -120,7 +120,7 @@ pub struct ComponentSignature {
 }
 
 impl ComponentSignature {
-    fn get_ptrs(down: &Vec<(&str, DataType)>) -> (u8, Vec<(u8, MemberId)>) {
+    fn get_ptrs(down: &Vec<(String, DataType)>) -> (u8, Vec<(u8, MemberId)>) {
         let mut ptr_count = 0u8;
         let fields = down.iter().map(|(n, dt)| {
             let ptr = ptr_count;
@@ -130,7 +130,7 @@ impl ComponentSignature {
         (ptr_count, fields)
     }
 
-    fn lift(down: &Vec<(&str, DataType)>) -> HashMap<MemberId, MemberSignature> {
+    fn lift(down: &Vec<(String, DataType)>) -> HashMap<MemberId, MemberSignature> {
         let mut ptr_count = 0u8;
         down.iter().map(|(n, dt)| {
             let ptr = ptr_count;
@@ -139,7 +139,7 @@ impl ComponentSignature {
         }).collect()
     }
 
-    pub fn new(name: &str, members: Vec<(&str, DataType)>) -> Self {
+    pub fn new(name: String, members: Vec<(String, DataType)>) -> Self {
         let (size, ptrs) = ComponentSignature::get_ptrs(&members);
         Self { name: name.to_string(), size, ptrs, members: ComponentSignature::lift(&members) }
     }
@@ -308,6 +308,7 @@ pub enum RascalStatement {
     Let(RascalIdentifier, RascalExpression),
     ForLoopStatement(RascalIdentifier, (RascalExpression, RascalExpression), RascalBlock),
     Quit,
+    FunctionCall(String, Vec<RascalExpression>),
 }
 
 pub type RascalIdentifier = RascalExpression; /* could only be Identifier */
@@ -510,6 +511,10 @@ impl SystemSignature {
                             Some(RascalExpression::Query(GeometryQuery::Set))
                         }
 
+                        Rule::function_call => {
+                            unreachable!()
+                        }
+
                         e => {
                             println!("Returning none: {:?}", e);
                             None
@@ -535,6 +540,10 @@ impl SystemSignature {
                             Rule::mul_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mul, Box::new(rhs))),
                             Rule::div_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Div, Box::new(rhs))),
                             Rule::mod_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mod, Box::new(rhs))),
+
+                            Rule::function_call => {
+                                unreachable!()
+                            }
 
                             e => {
                                 println!("Returning none: {:?}", e);
@@ -625,6 +634,10 @@ impl SystemSignature {
                         let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
 
                         Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
+                    }
+
+                    Rule::function_call => {
+                        unreachable!()
                     }
 
                     _ => {
@@ -774,6 +787,10 @@ impl SystemSignature {
                 return Self::parse_expression(TokenType::Term(expr))
             }
 
+            Rule::function_call => {
+                unreachable!()
+            }
+
             _ => unreachable!()
         }
 
@@ -839,6 +856,20 @@ impl SystemSignature {
             }
         }
 
+        result
+    }
+
+    fn parse_function_call(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let mut call = statement.into_inner();
+
+        let name = call.next().unwrap().as_str().to_string();
+        let mut args = Vec::new();
+        while call.peek().is_some() {
+            args.push(Self::parse_expression(TokenType::Term(call.next().unwrap())).unwrap());
+        }
+
+        result.push(RascalStatement::FunctionCall(name, args));
         result
     }
 
@@ -1015,6 +1046,7 @@ impl SystemSignature {
             Rule::consume_statement => result.push(RascalStatement::ConsumeEvent),
             Rule::quit_statement => result.push(RascalStatement::Quit),
             Rule::for_loop_statement => result.extend(Self::parse_for_loop_statement(statement)),
+            Rule::function_call => result.extend(Self::parse_function_call(statement)),
 
             Rule::COMMENT => {}
 
@@ -1079,6 +1111,7 @@ pub enum RascalStruct {
     Tag(String),
     System(SystemSignature),
     Unique(String, DataType, Option<DataType>, RascalValue),
+    Func(String, Vec<(String, DataType)>, RascalBlock),
 }
 
 impl RascalStruct {
@@ -1097,6 +1130,7 @@ impl RascalStruct {
             RascalStruct::Tag(_) => ComponentType::Tag,
             RascalStruct::System(_) => ComponentType::System,
             RascalStruct::Unique(_, _, _, _) => ComponentType::Unique,
+            RascalStruct::Func(_, _, _) => ComponentType::Func,
         }
     }
 
@@ -1107,24 +1141,25 @@ impl RascalStruct {
             RascalStruct::Tag(tag) => tag,
             RascalStruct::System(system) => system.name.as_str(),
             RascalStruct::Unique(name, _, _, _) => name,
+            RascalStruct::Func(func, _, _) => func.as_str(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ComponentType {
-    State, Event, Tag, System, Unique,
+    State, Event, Tag, System, Unique, Func,
 }
 
 pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
-    fn parse_component_name_and_members(mut rule: pest::iterators::Pairs<Rule>) -> (&str, Vec<(&str, DataType)>){
-        let name = rule.next().unwrap().as_str();
-        let members: Vec<(&str, DataType)> = if let Some(_) = rule.peek() {
+    fn parse_component_name_and_members(mut rule: &mut pest::iterators::Pairs<Rule>) -> (String, Vec<(String, DataType)>){
+        let name = rule.next().unwrap().as_str().to_string();
+        let members: Vec<(String, DataType)> = if let Some(_) = rule.peek() {
             rule.next().unwrap().into_inner().map(|p| {
                 let mut member_rule = p.into_inner();
-                let member_name = member_rule.next().unwrap().as_str();
+                let member_name = member_rule.next().unwrap().as_str().to_string();
                 let datatype_name = DataType::parse_datatype(member_rule.next().unwrap().as_str());
-                (member_name, datatype_name)
+                (member_name.to_string(), datatype_name)
             }).collect()
         } else {
             Vec::new()
@@ -1141,13 +1176,13 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
         match parse_tree.as_rule() {
             Rule::state_decl => {
                 let mut state_rule = parse_tree.into_inner();
-                let (name, members) = parse_component_name_and_members(state_rule);
+                let (name, members) = parse_component_name_and_members(&mut state_rule);
                 ast.push(RascalStruct::State(ComponentSignature::new(name, members)))
             }
 
             Rule::event_decl => {
                 let mut event_rule = parse_tree.into_inner();
-                let (name, members) = parse_component_name_and_members(event_rule);
+                let (name, members) = parse_component_name_and_members(&mut event_rule);
                 ast.push(RascalStruct::Event(ComponentSignature::new(name, members)))
             }
 
@@ -1186,6 +1221,15 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                         unreachable!()
                     },
                 }
+            }
+
+            Rule::func_decl => {
+                let mut func_rule = parse_tree.into_inner();
+                let (name, members) = parse_component_name_and_members(&mut func_rule);
+                let block = func_rule.next().unwrap();
+                let func = RascalStruct::Func(name, members,
+                                              SystemSignature::parse_block_body(block));
+                ast.push(func);
             }
 
             Rule::COMMENT => {}

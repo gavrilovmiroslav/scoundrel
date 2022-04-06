@@ -2,6 +2,31 @@
 unique terrain: field of symbol;
 event MoveIntent { e: entity, p: num, q: num };
 
+func CreateRoom(min_width: num, max_width: num,
+                min_height: num, max_height: num,
+                attempts: num, room_space: set) {
+
+    for i in 0 to attempts {
+        let w = rand(min_width, max_width);
+        let h = rand(min_height, max_height);
+        let x = rand(1, 64 - w);
+        let y = rand(1, 48 - h);
+
+        let outer = rectangle(x, y; x + w, y + h);
+        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
+        if empty(intersect(room_space, inner)) {
+            room_space = union(room_space, outer);
+            terrain[inner] = '.';
+        }
+    }
+}
+
+func TestMut(x: set) {
+    debug print "2: " + empty(x);
+    x = union(x, rectangle(10, 10; 20, 20));
+    debug print "3: " + empty(x);
+}
+
 [Spawn Player On Start]
 on Start
 {
@@ -13,50 +38,14 @@ on Start
 
     let room_space = make_set();
 
-    for i in 0 to 10 {
-        let w = rand(10, 15);
-        let h = rand(8, 12);
-        let x = rand(1, 64 - w);
-        let y = rand(1, 48 - h);
+    //[CreateRoom: 10, 15; 8, 12; 100; room_space];
+    //[CreateRoom: 5,  12; 5, 11; 500;  room_space];
+    //[CreateRoom: 4,  9;  4, 8;  100; room_space];
 
-        let outer = rectangle(x, y; x + w, y + h);
-        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
-        if empty(intersect(room_space, inner)) {
-            room_space = union(room_space, outer);
-            terrain[diff(outer, inner)] = '#';
-            terrain[inner] = '-';
-        }
-    }
-
-    for i in 0 to 200 {
-        let w = rand(5, 8);
-        let h = rand(5, 7);
-        let x = rand(1, 64 - w);
-        let y = rand(1, 48 - h);
-
-        let outer = rectangle(x, y; x + w, y + h);
-        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
-        if empty(intersect(room_space, inner)) {
-            room_space = union(room_space, outer);
-            terrain[diff(outer, inner)] = '#';
-            terrain[inner] = '-';
-        }
-    }
-
-    for i in 0 to 100 {
-        let w = rand(4, 6);
-        let h = rand(4, 5);
-        let x = rand(1, 64 - w);
-        let y = rand(1, 48 - h);
-
-        let outer = rectangle(x, y; x + w, y + h);
-        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
-        if empty(intersect(room_space, inner)) {
-            room_space = union(room_space, outer);
-            terrain[diff(outer, inner)] = '#';
-            terrain[inner] = '-';
-        }
-    }
+    debug print "1: " + empty(room_space);
+    [TestMut: room_space];
+    debug print "4: " + empty(room_space);
+    terrain[room_space] = '2';
 }
 
 // ===== KEYBOARD EVENTS =====================================

@@ -15,6 +15,7 @@ use crate::point::{distance, Point};
 use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, GeometryOp, GeometryQuery, Op, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::semantics::{Position, SemanticChange};
+use crate::rascal::value_stack::{Call, ValueContext};
 use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, Field, FieldId, SetId, TriggerEvent};
 use crate::rascal::world::EntityId;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
@@ -284,9 +285,7 @@ impl RascalVM {
         }
     }
 
-    fn get_binding_values(&self, world: &World, index: usize) -> HashMap<String, RascalValue>{
-        let mut result = HashMap::new();
-
+    fn get_binding_values(&self, stack: &mut ValueContext, world: &World, index: usize) {
         for (name, (component, member)) in &self.bindings {
             let mut is_event = false;
             if *component == "" { continue; }
@@ -308,10 +307,8 @@ impl RascalVM {
             };
 
             let value_from_chunk = RascalValue::parse(member_signature.typ, &chunk[start_address..end_address]);
-            result.insert(name.clone(), value_from_chunk);
+            stack.add_value(name.clone(), value_from_chunk);
         }
-
-        result
     }
 
     fn interpret_with(&mut self, world: &mut World, system: &SystemSignature) {
@@ -376,21 +373,26 @@ impl RascalVM {
                 self.current_index = index;
                 self.bindings = saved_bindings.clone();
                 self.equalities = saved_equalities.clone();
-                let mut values = self.get_binding_values(world, index as usize);
 
-                values.insert("_".to_string(), RascalValue::Entity(index));
+                let mut values = ValueContext::default();
+
+                values.push();
+                self.get_binding_values(&mut values, world, index as usize);
+
+                values.add_value("_".to_string(), RascalValue::Entity(index));
 
                 match &owner {
-                    None => { values.insert("_".to_string(), RascalValue::Entity(index)); }
-                    Some(name) if name.trim() == "" => { values.insert("_".to_string(), RascalValue::Entity(index)); }
+                    None => { values.add_value("_".to_string(), RascalValue::Entity(index)); }
+                    Some(name) if name.trim() == "" => { values.add_value("_".to_string(), RascalValue::Entity(index)); }
                     Some(name) => {
                         if values.contains_key(name) {
-                            let cached_value = values.get(name).unwrap();
-                            if !RascalValue::same_optic(cached_value.clone(), RascalValue::Entity(index)) {
-                                continue 'entries;
+                            if let Some(cached_value) = values.get(name).unwrap().get_value() {
+                                if !RascalValue::same_optic(cached_value.clone(), RascalValue::Entity(index)) {
+                                    continue 'entries;
+                                }
                             }
                         }
-                        values.insert(name.to_string(), RascalValue::Entity(index));
+                        values.add_value(name.to_string(), RascalValue::Entity(index));
                         self.bindings.insert(name.to_string(), ("".to_string(), "<owner>".to_string()));
                         if self.equalities.contains_key(name) {
                             match self.equalities.get(name).unwrap() {
@@ -405,11 +407,11 @@ impl RascalVM {
                 };
 
                 for (id, value) in &values {
-                    if self.equalities.contains_key(id) {
-                        match self.equalities.get(id) {
+                    if self.equalities.contains_key(&id) {
+                        match self.equalities.get(&id) {
                             Some(EqualityWith::Value(expr)) => {
-                                if let Some(expr_resolved) = self.interpret_expression(expr, &values, world) {
-                                    if !RascalValue::same_optic(value.clone(), expr_resolved.clone()) {
+                                if let Some(expr_resolved) = self.interpret_expression(expr, &mut values, world) {
+                                    if !RascalValue::same_optic(value.get_value().unwrap().clone(), expr_resolved.clone()) {
                                         continue 'entries;
                                     }
                                 }
@@ -417,8 +419,10 @@ impl RascalVM {
 
                             Some(EqualityWith::Alias(alias)) => {
                                 if let Some(alias_value) = values.get(alias) {
-                                    if !RascalValue::same_optic(value.clone(), alias_value.clone()) {
-                                        continue 'entries;
+                                    if let Some(cached_value) = alias_value.get_value() {
+                                        if !RascalValue::same_optic(value.get_value().unwrap().clone(), cached_value.clone()) {
+                                            continue 'entries;
+                                        }
                                     }
                                 }
                             }
@@ -431,9 +435,9 @@ impl RascalVM {
                 for eq in &self.equalities {
                     match eq {
                         (name, EqualityWith::Alias(real)) => {
-                            let lhs = values.get(name).unwrap();
-                            let rhs = values.get(real).unwrap();
-                            if *lhs != *rhs {
+                            let lhs = values.get(name).unwrap().get_value().unwrap();
+                            let rhs = values.get(real).unwrap().get_value().unwrap();
+                            if lhs != rhs {
                                 continue 'entries;
                             }
                         },
@@ -443,11 +447,12 @@ impl RascalVM {
                 }
 
                 self.interpret_block(&system.body_block, &mut values, world);
+                values.pop();
             }
         }
     }
 
-    pub(crate) fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
+    pub(crate) fn interpret_expression(&self, expr: &RascalExpression, values: &mut ValueContext, world: &mut World) -> Option<RascalValue> {
 
         match expr {
             RascalExpression::Relation(a, op, b) => {
@@ -565,15 +570,22 @@ impl RascalVM {
             },
 
             RascalExpression::Identifier(ident) if values.contains_key(ident) => {
-                Some(values.get(ident).unwrap().clone())
+                Some(match values.get(ident).unwrap() {
+                    Call::ByRef(id) => {
+                        values.get(&id).unwrap().get_value().unwrap()
+                    }
+                    Call::ByVal(e) => {
+                        e.clone()
+                    }
+                })
             }
 
             RascalExpression::Tag(c) => {
                 let owner = if c.is_owned { c.owner.as_ref().unwrap().as_str() } else { "_" };
-                if let RascalValue::Entity(index) = values.get(owner).unwrap() {
+                if let RascalValue::Entity(index) = values.get(&owner.to_string()).unwrap().get_value().unwrap() {
                     assert_eq!(c.args.len(), 0);
                     let storage = world.storage_bitmaps.get(&*c.name).unwrap().clone();
-                    Some(RascalValue::Bool(storage.get(*index)))
+                    Some(RascalValue::Bool(storage.get(index)))
                 } else {
                     unreachable!()
                 }
@@ -617,7 +629,6 @@ impl RascalVM {
                         }
 
                         Some(RascalValue::Set(s)) => {
-                            println!("SET!");
                             return None;
                         }
 
@@ -640,7 +651,10 @@ impl RascalVM {
                     GeometryQuery::Empty(a) => {
                         let set = self.interpret_expression(a.as_ref(), values, world);
                         if let RascalValue::Set(id) = set.unwrap() {
-                            return Some(RascalValue::Bool(world.set_storage.get(&id).unwrap().is_empty()));
+                            let len = world.set_storage.get(&id).unwrap().len();
+                            println!("Set #{} contains {} elements", id, len);
+                            let emptiness = len == 0;
+                            return Some(RascalValue::Bool(emptiness));
                         } else {
                             println!("Empty query can't be done with non-set argument: {:?}.", a);
                             unreachable!()
@@ -750,11 +764,18 @@ impl RascalVM {
     }
 
     fn interpret_identifier_or_query(&self, e: &Box<RascalExpression>,
-                                     values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
+                                     values: &mut ValueContext, world: &mut World) -> Option<RascalValue> {
         match e.as_ref() {
             RascalExpression::Identifier(n) => {
                 if values.contains_key(n) {
-                    Some(values.get(n).unwrap().clone())
+                    Some(match values.get(n).unwrap() {
+                        Call::ByRef(id) => {
+                            values.get(&id).unwrap().get_value().unwrap()
+                        }
+                        Call::ByVal(e) => {
+                            e.clone()
+                        }
+                    })
                 } else {
                     None
                 }
@@ -773,7 +794,7 @@ impl RascalVM {
     }
 
     fn interpret_geometry_bool_op(&self, op: GeometryOp, e1: &Box<RascalExpression>, e2: &Box<RascalExpression>,
-                                  values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
+                                  values: &mut ValueContext, world: &mut World) -> Option<RascalValue> {
 
         if let Some(RascalValue::Set(id1)) = self.interpret_identifier_or_query(e1, values, world) {
             if let Some(RascalValue::Set(id2)) = self.interpret_identifier_or_query(e2, values, world) {
@@ -794,7 +815,8 @@ impl RascalVM {
         None
     }
 
-    fn interpret_position_expression(&self, point: Option<RascalGlyphPosition>, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<(u32, u32)> {
+    fn interpret_position_expression(&self, point: Option<RascalGlyphPosition>,
+                                     values: &mut ValueContext, world: &mut World) -> Option<(u32, u32)> {
         if let Some(position) = point {
             let x = self.interpret_expression(&position.0, values, world).unwrap();
             let y = self.interpret_expression(&position.1, values, world).unwrap();
@@ -809,7 +831,8 @@ impl RascalVM {
         }
     }
 
-    fn interpret_color_expression(&self, color: Option<RascalGlyphColor>, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<(u8, u8, u8)> {
+    fn interpret_color_expression(&self, color: Option<RascalGlyphColor>,
+                                  values: &mut ValueContext, world: &mut World) -> Option<(u8, u8, u8)> {
         if let Some(clr) = color {
             let h = self.interpret_expression(&clr.0, values, world).unwrap();
             let s = self.interpret_expression(&clr.1, values, world).unwrap();
@@ -819,7 +842,7 @@ impl RascalVM {
         } else { None }
     }
 
-    fn get_access_to_field_by_coordinates(&mut self, values: &mut HashMap<String, RascalValue>, world: &mut World,
+    fn get_access_to_field_by_coordinates(&mut self, values: &mut ValueContext, world: &mut World,
                                           name: &String, x: &Box<RascalExpression>, y: &Box<RascalExpression>) -> Result<(FieldId, usize), String> {
         let width = world.size.0;
         let name_index = get_or_insert_into_string_pool(&name);
@@ -838,7 +861,7 @@ impl RascalVM {
         }
     }
 
-    fn get_access_to_field_by_index(&mut self, values: &mut HashMap<String, RascalValue>, world: &mut World,
+    fn get_access_to_field_by_index(&mut self, values: &mut ValueContext, world: &mut World,
                                     name: &String, index: &Box<RascalExpression>) -> Result<(FieldId, usize), String> {
         let name_index = get_or_insert_into_string_pool(&name);
         if !world.field_storage.contains_key(&name_index) {
@@ -852,8 +875,45 @@ impl RascalVM {
         }
     }
 
-    fn interpret_statement(&mut self, statement: &RascalStatement, values: &mut HashMap<String, RascalValue>, world: &mut World) -> RascalInterpretResult {
+    fn interpret_statement(&mut self, statement: &RascalStatement, values: &mut ValueContext, world: &mut World) -> RascalInterpretResult {
         match statement {
+            RascalStatement::FunctionCall(name, args) => {
+                let name_index = get_or_insert_into_string_pool(&name);
+                if world.func_storage.contains_key(&name_index) {
+                    let func = world.func_storage.get(&name_index).unwrap().clone();
+                    if func.params.len() != args.len() {
+                        println!("Function {:?} expected {} parameters, found {}.", name, func.params.len(), args.len());
+                        unreachable!()
+                    }
+
+                    let mut argument_index = 0;
+                    let param_args = func.params.iter().zip(args)
+                        .map(|((param, datatype), arg)| {
+                            argument_index += 1;
+
+                            let ie = if let RascalExpression::Identifier(ident) = arg {
+                                Call::ByRef(ident.clone())
+                            } else {
+                                let value = self.interpret_expression(arg, values, world).unwrap();
+                                if value.get_datatype() != *datatype {
+                                    println!("Argument {} datatype mismatched: expected {:?}, found {:?}.",
+                                             argument_index, datatype, value.get_datatype());
+                                    unreachable!()
+                                }
+                                Call::ByVal(value)
+                            };
+
+                            (param.clone(), ie)
+                        }).collect::<Vec<_>>();
+
+                    values.push();
+                    values.add_all(param_args);
+
+                    self.interpret_block(&func.body, values, world);
+                    values.pop();
+                }
+            }
+
             RascalStatement::Let(name, e) => {
                 if let RascalExpression::Identifier(name) = name {
                     if values.contains_key(name) {
@@ -1131,12 +1191,13 @@ impl RascalVM {
                         if let Some(RascalValue::Num(b)) = self.interpret_expression(b, values, world) {
                             let keys = values.keys().map(|x| x.clone()).collect::<Vec<_>>();
                             for i in a..b {
-                                let mut pushed_values = values.clone();
-                                pushed_values.insert(id.clone(), RascalValue::Num(i));
-                                self.interpret_block(body, &mut pushed_values, world);
-                                for k in keys.clone() {
+                                values.push();
+                                values.add_value(id.clone(), RascalValue::Num(i));
+                                self.interpret_block(body, values, world);
+                                /*for k in keys.clone() {
                                     values.insert(k.clone(), pushed_values.get(&k).unwrap().clone());
-                                }
+                                }*/
+                                values.pop();
                             }
                         }
                     }
@@ -1151,7 +1212,9 @@ impl RascalVM {
         RascalInterpretResult::Ok
     }
 
-    fn interpret_block(&mut self, block: &RascalBlock, values: &mut HashMap<String, RascalValue>, world: &mut World) {
+    fn interpret_block(&mut self, block: &RascalBlock,
+                       values: &mut ValueContext,
+                       world: &mut World) {
         for statement in block {
             if let RascalInterpretResult::Err(what) = self.interpret_statement(statement, values, world) {
                 panic!("{}", what);
@@ -1159,7 +1222,8 @@ impl RascalVM {
         }
     }
 
-    pub(crate) fn add_component(&self, world: &mut World, entity: EntityId, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
+    pub(crate) fn add_component(&self, world: &mut World, entity: EntityId,
+                                comp: ComponentCallSite, values: &mut ValueContext) {
         if let Some(comp_type) = world.component_types.get(&comp.name) {
             match comp_type {
                 ComponentType::State => {
@@ -1186,7 +1250,7 @@ impl RascalVM {
         }
     }
 
-    pub(crate) fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &HashMap<String, RascalValue>) {
+    pub(crate) fn trigger_event(&self, world: &mut World, comp: ComponentCallSite, values: &mut ValueContext) {
         let args: Vec<_> = comp.args.iter().map(|arg| {
             let value_expr = arg.as_ref().unwrap();
             self.interpret_expression(value_expr, values, world).unwrap()
@@ -1195,28 +1259,46 @@ impl RascalVM {
         world.trigger_event(&comp.name, args);
     }
 
-    pub(crate) fn assign_value(&mut self, world: &mut World, index: usize, name: String, new_value: RascalValue) {
-        let (comp_id, member_id) = self.bindings.get(&name).unwrap();
-        if let ComponentType::State = world.component_types.get(comp_id).unwrap() {
-            let descriptor = world.registered_states.get(comp_id).unwrap();
-            let instance_size = descriptor.size as usize;
+    pub(crate) fn assign_value(&mut self, values: &mut ValueContext, world: &mut World, index: usize, name: String, new_value: Call) {
+        println!("GET NAME FROM BINDING: {}", name);
+        println!("BINDINGS: {:?}", self.bindings);
 
-            let ptr_start = instance_size * index;
-            let member_hash: HashMap<_, _> = descriptor.ptrs.iter().map(|(a, b)| (b.clone(), *a)).collect();
-            let ptr_offset = *member_hash.get(member_id).unwrap();
-            let member_start = ptr_start + ptr_offset as usize;
-            let size = descriptor.members.get(member_id).unwrap().typ.size_in_bytes() as usize;
+        match self.bindings.get(&name) {
+            Some((comp_id, member_id)) => {
+                if let ComponentType::State = world.component_types.get(comp_id).unwrap() {
+                    let descriptor = world.registered_states.get(comp_id).unwrap();
+                    let instance_size = descriptor.size as usize;
 
-            let binary_value = new_value.emit();
-            assert_eq!(binary_value.len(), size);
+                    let ptr_start = instance_size * index;
+                    let member_hash: HashMap<_, _> = descriptor.ptrs.iter().map(|(a, b)| (b.clone(), *a)).collect();
+                    let ptr_offset = *member_hash.get(member_id).unwrap();
+                    let member_start = ptr_start + ptr_offset as usize;
+                    let size = descriptor.members.get(member_id).unwrap().typ.size_in_bytes() as usize;
 
-            unsafe {
-                let storage = world.storage_pointers.get_mut(comp_id).unwrap().as_mut_ptr();
-                let comp_storage_at_entity_ptr = storage.offset(member_start as isize);
-                copy_nonoverlapping(binary_value.as_ptr(), comp_storage_at_entity_ptr, size);
+                    let binary_value = new_value.get_value().unwrap().emit();
+                    assert_eq!(binary_value.len(), size);
+
+                    unsafe {
+                        let storage = world.storage_pointers.get_mut(comp_id).unwrap().as_mut_ptr();
+                        let comp_storage_at_entity_ptr = storage.offset(member_start as isize);
+                        copy_nonoverlapping(binary_value.as_ptr(), comp_storage_at_entity_ptr, size);
+                    }
+                } else {
+                    println!("Only states are mutable ({} is not writable).", name);
+                }
             }
-        } else {
-            println!("Only states are mutable ({} is not writable).", name);
+            None => {
+                if values.contains_key(&name) {
+                    match new_value {
+                        Call::ByRef(id) => {
+                            let n = values.get(&id).unwrap().get_value().unwrap();
+                            *values.get_mut(name).unwrap() = Call::ByVal(n.clone());
+                        },
+                        Call::ByVal(e) => *values.get_mut(name).unwrap() = Call::ByVal(e),
+                    }
+
+                }
+            }
         }
     }
 
