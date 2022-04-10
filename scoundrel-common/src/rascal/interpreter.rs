@@ -11,10 +11,9 @@ use lazy_static::lazy_static;
 use rand::{random, Rng};
 
 use crate::colors::Color;
-use crate::point::{distance, Point};
 use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, GeometryOp, GeometryQuery, Op, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
-use crate::rascal::semantics::{Position, SemanticChange};
+use crate::rascal::commits::{Position, SemanticChange};
 use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, Field, FieldId, SetId, TriggerEvent};
 use crate::rascal::world::EntityId;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
@@ -29,6 +28,15 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Geom {
+    Rect(i32, i32, i32, i32),
+    Circle(i32, i32, i32),
+    Bool(GeometryOp, Box<Geom>, Box<Geom>),
+    Reduce(Box<Geom>, i32),
+    Expand(Box<Geom>, i32),
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum RascalValue {
     Num(i32),
     Bool(bool),
@@ -36,6 +44,7 @@ pub enum RascalValue {
     Entity(usize),
     Symbol(u16),
     Field(FieldId),
+    Geometry(Geom),
     Set(SetId),
     Range(i32, i32),
 }
@@ -64,6 +73,7 @@ impl RascalValue {
             RascalValue::Field(_) => DataType::Field,
             RascalValue::Set(_) => DataType::Set,
             RascalValue::Range(_, _) => DataType::Range,
+            RascalValue::Geometry(_) => unreachable!(),
         }
     }
 
@@ -163,6 +173,7 @@ impl RascalValue {
                 v.extend(b.to_ne_bytes());
                 v
             },
+            RascalValue::Geometry(_) => unreachable!()
         }
     }
 }
@@ -449,6 +460,20 @@ impl RascalVM {
 
     pub(crate) fn interpret_expression(&self, expr: &RascalExpression, values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
 
+        fn get_value_as_string(expr: RascalValue) -> String {
+            match expr {
+                RascalValue::Num(v) => v.to_string(),
+                RascalValue::Bool(b) => b.to_string(),
+                RascalValue::Text(t) => retrieve_string(t),
+                RascalValue::Symbol(c) => c.to_string(),
+                RascalValue::Entity(u) => format!("#{}", u),
+                RascalValue::Field(f) => format!("<field {}>", f),
+                RascalValue::Set(s) => s.to_string(),
+                RascalValue::Range(a, b) => format!("{}..{}", a, b),
+                RascalValue::Geometry(g) => format!("{:?}", g),
+            }
+        }
+
         match expr {
             RascalExpression::Relation(a, op, b) => {
                 let mut ia = self.interpret_expression(a.as_ref(), values, world).unwrap();
@@ -499,31 +524,13 @@ impl RascalVM {
                     (Num(l), Op::Mod, Num(r)) => Some(Num(l % r)),
                     (Text(l), Op::Add, rhs) => {
                         let string = retrieve_string(l);
-                        let right = match rhs {
-                            RascalValue::Num(v) => v.to_string(),
-                            RascalValue::Bool(b) => b.to_string(),
-                            RascalValue::Text(t) => retrieve_string(t),
-                            RascalValue::Symbol(c) => c.to_string(),
-                            RascalValue::Entity(u) => format!("#{}", u),
-                            RascalValue::Field(f) => format!("<field {}>", f),
-                            RascalValue::Set(s) => s.to_string(),
-                            RascalValue::Range(a, b) => format!("{}..{}", a, b),
-                        };
+                        let right = get_value_as_string(rhs);
                         let new_index = get_or_insert_into_string_pool(&format!("{}{}", string, right));
                         Some(Text(new_index))
                     }
                     (lhs, Op::Add, Text(r)) => {
                         let string = retrieve_string(r);
-                        let left = match lhs {
-                            RascalValue::Num(v) => v.to_string(),
-                            RascalValue::Bool(b) => b.to_string(),
-                            RascalValue::Text(t) => retrieve_string(t),
-                            RascalValue::Symbol(c) => c.to_string(),
-                            RascalValue::Entity(u) => format!("#{}", u),
-                            RascalValue::Field(f) => format!("<field {}>", f),
-                            RascalValue::Set(s) => s.to_string(),
-                            RascalValue::Range(a, b) => format!("{}..{}", a, b),
-                        };
+                        let left = get_value_as_string(lhs);
                         let new_index = get_or_insert_into_string_pool(&format!("{}{}", left, string));
                         Some(Text(new_index))
                     }
@@ -760,9 +767,9 @@ impl RascalVM {
                 }
             }
 
-            q@RascalExpression::Query(_) => {
-                println!("QUERY FOUND: {:?}", q);
-                self.interpret_expression(q, values, world).clone()
+            query @RascalExpression::Query(_) => {
+                println!("QUERY FOUND: {:?}", query);
+                self.interpret_expression(query, values, world).clone()
             }
 
             what => {
@@ -849,6 +856,16 @@ impl RascalVM {
             } else {
                 return Err(format!("Field access: argument index, expected a num, found {:?}", index));
             }
+        }
+    }
+
+    fn get_field_storage_at_index(&mut self, world: &mut World, field: FieldId, index: usize) {
+        if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
+            .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
+
+            world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value + 1));
+        } else {
+            world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(1));
         }
     }
 
@@ -1043,28 +1060,15 @@ impl RascalVM {
 
                     RascalExpression::FieldAccessor(name, x, y) => {
                         if let Ok((field, index)) = self.get_access_to_field_by_coordinates(values, world, name, x, y) {
-                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
-                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
-
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value + 1));
-                            } else {
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(1));
-                            }
+                            self.get_field_storage_at_index(world, field, index);
                         }
                     }
 
                     RascalExpression::ArrayAccessor(name, index) => {
                         if let Ok((field, index)) = self.get_access_to_field_by_index(values, world, name, index) {
-                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
-                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
-
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value + 1));
-                            } else {
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(1));
-                            }
+                            self.get_field_storage_at_index(world, field, index);
                         }
                     }
-
 
                     _ => {
                         return RascalInterpretResult::Err(format ! ("Expected identifier, got {:?}", var));
@@ -1093,25 +1097,13 @@ impl RascalVM {
 
                     RascalExpression::FieldAccessor(name, x, y) => {
                         if let Ok((field, index)) = self.get_access_to_field_by_coordinates(values, world, name, x, y) {
-                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
-                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
-
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value - 1));
-                            } else {
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(-1));
-                            }
+                            self.get_field_storage_at_index(world, field, index);
                         }
                     }
 
                     RascalExpression::ArrayAccessor(name, index) => {
                         if let Ok((field, index)) = self.get_access_to_field_by_index(values, world, name, index) {
-                            if let RascalValue::Num(value) = world.field_storage.get_mut(&field).unwrap()
-                                .field_map.get(&index).unwrap_or(&RascalValue::Num(0)).clone() {
-
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(value - 1));
-                            } else {
-                                world.field_storage.get_mut(&field).unwrap().field_map.insert(index, RascalValue::Num(-1));
-                            }
+                            self.get_field_storage_at_index(world, field, index);
                         }
                     }
 

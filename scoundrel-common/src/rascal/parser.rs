@@ -240,6 +240,7 @@ pub enum Op { Add, Sub, Mul, Div, Mod }
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Un { Not, Neg }
 
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum GeometryOp { Un, Int, Diff }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -348,12 +349,192 @@ impl SystemSignature {
         result
     }
 
-    fn parse_array_accessor(exprs: &mut Pairs<Rule>) -> Option<RascalExpression> {
-        Self::parse_general_accessor(exprs.next().unwrap())
+    fn parse_general_accessor(expr: Pair<Rule>) -> Option<RascalExpression> {
+        match expr.as_rule() {
+            Rule::field_accessor => Self::parse_field_accessor(expr),
+            Rule::array_accessor => Self::parse_array_accessor(expr),
+            Rule::identifier => Self::parse_expression(TokenType::Term(expr)),
+            _ => unreachable!()
+        }
     }
 
-    fn parse_field_accessor(exprs: &mut Pairs<Rule>) -> Option<RascalExpression> {
-        Self::parse_general_accessor(exprs.next().unwrap())
+    fn parse_array_accessor(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut child = expr.into_inner();
+        let name = child.next().unwrap().as_str();
+        if let Some(index) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
+            return Some(RascalExpression::ArrayAccessor(
+                name.to_string(),Box::new(index)))
+        }
+
+        None
+    }
+
+    fn parse_field_accessor(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut child = expr.into_inner();
+        let name = child.next().unwrap().as_str();
+        if let Some(x) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
+            if let Some(y) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
+                return Some(RascalExpression::FieldAccessor(
+                    name.to_string(),
+                    Box::new(x),
+                    Box::new(y)))
+            }
+        }
+
+        None
+    }
+
+    fn parse_negated_primary(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut p = expr.into_inner();
+        let un = match p.next().unwrap().as_str() {
+            "!" => Un::Not,
+            "-" => Un::Neg,
+            _ => unreachable!()
+        };
+        let negated = p.next().unwrap();
+        if let Some(exp) = SystemSignature::parse_expression(
+            TokenType::NonTerm(negated.clone().into_inner())) {
+
+            Some(RascalExpression::Unary(un, Box::new(exp)))
+        } else {
+            if let Some(exp) = SystemSignature::parse_expression(TokenType::Term(negated)) {
+                Some(RascalExpression::Unary(un, Box::new(exp)))
+            } else {
+                None
+            }
+        }
+    }
+
+    fn parse_random(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut rnd = expr.into_inner();
+        let a = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
+        let b = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
+        Some(RandomNumLiteral(Box::new(a), Box::new(b)))
+    }
+
+    fn parse_empty_query(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut line = expr.into_inner();
+        let a = Self::parse_expression(TokenType::Term(line.next().unwrap())).unwrap();
+        Some(RascalExpression::Query(GeometryQuery::Empty(Box::new(a))))
+    }
+
+    fn parse_rect(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut rect = expr.into_inner();
+        let x1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+        let y1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+        let x2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+        let y2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
+        Some(RascalExpression::Query(GeometryQuery::Rect(Box::new(x1), Box::new(y1),
+                                                         Box::new(x2), Box::new(y2))))
+    }
+
+    fn parse_circle(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut circ = expr.into_inner();
+        let x = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
+        let y = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
+        let r = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
+        Some(RascalExpression::Query(GeometryQuery::Circle(Box::new(x), Box::new(y), Box::new(r))))
+    }
+
+    fn parse_line(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut line = expr.into_inner();
+        let x1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+        let y1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+        let x2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+        let y2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
+        Some(RascalExpression::Query(GeometryQuery::Line(Box::new(x1), Box::new(y1),
+                                                         Box::new(x2), Box::new(y2))))
+    }
+
+    fn parse_union(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut un = expr.into_inner();
+        let d1 = un.next().unwrap();
+        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
+        let d2 = un.next().unwrap();
+        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
+
+        Some(RascalExpression::Query(GeometryQuery::Union(Box::new(e1), Box::new(e2))))
+    }
+
+    fn parse_intersect(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut int = expr.into_inner();
+        let d1 = int.next().unwrap();
+        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
+        let d2 = int.next().unwrap();
+        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
+
+        Some(RascalExpression::Query(GeometryQuery::Intersect(Box::new(e1), Box::new(e2))))
+    }
+
+    fn parse_diff(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut int = expr.into_inner();
+        let d1 = int.next().unwrap();
+        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
+        let d2 = int.next().unwrap();
+        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
+
+        Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
+    }
+
+    fn parse_bottom_expr(pair: Pair<Rule>) -> Option<RascalExpression> {
+        match pair.as_rule() {
+            Rule::random => Self::parse_random(pair),
+            Rule::bool_value => Some(BoolLiteral(pair.as_str().starts_with("true"))),
+            Rule::number => Some(NumLiteral(pair.as_str().trim().parse().unwrap())),
+            Rule::text_value => Some(TextLiteral({
+                let text = pair.as_str().to_string();
+                text[1..(text.len() - 1)].to_string()
+            })),
+            Rule::any_char => Some(RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16)),
+            Rule::identifier | Rule::name => Some(RascalExpression::Identifier(pair.as_str().to_string())),
+            Rule::expression => Self::parse_expression(TokenType::NonTerm(pair.into_inner())),
+            Rule::complex_call_site => Some(RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap())),
+            Rule::negated_primary => Self::parse_negated_primary(pair),
+            Rule::field_accessor => Self::parse_field_accessor(pair),
+            Rule::array_accessor => Self::parse_array_accessor(pair),
+
+            Rule::rect_query => Self::parse_rect(pair),
+            Rule::circle_query => Self::parse_circle(pair),
+            Rule::line_query => Self::parse_line(pair),
+            Rule::empty_query => Self::parse_empty_query(pair),
+            Rule::union_query => Self::parse_union(pair),
+            Rule::intersect_query => Self::parse_intersect(pair),
+            Rule::diff_query => Self::parse_diff(pair),
+            Rule::make_set_query => Some(RascalExpression::Query(GeometryQuery::Set)),
+
+            e => {
+                println!("Returning none: {:?}", e);
+                None
+            }
+        }
+    }
+
+    fn parse_infix_expr(lhs: Option<RascalExpression>, op: Pair<Rule>, rhs: Option<RascalExpression>) -> Option<RascalExpression> {
+        let lhs = lhs.unwrap();
+        let rhs = rhs.unwrap();
+        match op.as_rule() {
+
+            Rule::and_op => Some(RascalExpression::BoolOp(Box::new(lhs), BoolOper::And, Box::new(rhs))),
+            Rule::or_op => Some(RascalExpression::BoolOp(Box::new(lhs), BoolOper::Or, Box::new(rhs))),
+
+            Rule::eq_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Eq, Box::new(rhs))),
+            Rule::ne_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Ne, Box::new(rhs))),
+            Rule::lt_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Lt, Box::new(rhs))),
+            Rule::gt_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Gt, Box::new(rhs))),
+            Rule::le_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Le, Box::new(rhs))),
+            Rule::ge_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Ge, Box::new(rhs))),
+
+            Rule::plus_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Add, Box::new(rhs))),
+            Rule::minus_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Sub, Box::new(rhs))),
+            Rule::mul_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mul, Box::new(rhs))),
+            Rule::div_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Div, Box::new(rhs))),
+            Rule::mod_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mod, Box::new(rhs))),
+
+            e => {
+                println!("Returning none: {:?}", e);
+                None
+            }
+        }
     }
 
     fn parse_expression(exprs: TokenType) -> Option<RascalExpression> {
@@ -373,266 +554,13 @@ impl SystemSignature {
             TokenType::NonTerm(expr) => {
                 EXPR_PREC_CLIMBER.climb(
                     expr,
-                    |pair| match pair.as_rule() {
-                        Rule::random => {
-                            let mut rnd = pair.into_inner();
-                            let a = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
-                            let b = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
-                            Some(RandomNumLiteral(Box::new(a), Box::new(b)))
-                        },
-                        Rule::bool_value => Some(BoolLiteral(pair.as_str().starts_with("true"))),
-                        Rule::number => Some(NumLiteral(pair.as_str().trim().parse().unwrap())),
-                        Rule::text_value => Some(TextLiteral({
-                            let text = pair.as_str().to_string();
-                            text[1..(text.len() - 1)].to_string()
-                        })),
-                        Rule::any_char => Some(RascalExpression::SymbolLiteral(pair.as_str().chars().next().unwrap() as u16)),
-                        Rule::identifier | Rule::name => Some(RascalExpression::Identifier(pair.as_str().to_string())),
-                        Rule::expression => Self::parse_expression(TokenType::NonTerm(pair.into_inner())),
-                        Rule::complex_call_site => Some(RascalExpression::Tag(Self::parse_complex_call_site(pair).unwrap())),
-                        Rule::negated_primary => {
-                            let mut p = pair.into_inner();
-                            let un = match p.next().unwrap().as_str() {
-                                "!" => Un::Not,
-                                "-" => Un::Neg,
-                                _ => unreachable!()
-                            };
-                            let negated = p.next().unwrap();
-                            if let Some(exp) = SystemSignature::parse_expression(
-                                TokenType::NonTerm(negated.clone().into_inner())) {
-
-                                Some(RascalExpression::Unary(un, Box::new(exp)))
-                            } else {
-                                if let Some(exp) = SystemSignature::parse_expression(TokenType::Term(negated)) {
-                                    Some(RascalExpression::Unary(un, Box::new(exp)))
-                                } else {
-                                    None
-                                }
-                            }
-                        }
-                        Rule::field_accessor => {
-                            let mut field = pair.into_inner();
-                            let name = field.next().unwrap().as_str();
-                            let x = Self::parse_expression(TokenType::NonTerm(field.next().unwrap().into_inner()));
-                            let y = Self::parse_expression(TokenType::NonTerm(field.next().unwrap().into_inner()));
-
-                            if let Some(x) = x {
-                                if let Some(y) = y {
-                                    return Some(RascalExpression::FieldAccessor(
-                                        name.to_string(),
-                                        Box::new(x),
-                                        Box::new(y)))
-                                }
-                            }
-
-                            None
-                        }
-                        Rule::array_accessor => {
-                            let mut field = pair.into_inner();
-                            let name = field.next().unwrap().as_str();
-                            let index = Self::parse_expression(TokenType::NonTerm(field.next().unwrap().into_inner()));
-
-                            if let Some(index) = index {
-                                return Some(RascalExpression::ArrayAccessor(
-                                    name.to_string(),
-                                    Box::new(index)))
-                            }
-
-                            None
-                        }
-
-                        Rule::rect_query => {
-                            let mut rect = pair.into_inner();
-                            let x1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                            let y1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                            let x2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                            let y2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                            Some(RascalExpression::Query(GeometryQuery::Rect(Box::new(x1), Box::new(y1),
-                                                                             Box::new(x2), Box::new(y2))))
-                        }
-
-                        Rule::circle_query => {
-                            let mut circ = pair.into_inner();
-                            let x = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
-                            let y = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
-                            let r = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
-                            Some(RascalExpression::Query(GeometryQuery::Circle(Box::new(x), Box::new(y),
-                                                                               Box::new(r))))
-                        }
-
-                        Rule::line_query => {
-                            let mut line = pair.into_inner();
-                            let x1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                            let y1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                            let x2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                            let y2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                            Some(RascalExpression::Query(GeometryQuery::Line(Box::new(x1), Box::new(y1),
-                                                                             Box::new(x2), Box::new(y2))))
-                        }
-
-                        Rule::empty_query => {
-                            let mut line = pair.into_inner();
-                            let a = Self::parse_expression(TokenType::Term(line.next().unwrap())).unwrap();
-                            Some(RascalExpression::Query(GeometryQuery::Empty(Box::new(a))))
-                        }
-
-                        Rule::union_query => {
-                            let mut un = pair.into_inner();
-                            let d1 = un.next().unwrap();
-                            let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
-                            let d2 = un.next().unwrap();
-                            let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
-
-                            Some(RascalExpression::Query(GeometryQuery::Union(Box::new(e1), Box::new(e2))))
-                        }
-
-                        Rule::intersect_query => {
-                            let mut int = pair.into_inner();
-                            let d1 = int.next().unwrap();
-                            let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
-                            let d2 = int.next().unwrap();
-                            let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
-
-                            Some(RascalExpression::Query(GeometryQuery::Intersect(Box::new(e1), Box::new(e2))))
-                        }
-
-                        Rule::diff_query => {
-                            let mut diff = pair.into_inner();
-                            let d1 = diff.next().unwrap();
-                            let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
-                            let d2 = diff.next().unwrap();
-                            let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
-
-                            Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
-                        }
-
-                        Rule::make_set_query => {
-                            Some(RascalExpression::Query(GeometryQuery::Set))
-                        }
-
-                        e => {
-                            println!("Returning none: {:?}", e);
-                            None
-                        }
-                    },
-                    |lhs, op, rhs| {
-                        let lhs = lhs.unwrap();
-                        let rhs = rhs.unwrap();
-                        match op.as_rule() {
-
-                            Rule::and_op => Some(RascalExpression::BoolOp(Box::new(lhs), BoolOper::And, Box::new(rhs))),
-                            Rule::or_op => Some(RascalExpression::BoolOp(Box::new(lhs), BoolOper::Or, Box::new(rhs))),
-
-                            Rule::eq_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Eq, Box::new(rhs))),
-                            Rule::ne_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Ne, Box::new(rhs))),
-                            Rule::lt_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Lt, Box::new(rhs))),
-                            Rule::gt_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Gt, Box::new(rhs))),
-                            Rule::le_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Le, Box::new(rhs))),
-                            Rule::ge_rel => Some(RascalExpression::Relation(Box::new(lhs), Rel::Ge, Box::new(rhs))),
-
-                            Rule::plus_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Add, Box::new(rhs))),
-                            Rule::minus_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Sub, Box::new(rhs))),
-                            Rule::mul_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mul, Box::new(rhs))),
-                            Rule::div_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Div, Box::new(rhs))),
-                            Rule::mod_op => Some(RascalExpression::Binary(Box::new(lhs), Op::Mod, Box::new(rhs))),
-
-                            e => {
-                                println!("Returning none: {:?}", e);
-                                None
-                            }
-                        }
-                    }
+                    Self::parse_bottom_expr,
+                    Self::parse_infix_expr,
                 )
             }
 
-            TokenType::Term(expr) => {
-                match expr.as_rule() {
-                    Rule::random => {
-                        let mut rnd = expr.into_inner();
-                        let a = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
-                        let b = Self::parse_expression(TokenType::Term(rnd.next().unwrap())).unwrap();
-                        Some(RandomNumLiteral(Box::new(a), Box::new(b)))
-                    },
-                    Rule::empty_query => {
-                        println!("LINE {:?} {:?}", expr.as_rule(), expr.as_str());
-                        let mut line = expr.into_inner();
-                        let a = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                        Some(RascalExpression::Query(GeometryQuery::Empty(Box::new(a))))
-                    }
-                    Rule::bool_value => Some(BoolLiteral(expr.as_str().starts_with("true"))),
-                    Rule::number => Some(NumLiteral(expr.as_str().parse().unwrap())),
-                    Rule::text_value => Some(TextLiteral(expr.as_str().to_string())),
-
-                    Rule::identifier | Rule::name => Some(Identifier(expr.as_str().to_string())),
-                    Rule::expression => Self::parse_expression(TokenType::NonTerm(expr.into_inner())),
-                    Rule::array_accessor => Self::parse_array_accessor(&mut expr.into_inner()),
-                    Rule::field_accessor => Self::parse_field_accessor(&mut expr.into_inner()),
-
-                    Rule::rect_query => {
-                        let mut rect = expr.into_inner();
-                        let x1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                        let y1 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                        let x2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                        let y2 = Self::parse_expression(TokenType::NonTerm(rect.next().unwrap().into_inner())).unwrap();
-                        Some(RascalExpression::Query(GeometryQuery::Rect(Box::new(x1), Box::new(y1),
-                                                                         Box::new(x2), Box::new(y2))))
-                    }
-
-                    Rule::circle_query => {
-                        let mut circ = expr.into_inner();
-                        let x = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
-                        let y = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
-                        let r = Self::parse_expression(TokenType::NonTerm(circ.next().unwrap().into_inner())).unwrap();
-                        Some(RascalExpression::Query(GeometryQuery::Circle(Box::new(x), Box::new(y),
-                                                                           Box::new(r))))
-                    }
-
-                    Rule::line_query => {
-                        let mut line = expr.into_inner();
-                        let x1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                        let y1 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                        let x2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                        let y2 = Self::parse_expression(TokenType::NonTerm(line.next().unwrap().into_inner())).unwrap();
-                        Some(RascalExpression::Query(GeometryQuery::Line(Box::new(x1), Box::new(y1),
-                                                                         Box::new(x2), Box::new(y2))))
-                    }
-
-                    Rule::union_query => {
-                        let mut un = expr.into_inner();
-                        let d1 = un.next().unwrap();
-                        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
-                        let d2 = un.next().unwrap();
-                        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
-
-                        Some(RascalExpression::Query(GeometryQuery::Union(Box::new(e1), Box::new(e2))))
-                    }
-
-                    Rule::intersect_query => {
-                        let mut int = expr.into_inner();
-                        let d1 = int.next().unwrap();
-                        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
-                        let d2 = int.next().unwrap();
-                        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
-
-                        Some(RascalExpression::Query(GeometryQuery::Intersect(Box::new(e1), Box::new(e2))))
-                    }
-
-                    Rule::diff_query => {
-                        let mut diff = expr.into_inner();
-                        let d1 = diff.next().unwrap();
-                        let e1 = Self::parse_expression(TokenType::Term(d1)).unwrap();
-                        let d2 = diff.next().unwrap();
-                        let e2 = Self::parse_expression(TokenType::Term(d2)).unwrap();
-
-                        Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
-                    }
-
-                    _ => {
-                        println!("WARNING: ADD THIS TERM TOO (line 314 in parser.rs): {:?}", expr.as_rule());
-                        None
-                    }
-                }
-            }
+            TokenType::Term(pair) =>
+                Self::parse_bottom_expr(pair)
         }
     }
 
@@ -744,40 +672,6 @@ impl SystemSignature {
             Rule::if_statement => Self::parse_statement(statement),
             _ => unreachable!(),
         }
-    }
-
-    fn parse_general_accessor(expr: Pair<Rule>) -> Option<RascalExpression> {
-        match expr.as_rule() {
-            Rule::field_accessor => {
-                let mut child = expr.into_inner();
-                let name = child.next().unwrap().as_str();
-                if let Some(x) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
-                    if let Some(y) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
-                        return Some(RascalExpression::FieldAccessor(
-                            name.to_string(),
-                            Box::new(x),
-                            Box::new(y)))
-                    }
-                }
-            }
-
-            Rule::array_accessor => {
-                let mut child = expr.into_inner();
-                let name = child.next().unwrap().as_str();
-                if let Some(index) = Self::parse_expression(TokenType::NonTerm(child.next().unwrap().into_inner())) {
-                    return Some(RascalExpression::ArrayAccessor(
-                        name.to_string(),Box::new(index)))
-                }
-            }
-
-            Rule::identifier => {
-                return Self::parse_expression(TokenType::Term(expr))
-            }
-
-            _ => unreachable!()
-        }
-
-        None
     }
 
     fn parse_assignment(statement: Pair<Rule>) -> RascalBlock {
@@ -988,13 +882,6 @@ impl SystemSignature {
         result
     }
 
-    // THIS IS A TEMPLATE FOR EASY COPY-PASTING WHEN NEEDED ;)
-    fn parse_template(statement: Pair<Rule>) -> RascalBlock {
-        let mut result = Vec::new();
-
-        result
-    }
-
     fn parse_statement(statement: Pair<Rule>) -> RascalBlock {
         let mut result = Vec::new();
 
@@ -1068,7 +955,12 @@ impl SystemSignature {
             });
         }
 
-        SystemSignature{ id: 0, name, priority, activation_event: event, real_priority: 0, storage_requirements: with.0, unique_requirements: with.1, body_block: body }
+        SystemSignature{ id: 0, name, priority,
+            activation_event: event,
+            real_priority: 0,
+            storage_requirements: with.0,
+            unique_requirements: with.1,
+            body_block: body }
     }
 }
 
