@@ -1,7 +1,7 @@
 WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = { "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
-decl = _{ (COMMENT | func_decl | system_decl | tag_decl | state_decl | event_decl | unique_decl) }
+decl = _{ (COMMENT | proc_decl | system_decl | tag_decl | state_decl | event_decl | unique_decl) }
 program = _{ (decl ~ decl*) }
 
 // text
@@ -17,7 +17,7 @@ char = {
 name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
 scalar_type = { "bool" | "entity" | "symbol" | "num" | "text" | "geometry" }
-ref_type = { "&" ~ scalar_type }
+ref_type = { "in" ~ scalar_type }
 
 value = _{ proc_call | random | set_query | bool_value | number | text_value | identifier | symbol }
 random = { "rand" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
@@ -29,7 +29,7 @@ set_query = _{ make_set_query | empty_query | rect_query
 proc_call = { name ~ "(" ~ proc_param_list ~ ")" }
 proc_param_list = { (proc_param ~ ((";" | ",") ~ proc_param)*) }
 proc_param = { name ~ ":" ~ (proc_reference | expression) }
-proc_reference = { "&" ~ name }
+proc_reference = { "in" ~ name }
 
 make_set_query = { "make_set()" }
 empty_query = { "empty" ~ "(" ~ indirect_set_query ~ ")" }
@@ -58,7 +58,7 @@ tag_decl = { "tag" ~ name  ~ ";" }
 state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
 event_decl = { "event" ~ name ~ "{" ~ type_member_list? ~ "}" ~ ";" }
 unique_decl = { "unique" ~ name ~ ":" ~ datatype ~ ";" }
-func_decl = { "proc" ~ name ~ "(" ~ type_member_list ~ ")" ~ block }
+proc_decl = { "proc" ~ name ~ "(" ~ type_member_list ~ ")" ~ block }
 datatype = _{ ref_type | field | scalar_type }
 field = { "field" ~ "of" ~ scalar_type }
 type_member_list = { (type_member ~ ((";" | ",") ~ type_member)*) }
