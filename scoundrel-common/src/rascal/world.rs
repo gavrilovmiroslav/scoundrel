@@ -16,9 +16,12 @@ use crate::rascal::interpreter::{Geom, get_or_insert_into_string_pool, num, Rasc
 use crate::rascal::parser::{ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
 use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
+use crate::rascal::parser::ProcSignature;
+
 pub(crate) type EntityId = usize;
 pub(crate) type ComponentId = String;
 type SystemId = String;
+type ProcId = String;
 
 pub const MAX_ENTRIES_PER_STORAGE: usize = 1024;
 const MAX_COMPONENTS: usize = 1024;
@@ -97,6 +100,7 @@ const RESERVED_FIRST_PRIORITY: SystemPrioritySize = 1000;
 
 lazy_static! {
     pub static ref REGISTERED_SYSTEMS: Mutex<HashMap<SystemId, SystemSignature>> = Mutex::new(HashMap::default());
+    pub static ref REGISTERED_PROCS: Mutex<HashMap<ProcId, ProcSignature>> = Mutex::new(HashMap::default());
     pub static ref SYSTEM_DEPENDENCIES: Mutex<HashMap<ComponentId, PriorityQueue<SystemId, SystemPrioritySize>>> = Mutex::new(HashMap::default());
     pub static ref CACHED_SYSTEMS_BY_PRIORITIES: Mutex<HashMap<ComponentId, Vec<SystemId>>> = Mutex::new(HashMap::default());
     pub static ref SYSTEM_QUERY_CACHE: Mutex<HashMap<u64, Bitmap<MAX_ENTRIES_PER_STORAGE>>> = Mutex::new(HashMap::new());
@@ -267,11 +271,18 @@ impl World {
 
             RascalStruct::Unique(name, datatype, subtype, value) => {
                 let index = get_or_insert_into_string_pool(&name);
-                println!("datatype: {:?}", datatype);
                 if let DataType::Field = datatype {
                     self.field_storage.insert(index, Field { datatype: subtype.unwrap(), field_map: Default::default() });
                 }
                 self.unique_storage.insert(index, value);
+            }
+
+            RascalStruct::Proc(name, params, block) => {
+                if !REGISTERED_PROCS.lock().unwrap().contains_key(&name) {
+                    REGISTERED_PROCS.lock().unwrap().insert(name.clone(), ProcSignature {
+                        name, params: HashMap::from_iter(params.into_iter()), block
+                    });
+                }
             }
 
             _ => unreachable!()

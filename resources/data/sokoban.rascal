@@ -2,6 +2,28 @@
 unique terrain: field of symbol;
 event MoveIntent { e: entity, p: num, q: num };
 
+proc MakeRooms(space: &geometry,
+    min_width: num, max_width: num,
+    min_height: num, max_height: num,
+    count: num) {
+
+    for i in 0 to count {
+        let w = rand(min_width, max_width);
+        let h = rand(min_height, max_height);
+        let x = rand(1, 64 - w);
+        let y = rand(1, 48 - h);
+
+        let outer = rectangle(x, y; x + w, y + h);
+        let inner = shrink(outer, 1);
+
+        if empty(intersect(space, inner)) {
+            space = union(space, outer);
+            terrain[diff(outer, inner)] = '#';
+            terrain[inner] = '-';
+        }
+    }
+}
+
 [Spawn Player On Start]
 on Start
 {
@@ -9,21 +31,20 @@ on Start
 
     let used_room_space = make_set();
 
-    for i in 0 to 100 {
-        let w = rand(10, 15);
-        let h = rand(8, 12);
-        let x = rand(1, 64 - w);
-        let y = rand(1, 48 - h);
+    MakeRooms(space: &used_room_space,
+        min_width: 10, max_width: 15,
+        min_height: 8, max_height: 12,
+        count: 10);
 
-        let outer = rectangle(x, y; x + w, y + h);
-        let inner = shrink(outer, 1);
+    MakeRooms(space: &used_room_space,
+        min_width: 5, max_width: 10,
+        min_height: 5, max_height: 8,
+        count: 50);
 
-        if empty(intersect(used_room_space, inner)) {
-            used_room_space = union(used_room_space, outer);
-            terrain[diff(outer, inner)] = '#';
-            terrain[inner] = '-';
-        }
-    }
+    MakeRooms(space: &used_room_space,
+        min_width: 4, max_width: 8,
+        min_height: 4, max_height: 6,
+        count: 100);
 }
 
 // ===== KEYBOARD EVENTS =====================================

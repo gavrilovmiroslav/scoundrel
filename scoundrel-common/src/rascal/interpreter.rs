@@ -11,10 +11,10 @@ use lazy_static::lazy_static;
 use rand::{random, Rng};
 
 use crate::colors::Color;
-use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, GeometryOp, GeometryQuery, Op, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
+use crate::rascal::parser::{BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType, GeometryOp, GeometryQuery, Op, ProcCall, RascalBlock, RascalExpression, RascalGlyphColor, RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un};
 use crate::rascal::parser::MemberId;
 use crate::rascal::commits::{Position, SemanticChange};
-use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, Field, FieldId, SetId, TriggerEvent};
+use crate::rascal::world::{AddComponent, BinaryComponent, ComponentId, Field, FieldId, REGISTERED_PROCS, SetId, TriggerEvent};
 use crate::rascal::world::EntityId;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
 use crate::rascal::world::World;
@@ -62,6 +62,8 @@ impl RascalValue {
             DataType::Field => RascalValue::Field(0),
             DataType::Set => RascalValue::Set(0),
             DataType::Range => RascalValue::Range(0, 0),
+            DataType::Geometry => RascalValue::Geometry(Geom::Empty),
+            DataType::Ref(boxed) => Self::default_for(boxed.as_ref().clone()),
         }
     }
 
@@ -75,7 +77,7 @@ impl RascalValue {
             RascalValue::Field(_) => DataType::Field,
             RascalValue::Set(_) => DataType::Set,
             RascalValue::Range(_, _) => DataType::Range,
-            RascalValue::Geometry(_) => unreachable!(),
+            RascalValue::Geometry(_) => DataType::Geometry,
         }
     }
 
@@ -158,6 +160,8 @@ impl RascalValue {
             DataType::Set => RascalValue::Set(u32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
             DataType::Range => RascalValue::Range(i32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap()),
                                                   i32::from_ne_bytes(<[u8; 4]>::try_from(chunk).unwrap())),
+            DataType::Geometry => unreachable!(),
+            DataType::Ref(_) => unreachable!()
         }
     }
 
@@ -320,7 +324,7 @@ impl RascalVM {
                 &world.storage_pointers.get(component).unwrap()
             };
 
-            let value_from_chunk = RascalValue::parse(member_signature.typ, &chunk[start_address..end_address]);
+            let value_from_chunk = RascalValue::parse(member_signature.clone().typ, &chunk[start_address..end_address]);
             result.insert(name.clone(), value_from_chunk);
         }
 
@@ -604,7 +608,7 @@ impl RascalVM {
                     if let Some(RascalValue::Num(x)) = self.interpret_expression(x.as_ref(), values, world) {
                         if let Some(RascalValue::Num(y)) = self.interpret_expression(y.as_ref(), values, world) {
                             let index = (y * width + x) as usize;
-                            let def = world.field_storage.get(&id).unwrap().datatype;
+                            let def = world.field_storage.get(&id).unwrap().datatype.clone();
                             return Some(world.field_storage.get(&id).unwrap()
                                 .field_map.get(&index).unwrap_or(&RascalValue::default_for(def)).clone());
                         }
@@ -620,7 +624,7 @@ impl RascalVM {
 
                     match self.interpret_expression(index.as_ref(), values, world) {
                         Some(RascalValue::Num(index)) => {
-                            let def = world.field_storage.get(&id).unwrap().datatype;
+                            let def = world.field_storage.get(&id).unwrap().datatype.clone();
                             return Some(world.field_storage.get(&id).unwrap()
                                 .field_map.get(&(index as usize)).unwrap_or(&RascalValue::default_for(def)).clone());
                         }
@@ -1139,6 +1143,51 @@ impl RascalVM {
                             }
                         }
                     }
+                }
+            }
+
+            RascalStatement::ProcCallStatement(ProcCall { name, args }) => {
+                let mut refs = Vec::new();
+                let mut vals = Vec::new();
+
+                let procs = REGISTERED_PROCS.lock().unwrap();
+                assert!(procs.contains_key(name));
+                let proc = procs.get(name).unwrap().clone();
+                assert_eq!(args.len(), proc.params.len());
+
+                for (arg_name, arg_expr) in args {
+                    let param_datatype = proc.params.get(arg_name).unwrap();
+                    match arg_expr {
+                        RascalExpression::Ref(ref_val) => {
+                            refs.push((arg_name, ref_val));
+                        },
+                        other => {
+                            if let Some(value) = self.interpret_expression(other, values, world) {
+                                assert_eq!(value.get_datatype(), *param_datatype);
+                                vals.push((arg_name, value));
+                            }
+                        }
+                    }
+                }
+
+                println!("MAPPING REFS FOR PROC: {:?}", refs);
+                println!("MAPPING VALS FOR PROC: {:?}", vals);
+                println!("Calling procedure {:?} with arguments: {:?}", name, args);
+
+                let mut pushed_context = HashMap::new();
+
+                for (name, val) in vals {
+                    pushed_context.insert(name.clone(), val);
+                }
+
+                for (name, ref_val) in refs.clone() {
+                    pushed_context.insert(name.clone(), values.get(ref_val).unwrap().clone());
+                }
+
+                self.interpret_block(&proc.block, &mut pushed_context, world);
+
+                for (name, ref_val) in refs {
+                    values.insert(ref_val.clone(), pushed_context.get(name).unwrap().clone());
                 }
             }
 

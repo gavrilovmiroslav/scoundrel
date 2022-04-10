@@ -12,7 +12,7 @@ use pest_derive;
 use pest_derive::Parser;
 
 use lazy_static;
-use crate::rascal::interpreter::{get_or_insert_into_string_pool, RascalValue};
+use crate::rascal::interpreter::{Geom, get_or_insert_into_string_pool, RascalValue};
 use crate::rascal::interpreter::RascalValue::{Entity, Symbol};
 
 use crate::rascal::parser::RascalExpression::{BoolLiteral, FieldAccessor, Identifier, NumLiteral, RandomNumLiteral, TextLiteral};
@@ -46,7 +46,7 @@ lazy_static! {
 }
 
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum DataType {
     Num,
     Bool,
@@ -56,11 +56,14 @@ pub enum DataType {
     Field,
     Set,
     Range,
+    Geometry,
+    Ref(Box<DataType>),
 }
 
 impl DataType {
     pub fn parse_datatype(text: &str) -> DataType {
         use DataType::*;
+        println!("DATATYPE: {:?}", text);
         match text {
             "num" => Num,
             "text" => Text,
@@ -68,6 +71,8 @@ impl DataType {
             "entity" => Entity,
             "symbol" => Symbol,
             "set" => Set,
+            "geometry" => Geometry,
+            _ if text.starts_with("&") => Ref(Box::new(Self::parse_datatype(&text[1..]))),
             _ if text.starts_with("field") => Field,
             _ => panic!("Wrong datatype: {}", text)
         }
@@ -84,6 +89,8 @@ impl DataType {
             Field => 4, // u32
             Set => 0,
             Range => 8, // 2 * i32
+            Geometry => 0,
+            Ref(o) => o.size_in_bytes(),
         }
     }
 
@@ -98,6 +105,8 @@ impl DataType {
             Set => panic!("Cannot default a set!"),
             Field => panic!("Cannot default a field!"),
             Range => RascalValue::Range(0, 0),
+            Geometry => RascalValue::Geometry(Geom::Empty),
+            Ref(o) => o.default()
         }
     }
 }
@@ -207,6 +216,13 @@ pub enum SystemPriority {
 }
 
 #[derive(Debug, Clone)]
+pub struct ProcSignature {
+    pub name: String,
+    pub params: HashMap<String, DataType>,
+    pub block: RascalBlock,
+}
+
+#[derive(Debug, Clone)]
 pub struct SystemSignature {
     pub id: u64,
     pub name: String,
@@ -277,6 +293,7 @@ pub enum RascalExpression {
     ArrayAccessor(String, Box<RascalExpression>),
     FieldAccessor(String, Box<RascalExpression>, Box<RascalExpression>),
     Identifier(String),
+    Ref(String),
     Tag(ComponentCallSite),
 }
 
@@ -287,6 +304,12 @@ pub enum TokenType<'i> {
 
 pub type RascalGlyphPosition = (RascalExpression, RascalExpression);
 pub type RascalGlyphColor = (RascalExpression, RascalExpression, RascalExpression);
+
+#[derive(Debug, Clone)]
+pub struct ProcCall {
+    pub name: String,
+    pub args: HashMap<String, RascalExpression>,
+}
 
 #[derive(Debug, Clone)]
 pub enum RascalStatement {
@@ -310,6 +333,7 @@ pub enum RascalStatement {
     DebugPrint(RascalExpression),
     Let(RascalIdentifier, RascalExpression),
     ForLoopStatement(RascalIdentifier, (RascalExpression, RascalExpression), RascalBlock),
+    ProcCallStatement(ProcCall),
     Quit,
 }
 
@@ -521,7 +545,7 @@ impl SystemSignature {
             Rule::shrink_query => Self::parse_shrink(pair),
             Rule::expand_query => Self::parse_expand(pair),
             Rule::make_set_query => Some(RascalExpression::Query(GeometryQuery::Set)),
-
+            Rule::proc_reference => Some(RascalExpression::Ref(pair.into_inner().next().unwrap().as_str().to_string())),
             e => {
                 println!("Parsing unknown {:?}", e);
                 unreachable!()
@@ -756,6 +780,28 @@ impl SystemSignature {
         result
     }
 
+    fn parse_proc_call(pairs: &mut Pairs<Rule>) -> ProcCall {
+        let name = pairs.next().unwrap().as_str().to_string();
+        let mut args_pairs = pairs.next().unwrap().into_inner();
+        let mut args = HashMap::new();
+
+        while args_pairs.peek().is_some() {
+            let mut arg = args_pairs.next().unwrap().into_inner();
+            let arg_name = arg.next().unwrap().as_str().to_string();
+            let arg_value = Self::parse_expression(TokenType::Term(arg.next().unwrap())).unwrap();
+            args.insert(arg_name, arg_value);
+        }
+
+        ProcCall { name, args }
+    }
+
+    fn parse_proc_call_statement(statement: Pair<Rule>) -> RascalBlock {
+        let mut result = Vec::new();
+        let proc_call = Self::parse_proc_call(&mut statement.into_inner().next().unwrap().into_inner());
+        result.push(RascalStatement::ProcCallStatement(proc_call));
+        result
+    }
+
     fn parse_spawn_or_update_statement(statement: Pair<Rule>) -> RascalBlock {
         let rule = statement.as_rule();
         let mut result = Vec::new();
@@ -922,6 +968,7 @@ impl SystemSignature {
             Rule::consume_statement => result.push(RascalStatement::ConsumeEvent),
             Rule::quit_statement => result.push(RascalStatement::Quit),
             Rule::for_loop_statement => result.extend(Self::parse_for_loop_statement(statement)),
+            Rule::proc_call_statement => result.extend(Self::parse_proc_call_statement(statement)),
 
             Rule::COMMENT => {}
 
@@ -991,6 +1038,7 @@ pub enum RascalStruct {
     Tag(String),
     System(SystemSignature),
     Unique(String, DataType, Option<DataType>, RascalValue),
+    Proc(String, Vec<(String, DataType)>, RascalBlock),
 }
 
 impl RascalStruct {
@@ -1009,6 +1057,7 @@ impl RascalStruct {
             RascalStruct::Tag(_) => ComponentType::Tag,
             RascalStruct::System(_) => ComponentType::System,
             RascalStruct::Unique(_, _, _, _) => ComponentType::Unique,
+            RascalStruct::Proc(_, _, _) => ComponentType::Proc,
         }
     }
 
@@ -1019,13 +1068,14 @@ impl RascalStruct {
             RascalStruct::Tag(tag) => tag,
             RascalStruct::System(system) => system.name.as_str(),
             RascalStruct::Unique(name, _, _, _) => name,
+            RascalStruct::Proc(name, _, _) => name.as_str(),
         }
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ComponentType {
-    State, Event, Tag, System, Unique,
+    State, Event, Tag, System, Unique, Proc,
 }
 
 pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
@@ -1074,6 +1124,25 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                 ast.push(RascalStruct::System(SystemSignature::parse_system(inner)));
             }
 
+            Rule::func_decl => {
+                let mut inner = parse_tree.into_inner();
+                let name = inner.next().unwrap().as_str().to_string();
+                let members: Vec<(String, DataType)> = if let Some(_) = inner.peek() {
+                    inner.next().unwrap().into_inner().map(|p| {
+                        let mut member_rule = p.into_inner();
+                        let member_name = member_rule.next().unwrap().as_str().to_string();
+                        let datatype_name = DataType::parse_datatype(member_rule.next().unwrap().as_str());
+                        (member_name, datatype_name)
+                    }).collect()
+                } else {
+                    Vec::new()
+                };
+
+                let block = SystemSignature::parse_block_body(inner.next().unwrap());
+                let proc = RascalStruct::Proc(name, members, block);
+                ast.push(proc)
+            }
+
             Rule::unique_decl => {
                 let mut inner = parse_tree.into_inner();
                 let name = inner.next().unwrap().as_str().to_string();
@@ -1087,9 +1156,9 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                         ast.push(uniq);
                     },
 
-                    Rule::scalar => {
+                    Rule::scalar_type => {
                         let datatype = DataType::parse_datatype(datatype.as_str());
-                        let uniq = RascalStruct::Unique(name, datatype, None, datatype.default());
+                        let uniq = RascalStruct::Unique(name, datatype.clone(), None, datatype.default());
                         ast.push(uniq);
                     },
 

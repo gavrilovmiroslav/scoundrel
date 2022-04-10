@@ -1,7 +1,7 @@
 WHITESPACE =  _{ " " | "\t" | "\r" | "\n" }
 COMMENT    = { "//" ~ (!NEWLINE ~ ANY)* ~ NEWLINE }
 
-decl = _{ (COMMENT | system_decl | tag_decl | state_decl | event_decl | unique_decl) }
+decl = _{ (COMMENT | func_decl | system_decl | tag_decl | state_decl | event_decl | unique_decl) }
 program = _{ (decl ~ decl*) }
 
 // text
@@ -16,14 +16,20 @@ char = {
 
 name = @{ (ASCII_ALPHANUMERIC | "_" | "@")+ }
 
-scalar = { "bool" | "entity" | "symbol" | "num" | "text" }
+scalar_type = { "bool" | "entity" | "symbol" | "num" | "text" | "geometry" }
+ref_type = { "&" ~ scalar_type }
 
-value = _{ random | set_query | bool_value | number | text_value | identifier | symbol }
+value = _{ proc_call | random | set_query | bool_value | number | text_value | identifier | symbol }
 random = { "rand" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
 indirect_set_query = _{ set_query | identifier }
 set_query = _{ make_set_query | empty_query | rect_query
             | circle_query | line_query | union_query | intersect_query | diff_query
             | shrink_query | expand_query }
+
+proc_call = { name ~ "(" ~ proc_param_list ~ ")" }
+proc_param_list = { (proc_param ~ ((";" | ",") ~ proc_param)*) }
+proc_param = { name ~ ":" ~ (proc_reference | expression) }
+proc_reference = { "&" ~ name }
 
 make_set_query = { "make_set()" }
 empty_query = { "empty" ~ "(" ~ indirect_set_query ~ ")" }
@@ -52,9 +58,10 @@ tag_decl = { "tag" ~ name  ~ ";" }
 state_decl = { "state" ~ name ~ "{" ~ type_member_list ~ "}" ~ ";" }
 event_decl = { "event" ~ name ~ "{" ~ type_member_list? ~ "}" ~ ";" }
 unique_decl = { "unique" ~ name ~ ":" ~ datatype ~ ";" }
-datatype = _{ field | scalar }
-field = { "field" ~ "of" ~ scalar }
-type_member_list = { (type_member ~ ("," ~ type_member)*) }
+func_decl = { "proc" ~ name ~ "(" ~ type_member_list ~ ")" ~ block }
+datatype = _{ ref_type | field | scalar_type }
+field = { "field" ~ "of" ~ scalar_type }
+type_member_list = { (type_member ~ ((";" | ",") ~ type_member)*) }
 type_member = { name ~ ":" ~ datatype }
 
 component_call_list = { component_call ~ ("&" ~ component_call)* }
@@ -90,7 +97,8 @@ statement = _{
     update_statement | trigger_statement |
     consume_statement | print_statement |
     paint_statement | let_statement |
-    debug_statement | quit_statement
+    debug_statement | quit_statement |
+    proc_call_statement
 }
 
 debug_statement = _{
@@ -123,6 +131,7 @@ update_statement = { "update" ~ identifier ~ "with" ~ component_call_list ~ ";" 
 trigger_statement = { "trigger" ~ call_site ~ ";" }
 print_statement = { "print" ~ position? ~ foreground? ~ background? ~ expression ~ ";" }
 paint_statement = { "paint" ~ position? ~ foreground? ~ background? ~ ";" }
+proc_call_statement = { proc_call ~ ";" }
 quit_statement = { "quit" ~ ";" }
 
 position = { "at:[" ~ expression ~ "," ~ expression ~ "]" }
@@ -165,4 +174,6 @@ additive = _{ summand ~ (additive_op ~ summand)* }
 summand = _{ factor ~ (multiplicative_op ~ factor)* }
 factor = _{ primary }
 negated_primary = { unary_op ~ primary }
-primary = _{ negated_primary | "(" ~ expression ~ ")" | complex_call_site | array_accessor | field_accessor | value }
+primary = _{ negated_primary | "(" ~ expression ~ ")" |
+             complex_call_site | array_accessor |
+             field_accessor | value }
