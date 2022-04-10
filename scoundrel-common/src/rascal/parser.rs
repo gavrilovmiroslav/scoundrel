@@ -240,7 +240,7 @@ pub enum Op { Add, Sub, Mul, Div, Mod }
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Un { Not, Neg }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum GeometryOp { Un, Int, Diff }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -254,7 +254,9 @@ pub enum GeometryQuery {
     Union(Box<RascalExpression>, Box<RascalExpression>),
     Intersect(Box<RascalExpression>, Box<RascalExpression>),
     Diff(Box<RascalExpression>, Box<RascalExpression>),
-    Empty(Box<RascalExpression>)
+    Shrink(Box<RascalExpression>, Box<RascalExpression>),
+    Expand(Box<RascalExpression>, Box<RascalExpression>),
+    IsEmpty(Box<RascalExpression>)
 }
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -415,7 +417,7 @@ impl SystemSignature {
     fn parse_empty_query(expr: Pair<Rule>) -> Option<RascalExpression> {
         let mut line = expr.into_inner();
         let a = Self::parse_expression(TokenType::Term(line.next().unwrap())).unwrap();
-        Some(RascalExpression::Query(GeometryQuery::Empty(Box::new(a))))
+        Some(RascalExpression::Query(GeometryQuery::IsEmpty(Box::new(a))))
     }
 
     fn parse_rect(expr: Pair<Rule>) -> Option<RascalExpression> {
@@ -476,6 +478,22 @@ impl SystemSignature {
         Some(RascalExpression::Query(GeometryQuery::Diff(Box::new(e1), Box::new(e2))))
     }
 
+    fn parse_shrink(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut ex = expr.into_inner();
+        let e1 = Self::parse_expression(TokenType::Term(ex.next().unwrap())).unwrap();
+        let e2 = Self::parse_expression(TokenType::Term(ex.next().unwrap())).unwrap();
+
+        Some(RascalExpression::Query(GeometryQuery::Shrink(Box::new(e1), Box::new(e2))))
+    }
+
+    fn parse_expand(expr: Pair<Rule>) -> Option<RascalExpression> {
+        let mut ex = expr.into_inner();
+        let e1 = Self::parse_expression(TokenType::Term(ex.next().unwrap())).unwrap();
+        let e2 = Self::parse_expression(TokenType::Term(ex.next().unwrap())).unwrap();
+
+        Some(RascalExpression::Query(GeometryQuery::Expand(Box::new(e1), Box::new(e2))))
+    }
+
     fn parse_bottom_expr(pair: Pair<Rule>) -> Option<RascalExpression> {
         match pair.as_rule() {
             Rule::random => Self::parse_random(pair),
@@ -500,11 +518,13 @@ impl SystemSignature {
             Rule::union_query => Self::parse_union(pair),
             Rule::intersect_query => Self::parse_intersect(pair),
             Rule::diff_query => Self::parse_diff(pair),
+            Rule::shrink_query => Self::parse_shrink(pair),
+            Rule::expand_query => Self::parse_expand(pair),
             Rule::make_set_query => Some(RascalExpression::Query(GeometryQuery::Set)),
 
             e => {
-                println!("Returning none: {:?}", e);
-                None
+                println!("Parsing unknown {:?}", e);
+                unreachable!()
             }
         }
     }

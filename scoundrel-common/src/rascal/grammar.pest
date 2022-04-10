@@ -22,7 +22,8 @@ value = _{ random | set_query | bool_value | number | text_value | identifier | 
 random = { "rand" ~ "(" ~ expression ~ "," ~ expression ~ ")" }
 indirect_set_query = _{ set_query | identifier }
 set_query = _{ make_set_query | empty_query | rect_query
-            | circle_query | line_query | union_query | intersect_query | diff_query }
+            | circle_query | line_query | union_query | intersect_query | diff_query
+            | shrink_query | expand_query }
 
 make_set_query = { "make_set()" }
 empty_query = { "empty" ~ "(" ~ indirect_set_query ~ ")" }
@@ -32,6 +33,8 @@ line_query = { "line" ~ "(" ~ expression ~ "," ~ expression ~ ";" ~ expression ~
 union_query = { "union" ~ "(" ~ indirect_set_query ~ "," ~ indirect_set_query ~ ")" }
 intersect_query = { "intersect" ~ "(" ~ indirect_set_query ~ "," ~ indirect_set_query ~ ")" }
 diff_query = { "diff" ~ "(" ~ indirect_set_query ~ "," ~ indirect_set_query ~ ")" }
+shrink_query = { "shrink" ~ "(" ~ indirect_set_query ~ "," ~ expression ~ ")" }
+expand_query = { "expand" ~ "(" ~ indirect_set_query ~ "," ~ expression ~ ")" }
 
 bool_value = { "true" | "false" }
 number = { "-"? ~ ASCII_DIGIT+ }

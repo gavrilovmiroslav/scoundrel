@@ -16,7 +16,7 @@ on Start
         let y = rand(1, 48 - h);
 
         let outer = rectangle(x, y; x + w, y + h);
-        let inner = rectangle(x + 1, y + 1; x + w - 1, y + h - 1);
+        let inner = shrink(outer, 1);
 
         if empty(intersect(used_room_space, inner)) {
             used_room_space = union(used_room_space, outer);

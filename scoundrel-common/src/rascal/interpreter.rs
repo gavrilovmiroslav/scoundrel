@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use bitmaps::*;
-use bresenham::Bresenham;
+use crate::rascal::geometry::evaluate_geometry;
 use lazy_static::lazy_static;
 use rand::{random, Rng};
 
@@ -27,12 +27,14 @@ lazy_static! {
     static ref STRING_REPOOL: Mutex<HashMap<u32, String>> = Mutex::new(HashMap::default());
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub enum Geom {
+    Empty,
     Rect(i32, i32, i32, i32),
     Circle(i32, i32, i32),
+    Line(i32, i32, i32, i32),
     Bool(GeometryOp, Box<Geom>, Box<Geom>),
-    Reduce(Box<Geom>, i32),
+    Shrink(Box<Geom>, i32),
     Expand(Box<Geom>, i32),
 }
 
@@ -623,12 +625,17 @@ impl RascalVM {
                                 .field_map.get(&(index as usize)).unwrap_or(&RascalValue::default_for(def)).clone());
                         }
 
+                        Some(RascalValue::Geometry(g)) => {
+                            println!("GEOMETRY!");
+                            return None;
+                        }
+
                         Some(RascalValue::Set(s)) => {
                             println!("SET!");
                             return None;
                         }
 
-                        _ => { return None; }
+                        _ => unreachable!()
                     }
                 }
 
@@ -638,19 +645,25 @@ impl RascalVM {
             RascalExpression::Query(geometry) => {
                 match geometry {
                     GeometryQuery::Set => {
-                        let set = HashSet::new();
-                        let set_index = (world.set_storage.len() + 1) as SetId;
-                        world.set_storage.insert(set_index, set);
-                        return Some(RascalValue::Set(set_index))
+                        return Some(RascalValue::Geometry(Geom::Empty));
                     }
 
-                    GeometryQuery::Empty(a) => {
+                    GeometryQuery::IsEmpty(a) => {
                         let set = self.interpret_expression(a.as_ref(), values, world);
-                        if let RascalValue::Set(id) = set.unwrap() {
-                            return Some(RascalValue::Bool(world.set_storage.get(&id).unwrap().is_empty()));
-                        } else {
-                            println!("Empty query can't be done with non-set argument: {:?}.", a);
-                            unreachable!()
+                        match set.unwrap() {
+                            RascalValue::Set(id) => {
+                                return Some(RascalValue::Bool(world.set_storage.get(&id).unwrap().is_empty()));
+                            }
+
+                            RascalValue::Geometry(g) => {
+                                let point_set = evaluate_geometry(g, world);
+                                return Some(RascalValue::Bool(point_set.is_empty()));
+                            }
+
+                            other => {
+                                println!("Empty query can't be done with non-set argument: {:?}.", other);
+                                unreachable!()
+                            }
                         }
                     }
 
@@ -660,16 +673,7 @@ impl RascalVM {
                                 if let RascalValue::Num(x2) = self.interpret_expression(x2.as_ref(), values, world).unwrap() {
                                     if let RascalValue::Num(y2) = self.interpret_expression(y2.as_ref(), values, world).unwrap() {
 
-                                        let mut set = HashSet::new();
-                                        for i in min(x1, x2)..max(x1, x2) {
-                                            for j in min(y1, y2)..max(y1, y2) {
-                                                set.insert((i, j));
-                                            }
-                                        }
-
-                                        let set_index = (world.set_storage.len() + 1) as SetId;
-                                        world.set_storage.insert(set_index, set);
-                                        return Some(RascalValue::Set(set_index))
+                                        return Some(RascalValue::Geometry(Geom::Rect(x1, y1, x2, y2)))
                                     }
                                 }
                             }
@@ -680,19 +684,8 @@ impl RascalVM {
                         if let RascalValue::Num(x) = self.interpret_expression(x.as_ref(), values, world).unwrap() {
                             if let RascalValue::Num(y) = self.interpret_expression(y.as_ref(), values, world).unwrap() {
                                 if let RascalValue::Num(r) = self.interpret_expression(r.as_ref(), values, world).unwrap() {
-                                    let mut set = HashSet::new();
 
-                                    for i in -r..r+1 {
-                                        for j in -r..r+1 {
-                                            if i * i + j * j <= r * r {
-                                                set.insert((x + i, y + j));
-                                            }
-                                        }
-                                    }
-
-                                    let set_index = (world.set_storage.len() + 1) as SetId;
-                                    world.set_storage.insert(set_index, set);
-                                    return Some(RascalValue::Set(set_index))
+                                    return Some(RascalValue::Geometry(Geom::Circle(x, y, r)))
                                 }
                             }
                         }
@@ -704,16 +697,7 @@ impl RascalVM {
                                 if let RascalValue::Num(x2) = self.interpret_expression(x2.as_ref(), values, world).unwrap() {
                                     if let RascalValue::Num(y2) = self.interpret_expression(y2.as_ref(), values, world).unwrap() {
 
-                                        let mut set = HashSet::new();
-                                        for p in Bresenham::new(
-                                            bresenham::Point::from((x1 as isize, y1 as isize)),
-                                            bresenham::Point::from((x2 as isize, y2 as isize))) {
-                                            set.insert((p.0 as i32, p.1 as i32));
-                                        }
-
-                                        let set_index = (world.set_storage.len() + 1) as SetId;
-                                        world.set_storage.insert(set_index, set);
-                                        return Some(RascalValue::Set(set_index))
+                                        return Some(RascalValue::Geometry(Geom::Line(x1, y1, x2, y2)))
                                     }
                                 }
                             }
@@ -730,6 +714,26 @@ impl RascalVM {
 
                     GeometryQuery::Diff(e1, e2) => {
                         return self.interpret_geometry_bool_op(GeometryOp::Diff, e1, e2, values, world)
+                    }
+
+                    GeometryQuery::Shrink(b, i) => {
+                        if let Some(RascalValue::Geometry(g)) = self.interpret_expression(b.as_ref(), values, world) {
+                            if let Some(RascalValue::Num(n)) = self.interpret_expression(i.as_ref(), values, world) {
+                                return Some(RascalValue::Geometry(Geom::Shrink(Box::new(g), n)))
+                            }
+                        }
+
+                        return None
+                    }
+
+                    GeometryQuery::Expand(b, i) => {
+                        if let Some(RascalValue::Geometry(g)) = self.interpret_expression(b.as_ref(), values, world) {
+                            if let Some(RascalValue::Num(n)) = self.interpret_expression(i.as_ref(), values, world) {
+                                return Some(RascalValue::Geometry(Geom::Expand(Box::new(g), n)))
+                            }
+                        }
+
+                        return None
                     }
                 }
 
@@ -781,20 +785,9 @@ impl RascalVM {
 
     fn interpret_geometry_bool_op(&self, op: GeometryOp, e1: &Box<RascalExpression>, e2: &Box<RascalExpression>,
                                   values: &HashMap<String, RascalValue>, world: &mut World) -> Option<RascalValue> {
-
-        if let Some(RascalValue::Set(id1)) = self.interpret_identifier_or_query(e1, values, world) {
-            if let Some(RascalValue::Set(id2)) = self.interpret_identifier_or_query(e2, values, world) {
-                let set1 = world.set_storage.get(&id1).unwrap();
-                let set2 = world.set_storage.get(&id2).unwrap();
-                let result = match op {
-                    GeometryOp::Un => set1.union(set2).collect::<HashSet<_>>(),
-                    GeometryOp::Int => set1.intersection(set2).collect::<HashSet<_>>(),
-                    GeometryOp::Diff => set1.difference(set2).collect::<HashSet<_>>(),
-                }.iter().map(|&(i, j)| { (*i, *j) }).collect::<HashSet<_>>();
-
-                let set_index = (world.set_storage.len() + 1) as SetId;
-                world.set_storage.insert(set_index, result.iter().cloned().collect());
-                return Some(RascalValue::Set(set_index))
+        if let Some(RascalValue::Geometry(g1)) = self.interpret_identifier_or_query(e1, values, world) {
+            if let Some(RascalValue::Geometry(g2)) = self.interpret_identifier_or_query(e2, values, world) {
+                return Some(RascalValue::Geometry(Geom::Bool(op, Box::new(g1), Box::new(g2))));
             }
         }
 
@@ -810,6 +803,7 @@ impl RascalVM {
                     return Some((x as u32, y as u32));
                 }
             }
+
             None
         } else {
             None
@@ -851,10 +845,9 @@ impl RascalVM {
         if !world.field_storage.contains_key(&name_index) {
             return Err(format!("Field '{}' not found", name));
         } else {
-            if let Some(RascalValue::Num(index)) = self.interpret_expression(&index, values, world) {
-                return Ok((name_index, index as usize));
-            } else {
-                return Err(format!("Field access: argument index, expected a num, found {:?}", index));
+            return match self.interpret_expression(&index, values, world) {
+                Some(RascalValue::Num(index)) => Ok((name_index, index as usize)),
+                _ => Err(format!("Field access: argument index, expected a num, found {:?}", index)),
             }
         }
     }
@@ -918,13 +911,27 @@ impl RascalVM {
                         if let Ok((field, index)) = self.get_access_to_field_by_index(values, world, name, index) {
                             world.field_storage.get_mut(&field).unwrap().field_map.insert(index, value);
                         } else {
-                            if let Some(RascalValue::Set(id)) = self.interpret_expression(index.as_ref(), values, world) {
-                                let width = world.size.0;
-                                let actual_set = world.set_storage.get(&id).unwrap();
-                                let field_mut = world.field_storage.get_mut(&name_index).unwrap();
-                                for &(x, y) in actual_set {
-                                    field_mut.field_map.insert((y * width as i32 + x) as usize, value.clone());
+                            match self.interpret_expression(index.as_ref(), values, world) {
+                                Some(RascalValue::Set(id)) => {
+                                    let width = world.size.0;
+                                    let actual_set = world.set_storage.get(&id).unwrap();
+                                    let field_mut = world.field_storage.get_mut(&name_index).unwrap();
+                                    for &(x, y) in actual_set {
+                                        field_mut.field_map.insert((y * width as i32 + x) as usize, value.clone());
+                                    }
                                 }
+
+                                Some(RascalValue::Geometry(geom)) => {
+                                    let width = world.size.0;
+                                    let geom_point_set = evaluate_geometry(geom.clone(), world);
+                                    let field_mut = world.field_storage.get_mut(&name_index).unwrap();
+
+                                    for (x, y) in geom_point_set {
+                                        field_mut.field_map.insert((y * width as i32 + x) as usize, value.clone());
+                                    }
+                                }
+
+                                _ => unreachable!()
                             }
                         }
                     }

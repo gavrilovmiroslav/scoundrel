@@ -12,7 +12,7 @@ use rand_chacha::rand_core::SeedableRng;
 use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::{set_should_redraw, WORLD};
-use crate::rascal::interpreter::{get_or_insert_into_string_pool, num, RascalEventfulResult, RascalValue, RascalVM};
+use crate::rascal::interpreter::{Geom, get_or_insert_into_string_pool, num, RascalEventfulResult, RascalValue, RascalVM};
 use crate::rascal::parser::{ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
 use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
@@ -58,6 +58,7 @@ pub struct World {
     pub unique_storage: HashMap<u32, RascalValue>,
     pub field_storage: HashMap<FieldId, Field>,
     pub set_storage: HashMap<SetId, HashSet<(i32, i32)>>,
+    pub set_cache: HashMap<Geom, HashSet<(i32, i32)>>,
     pub size: (u32, u32),
 }
 
@@ -86,6 +87,7 @@ impl Default for World {
             unique_storage: HashMap::default(),
             field_storage: HashMap::default(),
             set_storage: HashMap::default(),
+            set_cache: HashMap::default(),
             size: (0, 0),
         }
     }
