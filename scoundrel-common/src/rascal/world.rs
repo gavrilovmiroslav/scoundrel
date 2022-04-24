@@ -7,13 +7,18 @@ use bitmaps::Bitmap;
 use caves::{Cave, FileCave};
 use lazy_static::lazy_static;
 use priority_queue::PriorityQueue;
-use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::SeedableRng;
+use rand_chacha::ChaCha20Rng;
 use show_my_errors::{AnnotationList, Stylesheet};
 
 use crate::engine::{set_should_redraw, WORLD};
-use crate::rascal::interpreter::{Geom, get_or_insert_into_string_pool, num, RascalEventfulResult, RascalValue, RascalVM};
-use crate::rascal::parser::{ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize, SystemSignature};
+use crate::rascal::interpreter::{
+    get_or_insert_into_string_pool, num, Geom, RascalEventfulResult, RascalVM, RascalValue,
+};
+use crate::rascal::parser::{
+    ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize,
+    SystemSignature,
+};
 use crate::readonly_archive_cave::ReadonlyArchiveCave;
 
 use crate::rascal::parser::ProcSignature;
@@ -28,10 +33,7 @@ const MAX_COMPONENTS: usize = 1024;
 const AVERAGE_COMPONENT_SIZE: usize = 50;
 const JUST_TO_BE_SAFE_FACTOR: usize = 5;
 const ARENA_SIZE: usize =
-    MAX_ENTRIES_PER_STORAGE
-        * MAX_COMPONENTS
-        * AVERAGE_COMPONENT_SIZE
-        * JUST_TO_BE_SAFE_FACTOR;
+    MAX_ENTRIES_PER_STORAGE * MAX_COMPONENTS * AVERAGE_COMPONENT_SIZE * JUST_TO_BE_SAFE_FACTOR;
 
 pub type BinaryComponent = Vec<u8>;
 
@@ -99,11 +101,16 @@ impl Default for World {
 const RESERVED_FIRST_PRIORITY: SystemPrioritySize = 1000;
 
 lazy_static! {
-    pub static ref REGISTERED_SYSTEMS: Mutex<HashMap<SystemId, SystemSignature>> = Mutex::new(HashMap::default());
-    pub static ref REGISTERED_PROCS: Mutex<HashMap<ProcId, ProcSignature>> = Mutex::new(HashMap::default());
-    pub static ref SYSTEM_DEPENDENCIES: Mutex<HashMap<ComponentId, PriorityQueue<SystemId, SystemPrioritySize>>> = Mutex::new(HashMap::default());
-    pub static ref CACHED_SYSTEMS_BY_PRIORITIES: Mutex<HashMap<ComponentId, Vec<SystemId>>> = Mutex::new(HashMap::default());
-    pub static ref SYSTEM_QUERY_CACHE: Mutex<HashMap<u64, Bitmap<MAX_ENTRIES_PER_STORAGE>>> = Mutex::new(HashMap::new());
+    pub static ref REGISTERED_SYSTEMS: Mutex<HashMap<SystemId, SystemSignature>> =
+        Mutex::new(HashMap::default());
+    pub static ref REGISTERED_PROCS: Mutex<HashMap<ProcId, ProcSignature>> =
+        Mutex::new(HashMap::default());
+    pub static ref SYSTEM_DEPENDENCIES: Mutex<HashMap<ComponentId, PriorityQueue<SystemId, SystemPrioritySize>>> =
+        Mutex::new(HashMap::default());
+    pub static ref CACHED_SYSTEMS_BY_PRIORITIES: Mutex<HashMap<ComponentId, Vec<SystemId>>> =
+        Mutex::new(HashMap::default());
+    pub static ref SYSTEM_QUERY_CACHE: Mutex<HashMap<u64, Bitmap<MAX_ENTRIES_PER_STORAGE>>> =
+        Mutex::new(HashMap::new());
 }
 
 pub trait AddComponent<T> {
@@ -115,13 +122,12 @@ pub trait TriggerEvent<T> {
 }
 
 pub fn send_start_event() {
-    println!("START");
     let mut world = WORLD.lock().unwrap();
 
     let main_entity = world.create_entity();
     world.add_tag(main_entity, "Main");
 
-    world.trigger_event("Start", vec![ num(0) ]);
+    world.trigger_event("Start", vec![num(0)]);
 }
 
 pub fn world_contains_event(event_name: &str) -> bool {
@@ -138,7 +144,11 @@ impl World {
     }
 
     pub fn contains_event(&self, event_name: &str) -> bool {
-        !self.storage_bitmaps.get(&event_name.to_string()).unwrap().is_empty()
+        !self
+            .storage_bitmaps
+            .get(&event_name.to_string())
+            .unwrap()
+            .is_empty()
     }
 
     pub fn add_tag(&mut self, entity: EntityId, comp_type: &str) {
@@ -154,15 +164,20 @@ impl World {
         let systems = REGISTERED_SYSTEMS.lock().unwrap();
         let cached_dependencies = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
         for (event_name, dependent_systems) in &*events {
-            if *event_name == "Tick" { continue; }
+            if *event_name == "Tick" {
+                continue;
+            }
             if let Some(original_event_queue) = self.event_queues.get(event_name) {
                 let mut event_queue = original_event_queue.clone();
                 let event_signature = self.registered_events.get(event_name).unwrap().clone();
                 while let Some(event) = event_queue.pop_front() {
                     for sys in cached_dependencies.get(event_name).unwrap() {
-                        let consume_result = vm.interpret_eventful(self,
-                                              systems.get(sys).unwrap(),
-                                              &event_signature, event.clone());
+                        let consume_result = vm.interpret_eventful(
+                            self,
+                            systems.get(sys).unwrap(),
+                            &event_signature,
+                            event.clone(),
+                        );
 
                         if let Some(RascalEventfulResult::Consumed) = consume_result {
                             break;
@@ -176,7 +191,10 @@ impl World {
 
             self.event_queues.get_mut(event_name).unwrap().clear();
             if !self.next_event_queues.get(event_name).unwrap().is_empty() {
-                self.event_queues.get_mut(event_name).unwrap().append(self.next_event_queues.get_mut(event_name).unwrap());
+                self.event_queues
+                    .get_mut(event_name)
+                    .unwrap()
+                    .append(self.next_event_queues.get_mut(event_name).unwrap());
             }
         }
 
@@ -212,25 +230,43 @@ impl World {
             let priority = match sys.priority {
                 SystemPriority::Default => RESERVED_FIRST_PRIORITY + *p as SystemPrioritySize,
                 SystemPriority::Last => (SystemPrioritySize::MAX - RESERVED_FIRST_PRIORITY) + *p,
-                SystemPriority::Game => (SystemPrioritySize::MAX - 3 * RESERVED_FIRST_PRIORITY) + *p,
+                SystemPriority::Game => {
+                    (SystemPrioritySize::MAX - 3 * RESERVED_FIRST_PRIORITY) + *p
+                }
                 SystemPriority::UI => (SystemPrioritySize::MAX - 2 * RESERVED_FIRST_PRIORITY) + *p,
                 SystemPriority::First => *p,
                 SystemPriority::At(level) => RESERVED_FIRST_PRIORITY + level,
             };
 
-            println!("System {} registered at priority level {} ({:?})", sys.name, priority, sys.priority);
+            println!(
+                "System {} registered at priority level {} ({:?})",
+                sys.name, priority, sys.priority
+            );
 
             let mut registered_systems = REGISTERED_SYSTEMS.lock().unwrap();
             let mut sys_with_id = sys.with_id(registered_systems.len() as u64 + 1);
             sys_with_id.real_priority = priority;
-            let depends_on_event_queue = sys_with_id.clone().activation_event.map(|e| e.name).unwrap_or("Tick".to_string());
+            let depends_on_event_queue = sys_with_id
+                .clone()
+                .activation_event
+                .map(|e| e.name)
+                .unwrap_or("Tick".to_string());
 
-            if !SYSTEM_DEPENDENCIES.lock().unwrap().contains_key(&depends_on_event_queue) {
-                SYSTEM_DEPENDENCIES.lock().unwrap().insert(depends_on_event_queue.clone(), PriorityQueue::new());
+            if !SYSTEM_DEPENDENCIES
+                .lock()
+                .unwrap()
+                .contains_key(&depends_on_event_queue)
+            {
+                SYSTEM_DEPENDENCIES
+                    .lock()
+                    .unwrap()
+                    .insert(depends_on_event_queue.clone(), PriorityQueue::new());
             }
 
             let mut system_dependencies = SYSTEM_DEPENDENCIES.lock().unwrap();
-            let mut dependencies = system_dependencies.get_mut(&depends_on_event_queue).unwrap();
+            let mut dependencies = system_dependencies
+                .get_mut(&depends_on_event_queue)
+                .unwrap();
             dependencies.push(sys_with_id.name.clone(), SystemPrioritySize::MAX - priority);
             registered_systems.insert(sys_with_id.name.clone(), sys_with_id);
         }
@@ -246,17 +282,23 @@ impl World {
 
         match v {
             RascalStruct::State(state) => {
-                self.component_types.insert(state.name.clone(), ComponentType::State);
-                self.storage_pointers.insert(state.name.clone(), create_storage(state.size as usize));
-                self.storage_bitmaps.insert(state.name.clone(), Bitmap::new());
+                self.component_types
+                    .insert(state.name.clone(), ComponentType::State);
+                self.storage_pointers
+                    .insert(state.name.clone(), create_storage(state.size as usize));
+                self.storage_bitmaps
+                    .insert(state.name.clone(), Bitmap::new());
                 self.component_names.push(state.name.clone());
                 self.registered_states.insert(state.name.clone(), state);
             }
 
             RascalStruct::Event(event) => {
-                self.component_types.insert(event.name.clone(), ComponentType::Event);
-                self.event_queues.insert(event.name.clone(), VecDeque::default());
-                self.next_event_queues.insert(event.name.clone(), VecDeque::default());
+                self.component_types
+                    .insert(event.name.clone(), ComponentType::Event);
+                self.event_queues
+                    .insert(event.name.clone(), VecDeque::default());
+                self.next_event_queues
+                    .insert(event.name.clone(), VecDeque::default());
                 println!("Registered event queue for {}", event.name);
                 self.registered_events.insert(event.name.clone(), event);
             }
@@ -272,20 +314,31 @@ impl World {
             RascalStruct::Unique(name, datatype, subtype, value) => {
                 let index = get_or_insert_into_string_pool(&name);
                 if let DataType::Field = datatype {
-                    self.field_storage.insert(index, Field { datatype: subtype.unwrap(), field_map: Default::default() });
+                    self.field_storage.insert(
+                        index,
+                        Field {
+                            datatype: subtype.unwrap(),
+                            field_map: Default::default(),
+                        },
+                    );
                 }
                 self.unique_storage.insert(index, value);
             }
 
             RascalStruct::Proc(name, params, block) => {
                 if !REGISTERED_PROCS.lock().unwrap().contains_key(&name) {
-                    REGISTERED_PROCS.lock().unwrap().insert(name.clone(), ProcSignature {
-                        name, params: HashMap::from_iter(params.into_iter()), block
-                    });
+                    REGISTERED_PROCS.lock().unwrap().insert(
+                        name.clone(),
+                        ProcSignature {
+                            name,
+                            params: HashMap::from_iter(params.into_iter()),
+                            block,
+                        },
+                    );
                 }
             }
 
-            _ => unreachable!()
+            _ => unreachable!(),
         };
     }
 }
@@ -296,15 +349,25 @@ impl AddComponent<u8> for World {
         let comp_type = comp_type.to_string();
 
         if !self.component_types.contains_key(&comp_type) {
-            let mut list = AnnotationList::new("world.rs", "!self.component_types.contains_key(&comp_type)");
-            list.error(36..39, format!("Component type storage for {} not registered", comp_type), "this really should be a warning later on"); // TODO!
+            let mut list =
+                AnnotationList::new("world.rs", "!self.component_types.contains_key(&comp_type)");
+            list.error(
+                36..39,
+                format!("Component type storage for {} not registered", comp_type),
+                "this really should be a warning later on",
+            ); // TODO!
             list.show_stdout(&Stylesheet::colored());
             return;
         }
 
         if !self.storage_bitmaps.contains_key(&comp_type) {
-            let mut list = AnnotationList::new("world.rs", "!self.storage_bitmaps.contains_key(&comp_type)");
-            list.error(35..38, format!("Component type bitmap for {} not registered", comp_type), "this really should be a warning later on"); // TODO!
+            let mut list =
+                AnnotationList::new("world.rs", "!self.storage_bitmaps.contains_key(&comp_type)");
+            list.error(
+                35..38,
+                format!("Component type bitmap for {} not registered", comp_type),
+                "this really should be a warning later on",
+            ); // TODO!
             list.show_stdout(&Stylesheet::colored());
             return;
         }
@@ -313,19 +376,27 @@ impl AddComponent<u8> for World {
             use ComponentType::*;
 
             let size = match self.component_types[&comp_type] {
-                State => { self.registered_states[&comp_type].size as usize }
-                Event => { self.registered_events[&comp_type].size as usize }
-                _ => 0
+                State => self.registered_states[&comp_type].size as usize,
+                Event => self.registered_events[&comp_type].size as usize,
+                _ => 0,
             };
 
             unsafe {
-                let mut comp_storage_ptr = self.storage_pointers.get_mut(&comp_type).unwrap().as_mut_ptr();
-                let comp_storage_at_entity_ptr = comp_storage_ptr.offset(entity as isize * size as isize);
+                let mut comp_storage_ptr = self
+                    .storage_pointers
+                    .get_mut(&comp_type)
+                    .unwrap()
+                    .as_mut_ptr();
+                let comp_storage_at_entity_ptr =
+                    comp_storage_ptr.offset(entity as isize * size as isize);
                 copy_nonoverlapping(comp_value.as_ptr(), comp_storage_at_entity_ptr, size);
             }
         }
 
-        self.storage_bitmaps.get_mut(&comp_type).unwrap().set(entity, true);
+        self.storage_bitmaps
+            .get_mut(&comp_type)
+            .unwrap()
+            .set(entity, true);
     }
 }
 

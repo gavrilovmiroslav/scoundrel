@@ -72,7 +72,7 @@ impl DataType {
             "symbol" => Symbol,
             "set" => Set,
             "geometry" => Geometry,
-            _ if text.starts_with("&") => Ref(Box::new(Self::parse_datatype(&text[1..]))),
+            _ if text.starts_with("in ") => Ref(Box::new(Self::parse_datatype(&text[3..]))),
             _ if text.starts_with("field") => Field,
             _ => panic!("Wrong datatype: {}", text)
         }
@@ -107,6 +107,13 @@ impl DataType {
             Range => RascalValue::Range(0, 0),
             Geometry => RascalValue::Geometry(Geom::Empty),
             Ref(o) => o.default()
+        }
+    }
+
+    pub fn get_actual_type(&self) -> DataType {
+        match self {
+            DataType::Ref(o) => o.as_ref().clone(),
+            other => other.clone()
         }
     }
 }
@@ -1124,7 +1131,7 @@ pub fn parse_rascal(src: &str) -> Vec<RascalStruct> {
                 ast.push(RascalStruct::System(SystemSignature::parse_system(inner)));
             }
 
-            Rule::func_decl => {
+            Rule::proc_decl => {
                 let mut inner = parse_tree.into_inner();
                 let name = inner.next().unwrap().as_str().to_string();
                 let members: Vec<(String, DataType)> = if let Some(_) = inner.peek() {
