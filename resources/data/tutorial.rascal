@@ -2,7 +2,7 @@
 unique terrain: field of symbol;
 event MoveIntent { e: entity, p: num, q: num };
 
-proc MakeRooms(space: &geometry,
+proc MakeRooms(space: in geometry,
     min_width: num, max_width: num,
     min_height: num, max_height: num,
     count: num) {
@@ -18,8 +18,7 @@ proc MakeRooms(space: &geometry,
 
         if empty(intersect(space, inner)) {
             space = union(space, outer);
-            terrain[diff(outer, inner)] = '#';
-            terrain[inner] = '-';
+            terrain[inner] = '.';
         }
     }
 }
@@ -27,24 +26,29 @@ proc MakeRooms(space: &geometry,
 [Spawn Player On Start]
 on Start
 {
-    spawn player with IsPlayer & IsAt(20, 20) & HasGlyph('@') & HasColor(0, 0, 255);
+    spawn player with IsPlayer & IsAt(5, 4) & HasGlyph('@') & HasColor(0, 0, 255);
 
     let used_room_space = make_set();
 
-    MakeRooms(space: &used_room_space,
+    MakeRooms(space: used_room_space,
         min_width: 10, max_width: 15,
         min_height: 8, max_height: 12,
-        count: 10);
+        count: 200);
 
-    MakeRooms(space: &used_room_space,
-        min_width: 5, max_width: 10,
-        min_height: 5, max_height: 8,
+    MakeRooms(space: used_room_space,
+        min_width: 5, max_width: 8,
+        min_height: 5, max_height: 7,
+        count: 100);
+
+    MakeRooms(space: used_room_space,
+        min_width: 4, max_width: 6,
+        min_height: 4, max_height: 5,
         count: 50);
 
-    MakeRooms(space: &used_room_space,
-        min_width: 4, max_width: 8,
-        min_height: 4, max_height: 6,
-        count: 100);
+    MakeRooms(space: used_room_space,
+        min_width: 2, max_width: 4,
+        min_height: 2, max_height: 3,
+        count: 50);
 }
 
 // ===== KEYBOARD EVENTS =====================================
@@ -60,8 +64,10 @@ with e.IsPlayer & e.IsAt(x, y)
         case "Up": q = y - 1;
         case "Down": q = y + 1;
     } then {
-        trigger MoveIntent(e, p, q);
-        consume event;
+        if terrain[p, q] == '.' {
+            trigger MoveIntent(e, p, q);
+            consume event;
+        }
     }
 }
 
