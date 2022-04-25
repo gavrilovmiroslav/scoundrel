@@ -13,7 +13,7 @@ pub struct EngineOptions {
 impl Default for EngineOptions {
     fn default() -> Self {
         ron::from_str(
-            std::fs::read_to_string("../../../resources/data/config.ron")
+            std::fs::read_to_string("resources/data/config.ron")
                 .unwrap()
                 .as_str(),
         )

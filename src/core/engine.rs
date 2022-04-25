@@ -20,7 +20,7 @@ use notify::{watcher, DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher
 use crate::core::engine_options::EngineOptions;
 use crate::core::glyphs::Glyph;
 use crate::core::keycodes::GamepadState;
-use crate::core::keycodes::{ElementState, KeyState, MouseState};
+use crate::core::keycodes::{Key, KeyStatus, MouseState};
 use crate::core::point::Point;
 use crate::core::presentation::Presentation;
 use crate::core::rascal::parser::{parse_rascal, ComponentType, RascalStruct, SystemPrioritySize};
@@ -144,7 +144,7 @@ lazy_static! {
         Arc::new(Mutex::new(FrameCounter::default()));
     pub static ref GAMEPAD_EVENTS: Arc<Mutex<VecDeque<GamepadState>>> =
         Arc::new(Mutex::new(VecDeque::default()));
-    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<(KeyState, ElementState)>>> =
+    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<(Key, KeyStatus)>>> =
         Arc::new(Mutex::new(VecDeque::default()));
     pub static ref MOUSE_EVENTS: Arc<Mutex<VecDeque<MouseState>>> =
         Arc::new(Mutex::new(VecDeque::default()));
@@ -256,7 +256,7 @@ pub fn start_engine(opts: EngineOptions) {
         if let Ok(_) = file_watcher
             .as_mut()
             .unwrap()
-            .watch("../../../resources/data", RecursiveMode::Recursive)
+            .watch("resources/data", RecursiveMode::Recursive)
         {
             *WATCH_RECEIVER.lock().unwrap() = Some(rx);
         } else {

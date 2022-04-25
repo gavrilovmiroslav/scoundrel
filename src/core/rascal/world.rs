@@ -67,7 +67,7 @@ impl Default for World {
             random: ChaCha20Rng::seed_from_u64(0u64),
             data: if cfg!(debug_assertions) {
                 ReadonlyArchiveCave::make_from("resources/data", "resources/data.bin");
-                Box::new(FileCave::new(Path::new("../../../../resources/data")).unwrap())
+                Box::new(FileCave::new(Path::new("resources/data")).unwrap())
             } else {
                 Box::new(ReadonlyArchiveCave::open("resources/data.bin"))
             },

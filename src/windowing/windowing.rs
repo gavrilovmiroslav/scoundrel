@@ -10,7 +10,7 @@ use crate::core::engine::{
     get_filename_when_changed, rebuild_world, reset_should_redraw, should_quit, should_redraw,
     update_world,
 };
-use crate::core::keycodes::{GamepadState, KeyState, MouseState};
+use crate::core::keycodes::{GamepadState, Key, MouseState};
 use crate::core::rascal::world::send_start_event;
 use crate::core::{engine, keycodes};
 
@@ -24,11 +24,11 @@ pub static NvOptimusEnablement: u64 = 0x00000001;
 #[no_mangle]
 pub static AmdPowerXpressRequestHighPerformance: u64 = 0x00000001;
 
-fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
+fn transmute_keycode(vk: VirtualKeyCode) -> Key {
     unsafe { std::mem::transmute(vk) }
 }
 
-fn transmute_element_state(ek: ElementState) -> keycodes::ElementState {
+fn transmute_element_state(ek: ElementState) -> keycodes::KeyStatus {
     unsafe { std::mem::transmute(ek) }
 }
 
@@ -246,17 +246,19 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 
 #[inline(always)]
 fn render_frame(gl_context: &WindowedContext, pipeline: &GlyphRenderer) {
-    let screen = engine::SCREEN.read().unwrap();
-    if screen.is_ready() && should_redraw() {
-        unsafe {
-            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-            gl::Clear(gl::COLOR_BUFFER_BIT);
+    {
+        let screen = engine::SCREEN.read().unwrap();
+        if screen.is_ready() && should_redraw() {
+            unsafe {
+                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+                gl::Clear(gl::COLOR_BUFFER_BIT);
+            }
+
+            pipeline.render(screen.glyphs());
+
+            gl_context.swap_buffers().unwrap();
+            reset_should_redraw();
         }
-
-        pipeline.render(screen.glyphs());
-
-        gl_context.swap_buffers().unwrap();
-        reset_should_redraw();
     }
 
     engine::SCREEN.write().unwrap().reinit_depth();
