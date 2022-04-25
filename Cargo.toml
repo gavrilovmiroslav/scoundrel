@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "An engine for working with ASCII roguelikes. Renderer-independent, use scoundrel-windowing with this as a good start."
-homepage = "rusty-rogues.com"
+homepage = "http://rusty-rogues.com"
 repository = "http://github.com/gavrilovmiroslav/scoundrel"
 
 [lib]
