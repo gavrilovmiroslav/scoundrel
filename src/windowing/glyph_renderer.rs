@@ -5,15 +5,15 @@ use gl::types::*;
 use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
-use scoundrel_core::engine;
-use scoundrel_core::engine::WORLD;
-use scoundrel_core::glyphs::Glyph;
-use scoundrel_core::presentation::Presentation;
+use crate::core::engine;
+use crate::core::engine::WORLD;
+use crate::core::glyphs::Glyph;
+use crate::core::presentation::Presentation;
 
-use crate::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
-use crate::common::gl_error_check;
-use crate::texture::Texture;
-use crate::uniforms::Uniforms;
+use crate::windowing::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
+use crate::windowing::common::gl_error_check;
+use crate::windowing::texture::Texture;
+use crate::windowing::uniforms::Uniforms;
 
 pub const QUAD_VERTEX_TEX_COORDS_COUNT: usize = 24;
 pub const QUAD_MEMORY_SIZE: usize = size_of::<f32>() * QUAD_VERTEX_TEX_COORDS_COUNT;

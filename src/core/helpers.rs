@@ -1,11 +1,10 @@
-use crate::engine;
-use crate::engine::WORLD;
+use crate::core::engine;
+use crate::core::engine::WORLD;
+use crate::core::glyphs::cls;
+use crate::core::keycodes::{key_action_to_name, keystate_to_name};
+use crate::core::rascal::interpreter::{num, text};
+use crate::core::rascal::world::TriggerEvent;
 use std::time::Instant;
-
-use crate::glyphs::cls;
-use crate::keycodes::{key_action_to_name, keystate_to_name};
-use crate::rascal::interpreter::{num, text};
-use crate::rascal::world::TriggerEvent;
 
 pub fn clear_screen() {
     cls();

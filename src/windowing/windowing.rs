@@ -6,17 +6,17 @@ use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
 use glutin::*;
 
-use scoundrel_core::engine;
-use scoundrel_core::engine::{
+use crate::core::engine::{
     get_filename_when_changed, rebuild_world, reset_should_redraw, should_quit, should_redraw,
     update_world,
 };
-use scoundrel_core::keycodes::{GamepadState, KeyState, MouseState};
-use scoundrel_core::rascal::world::send_start_event;
+use crate::core::keycodes::{GamepadState, KeyState, MouseState};
+use crate::core::rascal::world::send_start_event;
+use crate::core::{engine, keycodes};
 
-use crate::common::gl_error_check;
-use crate::gamepad::{gilrs_to_axis, gilrs_to_button};
-use crate::glyph_renderer::GlyphRenderer;
+use crate::windowing::common::gl_error_check;
+use crate::windowing::gamepad::{gilrs_to_axis, gilrs_to_button};
+use crate::windowing::glyph_renderer::GlyphRenderer;
 
 #[no_mangle]
 pub static NvOptimusEnablement: u64 = 0x00000001;
@@ -28,7 +28,7 @@ fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
     unsafe { std::mem::transmute(vk) }
 }
 
-fn transmute_element_state(ek: ElementState) -> scoundrel_core::keycodes::ElementState {
+fn transmute_element_state(ek: ElementState) -> keycodes::ElementState {
     unsafe { std::mem::transmute(ek) }
 }
 

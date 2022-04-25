@@ -1,6 +1,6 @@
-use crate::rascal::interpreter::Geom;
-use crate::rascal::parser::GeometryOp;
-use crate::rascal::world::World;
+use crate::core::rascal::interpreter::Geom;
+use crate::core::rascal::parser::GeometryOp;
+use crate::core::rascal::world::World;
 use bresenham::Bresenham;
 use std::cmp::{max, min};
 use std::collections::HashSet;

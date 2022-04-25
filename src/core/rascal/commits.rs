@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
-use crate::colors::Color;
-use crate::engine::force_quit;
-use crate::glyphs::{paint_all_tiles, paint_tile, print_field, print_string_colors};
-use crate::rascal::interpreter::{
+use crate::core::colors::Color;
+use crate::core::engine::force_quit;
+use crate::core::glyphs::{paint_all_tiles, paint_tile, print_field, print_string_colors};
+use crate::core::rascal::interpreter::{
     get_or_insert_into_string_pool, rascal_value_as_string, RascalVM, RascalValue,
 };
-use crate::rascal::parser::{ComponentCallSite, ComponentModifier, RascalExpression};
-use crate::rascal::world::World;
+use crate::core::rascal::parser::{ComponentCallSite, ComponentModifier, RascalExpression};
+use crate::core::rascal::world::World;
 
 #[derive(Debug)]
 pub enum Position {

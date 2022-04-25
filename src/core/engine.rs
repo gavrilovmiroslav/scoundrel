@@ -13,19 +13,21 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::Instant;
 
+use crate::core::helpers;
 use lazy_static::lazy_static;
 use notify::{watcher, DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
 
-use crate::engine_options::EngineOptions;
-use crate::glyphs::Glyph;
-use crate::keycodes::GamepadState;
-use crate::keycodes::{ElementState, KeyState, MouseState};
-use crate::point::Point;
-use crate::presentation::Presentation;
-use crate::rascal::parser::{parse_rascal, ComponentType, RascalStruct, SystemPrioritySize};
-use crate::rascal::world::{send_start_event, World};
-use crate::rascal::world::{CACHED_SYSTEMS_BY_PRIORITIES, REGISTERED_SYSTEMS, SYSTEM_DEPENDENCIES};
-use crate::{core_logic, engine};
+use crate::core::engine_options::EngineOptions;
+use crate::core::glyphs::Glyph;
+use crate::core::keycodes::GamepadState;
+use crate::core::keycodes::{ElementState, KeyState, MouseState};
+use crate::core::point::Point;
+use crate::core::presentation::Presentation;
+use crate::core::rascal::parser::{parse_rascal, ComponentType, RascalStruct, SystemPrioritySize};
+use crate::core::rascal::world::{send_start_event, World};
+use crate::core::rascal::world::{
+    CACHED_SYSTEMS_BY_PRIORITIES, REGISTERED_SYSTEMS, SYSTEM_DEPENDENCIES,
+};
 
 #[derive(Clone, Default)]
 pub struct FrameCounter {
@@ -254,7 +256,7 @@ pub fn start_engine(opts: EngineOptions) {
         if let Ok(_) = file_watcher
             .as_mut()
             .unwrap()
-            .watch("resources/data", RecursiveMode::Recursive)
+            .watch("../../../resources/data", RecursiveMode::Recursive)
         {
             *WATCH_RECEIVER.lock().unwrap() = Some(rx);
         } else {
@@ -441,7 +443,7 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(options: EngineOptions) -> Engine {
-        engine::start_engine(options.clone());
+        start_engine(options.clone());
 
         Engine {
             options,
@@ -471,9 +473,9 @@ pub fn start_with_systems(pre: Vec<fn()>, post: Vec<fn()>, event_loop: fn(Vec<fn
         send_start_event();
 
         for sys in [
-            core_logic::clear_screen,
-            core_logic::pass_input_events_to_rascal,
-            core_logic::track_fps,
+            helpers::clear_screen,
+            helpers::pass_input_events_to_rascal,
+            helpers::track_fps,
         ] {
             engine.pre_support_systems.push(sys);
         }

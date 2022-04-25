@@ -11,17 +11,15 @@ use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha20Rng;
 use show_my_errors::{AnnotationList, Stylesheet};
 
-use crate::engine::{set_should_redraw, WORLD};
-use crate::rascal::interpreter::{
+use crate::core::engine::{set_should_redraw, WORLD};
+use crate::core::rascal::interpreter::{
     get_or_insert_into_string_pool, num, Geom, RascalEventfulResult, RascalVM, RascalValue,
 };
-use crate::rascal::parser::{
-    ComponentSignature, ComponentType, DataType, RascalStruct, SystemPriority, SystemPrioritySize,
-    SystemSignature,
+use crate::core::rascal::parser::{
+    ComponentSignature, ComponentType, DataType, ProcSignature, RascalStruct, SystemPriority,
+    SystemPrioritySize, SystemSignature,
 };
-use crate::readonly_archive_cave::ReadonlyArchiveCave;
-
-use crate::rascal::parser::ProcSignature;
+use crate::core::readonly_archive_cave::ReadonlyArchiveCave;
 
 pub(crate) type EntityId = usize;
 pub(crate) type ComponentId = String;
@@ -69,7 +67,7 @@ impl Default for World {
             random: ChaCha20Rng::seed_from_u64(0u64),
             data: if cfg!(debug_assertions) {
                 ReadonlyArchiveCave::make_from("resources/data", "resources/data.bin");
-                Box::new(FileCave::new(Path::new("resources/data")).unwrap())
+                Box::new(FileCave::new(Path::new("../../../../resources/data")).unwrap())
             } else {
                 Box::new(ReadonlyArchiveCave::open("resources/data.bin"))
             },

@@ -62,7 +62,7 @@ impl AttribType {
     }
 
     pub fn stride(self) -> i32 {
-        use crate::attribute::AttribType::*;
+        use crate::windowing::attribute::AttribType::*;
 
         match self {
             Byte | UnsignedByte => 1,
@@ -76,7 +76,7 @@ impl AttribType {
 
 impl Into<GLenum> for AttribType {
     fn into(self) -> GLenum {
-        use crate::attribute::AttribType::*;
+        use crate::windowing::attribute::AttribType::*;
 
         match self {
             Byte => gl::BYTE,

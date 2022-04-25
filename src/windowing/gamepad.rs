@@ -1,5 +1,5 @@
+use crate::core::keycodes::{GamepadAxis, GamepadButton};
 use gilrs::{Axis, Button};
-use scoundrel_core::keycodes::{GamepadAxis, GamepadButton};
 
 pub fn gilrs_to_axis(axis: Axis) -> GamepadAxis {
     match axis {

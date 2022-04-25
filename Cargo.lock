@@ -1701,7 +1701,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "scoundrel-core"
+name = "scoundrel"
 version = "0.1.0"
 dependencies = [
  "arena-rs",
@@ -1709,7 +1709,13 @@ dependencies = [
  "bresenham",
  "caves",
  "filearco",
+ "gilrs",
+ "gl",
+ "glutin",
+ "image",
  "lazy_static",
+ "libc",
+ "nalgebra-glm",
  "notify",
  "pest",
  "pest_derive",
@@ -1720,22 +1726,8 @@ dependencies = [
  "serde",
  "show-my-errors",
  "sparseset",
- "structopt",
-]
-
-[[package]]
-name = "scoundrel-windowing"
-version = "0.1.0"
-dependencies = [
- "gilrs",
- "gl",
- "glutin",
- "image",
- "libc",
- "nalgebra-glm",
- "rand",
- "scoundrel-core",
  "static_assertions",
+ "structopt",
 ]
 
 [[package]]

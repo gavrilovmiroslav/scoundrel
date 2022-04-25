@@ -10,16 +10,15 @@ use pest::Parser;
 use pest_derive;
 use pest_derive::Parser;
 
-use crate::rascal::interpreter::{get_or_insert_into_string_pool, Geom, RascalValue};
-use lazy_static;
-
-use crate::rascal::parser::RascalExpression::{
+use crate::core::rascal::interpreter::{get_or_insert_into_string_pool, Geom, RascalValue};
+use crate::core::rascal::parser::RascalExpression::{
     BoolLiteral, NumLiteral, RandomNumLiteral, TextLiteral,
 };
-use crate::rascal::parser::TokenType::{NonTerm, Term};
+use crate::core::rascal::parser::TokenType::{NonTerm, Term};
+use lazy_static;
 
 #[derive(Parser)]
-#[grammar = "rascal/grammar.pest"]
+#[grammar = "core/rascal/grammar.pest"]
 struct RascalParser;
 
 lazy_static! {

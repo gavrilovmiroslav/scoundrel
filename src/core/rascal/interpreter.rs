@@ -4,23 +4,23 @@ use std::ptr::copy_nonoverlapping;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-use crate::rascal::geometry::evaluate_geometry;
+use crate::core::rascal::geometry::evaluate_geometry;
 use bitmaps::*;
 use lazy_static::lazy_static;
 use rand::Rng;
 
-use crate::colors::Color;
-use crate::rascal::commits::{Position, SemanticChange};
-use crate::rascal::parser::MemberId;
-use crate::rascal::parser::{
+use crate::core::colors::Color;
+use crate::core::rascal::commits::{Position, SemanticChange};
+use crate::core::rascal::parser::MemberId;
+use crate::core::rascal::parser::{
     BoolOper, ComponentCallSite, ComponentModifier, ComponentSignature, ComponentType, DataType,
     GeometryOp, GeometryQuery, Op, ProcCall, RascalBlock, RascalExpression, RascalGlyphColor,
     RascalGlyphPosition, RascalStatement, Rel, SystemSignature, Un,
 };
-use crate::rascal::world::EntityId;
-use crate::rascal::world::World;
-use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
-use crate::rascal::world::{
+use crate::core::rascal::world::EntityId;
+use crate::core::rascal::world::World;
+use crate::core::rascal::world::MAX_ENTRIES_PER_STORAGE;
+use crate::core::rascal::world::{
     AddComponent, BinaryComponent, ComponentId, FieldId, SetId, TriggerEvent, REGISTERED_PROCS,
 };
 

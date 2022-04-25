@@ -1,2 +1,42 @@
-[workspace]
-members = ["scoundrel-core", "scoundrel-windowing"]
+[package]
+name = "scoundrel"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "An engine for working with ASCII roguelikes. Renderer-independent, use scoundrel-windowing with this as a good start."
+homepage = "rusty-rogues.com"
+repository = "http://github.com/gavrilovmiroslav/scoundrel"
+
+[lib]
+crate-type = ["cdylib"]
+bench = false
+
+[dependencies]
+structopt = "0.3.26"
+ron = "0.7"
+serde = { version = "1", features = ["derive"] }
+
+rand = "0.8.5"
+rand_chacha = "0.3.1"
+
+lazy_static = "1.4.0"
+
+sparseset = "0.1.0"
+pest = "2.1.3"
+pest_derive = "2.1.0"
+arena-rs = "0.1.1"
+bitmaps = "3.1.0"
+show-my-errors = "0.1.3"
+notify = "4.0.0"
+priority-queue = "1.2.1"
+caves = "0.2.1"
+filearco = "0.1.0"
+bresenham = "0.1.1"
+
+glutin = "0.20"
+gl = "0.14.0"
+nalgebra-glm = "0.16.0"
+image = "0.23"
+libc = "*"
+static_assertions = "1.1.0"
+gilrs = "0.8.2"

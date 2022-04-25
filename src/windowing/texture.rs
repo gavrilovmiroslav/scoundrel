@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use image::GenericImageView;
 
-use scoundrel_core::presentation::Presentation;
+use crate::core::presentation::Presentation;
 
 pub struct Texture {
     pub width: u32,

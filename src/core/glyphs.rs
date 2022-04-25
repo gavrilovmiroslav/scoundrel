@@ -1,7 +1,7 @@
-use crate::colors::{Color, BLACK, GRAY};
-use crate::engine;
-use crate::rascal::interpreter::{rascal_value_as_sym, RascalValue};
-use crate::rascal::parser::SystemPrioritySize;
+use crate::core::colors::{Color, BLACK, GRAY};
+use crate::core::engine;
+use crate::core::rascal::interpreter::{rascal_value_as_sym, RascalValue};
+use crate::core::rascal::parser::SystemPrioritySize;
 use std::collections::HashMap;
 
 #[derive(Copy, Clone)]
