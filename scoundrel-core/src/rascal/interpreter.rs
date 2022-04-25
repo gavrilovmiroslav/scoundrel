@@ -1,6 +1,5 @@
-use std::cmp::{max, min};
-use std::collections::{HashMap, HashSet};
-use std::ops::{BitAnd, Not, Range};
+use std::collections::HashMap;
+use std::ops::{BitAnd, Not};
 use std::ptr::copy_nonoverlapping;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -8,7 +7,7 @@ use std::sync::Mutex;
 use crate::rascal::geometry::evaluate_geometry;
 use bitmaps::*;
 use lazy_static::lazy_static;
-use rand::{random, Rng};
+use rand::Rng;
 
 use crate::colors::Color;
 use crate::rascal::commits::{Position, SemanticChange};
@@ -22,8 +21,7 @@ use crate::rascal::world::EntityId;
 use crate::rascal::world::World;
 use crate::rascal::world::MAX_ENTRIES_PER_STORAGE;
 use crate::rascal::world::{
-    AddComponent, BinaryComponent, ComponentId, Field, FieldId, SetId, TriggerEvent,
-    REGISTERED_PROCS,
+    AddComponent, BinaryComponent, ComponentId, FieldId, SetId, TriggerEvent, REGISTERED_PROCS,
 };
 
 lazy_static! {
@@ -108,7 +106,7 @@ impl RascalValue {
 }
 
 pub fn retrieve_string(index: u32) -> String {
-    let mut pool = STRING_REPOOL.lock().unwrap();
+    let pool = STRING_REPOOL.lock().unwrap();
     pool.get(&index).unwrap().clone()
 }
 
@@ -223,8 +221,6 @@ pub enum EqualityWith {
     Value(RascalExpression),
 }
 
-type Offset = usize;
-
 #[derive(Debug)]
 pub struct RascalVM {
     pub(crate) current_system: Option<SystemSignature>,
@@ -243,6 +239,7 @@ pub enum RascalEventfulResult {
     Consumed,
 }
 
+#[derive(Debug, Clone)]
 pub enum RascalInterpretResult {
     Ok,
     Err(String),
@@ -286,48 +283,8 @@ impl RascalVM {
         })
     }
 
-    fn check_latest_equality(
-        &self,
-        system_name: &String,
-        world: &World,
-        eq: (String, EqualityWith),
-    ) -> Result<(), (u8, u8)> {
-        fn get_size(world: &World, comp: &ComponentId, member: &MemberId) -> u8 {
-            match world.component_types.get(comp).unwrap() {
-                ComponentType::State => world.registered_states.get(comp).unwrap().members[member]
-                    .typ
-                    .size_in_bytes(),
-                ComponentType::Event => world.registered_events.get(comp).unwrap().members[member]
-                    .typ
-                    .size_in_bytes(),
-                ComponentType::Tag => 0u8,
-                other => {
-                    println!("{:?}", other);
-                    unreachable!()
-                }
-            }
-        }
-
-        if let (lhs, EqualityWith::Alias(rhs)) = eq {
-            let (left_comp, left_member) = self.bindings.get(&lhs).unwrap();
-            let (right_comp, right_member) = self.bindings.get(&rhs).unwrap();
-
-            let left_size = get_size(world, left_comp, left_member);
-            let right_size = get_size(world, right_comp, right_member);
-            if left_size != right_size {
-                println!("ERROR [{}]: Two variables that are matched have different types ({} aka {}.{}, and {} aka {}.{})",
-                         system_name, lhs, left_comp, left_member, rhs, right_comp, right_member);
-                return Result::Err((left_size, right_size));
-            }
-        }
-
-        Result::Ok(())
-    }
-
     fn update_equality(
         &mut self,
-        system_name: &String,
-        world: &World,
         arg: &Option<RascalExpression>,
         id: &MemberId,
         comp_signature: &ComponentSignature,
@@ -443,7 +400,7 @@ impl RascalVM {
                         .iter()
                         .zip(comp_signature.ptrs.iter().collect::<Vec<_>>())
                     {
-                        self.update_equality(&system.name, world, arg, id, comp_signature);
+                        self.update_equality(arg, id, comp_signature);
                     }
                 }
 
@@ -771,12 +728,12 @@ impl RascalVM {
                             );
                         }
 
-                        Some(RascalValue::Geometry(g)) => {
+                        Some(RascalValue::Geometry(_g)) => {
                             println!("GEOMETRY!");
                             return None;
                         }
 
-                        Some(RascalValue::Set(s)) => {
+                        Some(RascalValue::Set(_s)) => {
                             println!("SET!");
                             return None;
                         }
@@ -1446,115 +1403,115 @@ impl RascalVM {
                     .map(|block| self.interpret_block(block, values, world));
             }
 
-            RascalStatement::Inc(var, n) => {
-                let mut result = RascalInterpretResult::Ok;
-
-                match var {
-                    RascalExpression::Identifier(name) => {
-                        if values.contains_key(name) {
-                            let value = self.interpret_expression(n, values, world).unwrap();
+            RascalStatement::Inc(var, n) => match var {
+                RascalExpression::Identifier(name) => {
+                    if values.contains_key(name) {
+                        let value = self.interpret_expression(n, values, world).unwrap();
+                        self.commit_change(
+                            world,
+                            values,
+                            SemanticChange::ValueInc(name.clone(), value),
+                        );
+                    } else {
+                        let name_index = get_or_insert_into_string_pool(&name);
+                        let value = self.interpret_expression(n, values, world).unwrap();
+                        if world.unique_storage.contains_key(&name_index) {
                             self.commit_change(
                                 world,
                                 values,
                                 SemanticChange::ValueInc(name.clone(), value),
                             );
                         } else {
-                            let name_index = get_or_insert_into_string_pool(&name);
-                            let value = self.interpret_expression(n, values, world).unwrap();
-                            if world.unique_storage.contains_key(&name_index) {
-                                self.commit_change(
-                                    world,
-                                    values,
-                                    SemanticChange::ValueInc(name.clone(), value),
-                                );
-                            } else {
-                                result = RascalInterpretResult::Err(format!(
+                            println!(
+                                "Error: {:?}",
+                                RascalInterpretResult::Err(format!(
                                     "Variable '{}' not found",
                                     name
-                                ));
-                            }
+                                ))
+                            );
+                            unreachable!()
                         }
-                    }
-
-                    RascalExpression::FieldAccessor(name, x, y) => {
-                        if let Ok((field, index)) =
-                            self.get_access_to_field_by_coordinates(values, world, name, x, y)
-                        {
-                            self.get_field_storage_at_index(world, field, index);
-                        }
-                    }
-
-                    RascalExpression::ArrayAccessor(name, index) => {
-                        if let Ok((field, index)) =
-                            self.get_access_to_field_by_index(values, world, name, index)
-                        {
-                            self.get_field_storage_at_index(world, field, index);
-                        }
-                    }
-
-                    _ => {
-                        return RascalInterpretResult::Err(format!(
-                            "Expected identifier, got {:?}",
-                            var
-                        ));
                     }
                 }
-            }
 
-            RascalStatement::Dec(var, n) => {
-                let mut result = RascalInterpretResult::Ok;
+                RascalExpression::FieldAccessor(name, x, y) => {
+                    if let Ok((field, index)) =
+                        self.get_access_to_field_by_coordinates(values, world, name, x, y)
+                    {
+                        self.get_field_storage_at_index(world, field, index);
+                    }
+                }
 
-                match var {
-                    RascalExpression::Identifier(name) => {
-                        if values.contains_key(name) {
-                            let value = self.interpret_expression(n, values, world).unwrap();
+                RascalExpression::ArrayAccessor(name, index) => {
+                    if let Ok((field, index)) =
+                        self.get_access_to_field_by_index(values, world, name, index)
+                    {
+                        self.get_field_storage_at_index(world, field, index);
+                    }
+                }
+
+                _ => {
+                    return RascalInterpretResult::Err(format!(
+                        "Expected identifier, got {:?}",
+                        var
+                    ));
+                }
+            },
+
+            RascalStatement::Dec(var, n) => match var {
+                RascalExpression::Identifier(name) => {
+                    if values.contains_key(name) {
+                        let value = self.interpret_expression(n, values, world).unwrap();
+                        self.commit_change(
+                            world,
+                            values,
+                            SemanticChange::ValueDec(name.clone(), value),
+                        );
+                    } else {
+                        let name_index = get_or_insert_into_string_pool(&name);
+                        let value = self.interpret_expression(n, values, world).unwrap();
+                        if world.unique_storage.contains_key(&name_index) {
                             self.commit_change(
                                 world,
                                 values,
                                 SemanticChange::ValueDec(name.clone(), value),
                             );
                         } else {
-                            let name_index = get_or_insert_into_string_pool(&name);
-                            let value = self.interpret_expression(n, values, world).unwrap();
-                            if world.unique_storage.contains_key(&name_index) {
-                                self.commit_change(
-                                    world,
-                                    values,
-                                    SemanticChange::ValueDec(name.clone(), value),
-                                );
-                            } else {
-                                result = RascalInterpretResult::Err(format!(
+                            println!(
+                                "Error: {:?}",
+                                RascalInterpretResult::Err(format!(
                                     "Variable '{}' not found",
                                     name
-                                ));
-                            }
+                                ))
+                            );
+                            unreachable!()
                         }
-                    }
-
-                    RascalExpression::FieldAccessor(name, x, y) => {
-                        if let Ok((field, index)) =
-                            self.get_access_to_field_by_coordinates(values, world, name, x, y)
-                        {
-                            self.get_field_storage_at_index(world, field, index);
-                        }
-                    }
-
-                    RascalExpression::ArrayAccessor(name, index) => {
-                        if let Ok((field, index)) =
-                            self.get_access_to_field_by_index(values, world, name, index)
-                        {
-                            self.get_field_storage_at_index(world, field, index);
-                        }
-                    }
-
-                    _ => {
-                        return RascalInterpretResult::Err(format!(
-                            "Expected identifier, got {:?}",
-                            var
-                        ));
                     }
                 }
-            }
+
+                RascalExpression::FieldAccessor(name, x, y) => {
+                    if let Ok((field, index)) =
+                        self.get_access_to_field_by_coordinates(values, world, name, x, y)
+                    {
+                        self.get_field_storage_at_index(world, field, index);
+                    }
+                }
+
+                RascalExpression::ArrayAccessor(name, index) => {
+                    if let Ok((field, index)) =
+                        self.get_access_to_field_by_index(values, world, name, index)
+                    {
+                        self.get_field_storage_at_index(world, field, index);
+                    }
+                }
+
+                _ => {
+                    return RascalInterpretResult::Err(format!(
+                        "Expected identifier, got {:?}",
+                        var
+                    ));
+                }
+            },
 
             RascalStatement::DebugPrint(expr) => {
                 self.commit_change(world, values, SemanticChange::DebugPrint(expr.clone()));
@@ -1799,7 +1756,7 @@ impl RascalVM {
         let zipped_arg_and_ids: Vec<_> =
             event_call_site.args.iter().zip(members_in_order).collect();
         for (arg, id) in zipped_arg_and_ids {
-            self.update_equality(&system.name, world, arg, &id, &event_descriptor);
+            self.update_equality(arg, &id, &event_descriptor);
         }
 
         self.interpret_with(world, system);

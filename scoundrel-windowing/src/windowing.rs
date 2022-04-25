@@ -1,16 +1,21 @@
+use gilrs::{EventType, Gilrs};
 use std::borrow::BorrowMut;
 use std::ffi::c_void;
 
 use gl::types::GLboolean;
-use glutin::*;
 use glutin::dpi::LogicalSize;
+use glutin::*;
 
-use scoundrel_common::engine;
-use scoundrel_common::engine::{get_filename_when_changed, rebuild_world, reset_should_redraw, should_quit, should_redraw, update_world};
-use scoundrel_common::keycodes::{KeyState, MouseState};
-use scoundrel_common::rascal::world::send_start_event;
+use scoundrel_core::engine;
+use scoundrel_core::engine::{
+    get_filename_when_changed, rebuild_world, reset_should_redraw, should_quit, should_redraw,
+    update_world,
+};
+use scoundrel_core::keycodes::{GamepadState, KeyState, MouseState};
+use scoundrel_core::rascal::world::send_start_event;
 
 use crate::common::gl_error_check;
+use crate::gamepad::{gilrs_to_axis, gilrs_to_button};
 use crate::glyph_renderer::GlyphRenderer;
 
 #[no_mangle]
@@ -19,18 +24,18 @@ pub static NvOptimusEnablement: u64 = 0x00000001;
 #[no_mangle]
 pub static AmdPowerXpressRequestHighPerformance: u64 = 0x00000001;
 
-const RENDER_FRAME_DISTANCE: u64 = 20;
-
 fn transmute_keycode(vk: VirtualKeyCode) -> KeyState {
     unsafe { std::mem::transmute(vk) }
 }
 
-fn transmute_element_state(ek: ElementState) -> scoundrel_common::keycodes::ElementState {
+fn transmute_element_state(ek: ElementState) -> scoundrel_core::keycodes::ElementState {
     unsafe { std::mem::transmute(ek) }
 }
 
 fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
-    MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe { std::mem::transmute(st) })
+    MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe {
+        std::mem::transmute(st)
+    })
 }
 
 pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: Vec<fn()>) {
@@ -41,62 +46,134 @@ pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: V
     let window_builder = WindowBuilder::new()
         .with_title(engine_options.title.as_str())
         .with_resizable(false)
-        .with_dimensions(LogicalSize::new(engine_options.window_size.0 as f64, engine_options.window_size.1 as f64,));
+        .with_dimensions(LogicalSize::new(
+            engine_options.window_size.0 as f64,
+            engine_options.window_size.1 as f64,
+        ));
 
     let gl_context = glutin::ContextBuilder::new()
         .with_gl(GlRequest::Specific(Api::OpenGl, (4, 4)))
         .with_vsync(false)
-        .build_windowed(window_builder, &event_loop).unwrap();
+        .build_windowed(window_builder, &event_loop)
+        .unwrap();
 
     let pipeline = render_prepare(&gl_context);
+
+    let mut gil = Gilrs::new().unwrap();
+    for (_id, gamepad) in gil.gamepads() {
+        println!(
+            "{} is {:?} (ff? {})",
+            gamepad.name(),
+            gamepad.power_info(),
+            gamepad.is_ff_supported(),
+        );
+    }
 
     let mut done = false;
 
     while !done {
-        event_loop.poll_events(|event| {
-            match event {
-                Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => {
-                    engine::force_quit();
+        event_loop.poll_events(|event| match event {
+            Event::WindowEvent {
+                event: WindowEvent::CloseRequested,
+                ..
+            } => {
+                engine::force_quit();
 
-                    done = true;
-                    println!("|= Quitting!");
-                },
-
-                Event::WindowEvent { event: WindowEvent::KeyboardInput { input, .. }, .. } => {
-                    if let Some(key) = input.virtual_keycode {
-                        engine::KEYBOARD_EVENTS.lock().unwrap().push_back((transmute_keycode(key), transmute_element_state(input.state)));
-                    }
-                },
-
-                Event::WindowEvent { event: WindowEvent::MouseInput{ button, state, .. }, .. } => {
-                    engine::MOUSE_EVENTS.lock().unwrap().push_back(transmute_mouse(button, state));
-                },
-
-                Event::WindowEvent { event: WindowEvent::CursorMoved { position, ..}, .. } => {
-                    let mut xy = engine::MOUSE_POSITIONS.lock().unwrap();
-                    xy.borrow_mut().x = position.x as i32 / 16 as i32;
-                    xy.borrow_mut().y = position.y as i32 / 16 as i32;
-                },
-
-                _ => {}
+                done = true;
+                println!("|= Quitting!");
             }
+
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput { input, .. },
+                ..
+            } => {
+                if let Some(key) = input.virtual_keycode {
+                    engine::KEYBOARD_EVENTS
+                        .lock()
+                        .unwrap()
+                        .push_back((transmute_keycode(key), transmute_element_state(input.state)));
+                }
+            }
+
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput { button, state, .. },
+                ..
+            } => {
+                engine::MOUSE_EVENTS
+                    .lock()
+                    .unwrap()
+                    .push_back(transmute_mouse(button, state));
+            }
+
+            Event::WindowEvent {
+                event: WindowEvent::CursorMoved { position, .. },
+                ..
+            } => {
+                let mut xy = engine::MOUSE_POSITIONS.lock().unwrap();
+                xy.borrow_mut().x = position.x as i32 / 16 as i32;
+                xy.borrow_mut().y = position.y as i32 / 16 as i32;
+            }
+
+            _ => {}
         });
 
-        if let Some(path) = get_filename_when_changed() {
-            let current_dir = std::env::current_dir().unwrap().to_str().unwrap().to_string() + "\\resources/data\\";
-            let change_path = path.to_str().unwrap().replace(&current_dir, "");
-            rebuild_world(&change_path);
-            send_start_event();
+        while let Some(gilrs::Event { id, event, .. }) = gil.next_event() {
+            let mut gamepad_queue = engine::GAMEPAD_EVENTS.lock().unwrap();
+            match event {
+                EventType::ButtonPressed(button, _) => gamepad_queue.push_back(
+                    GamepadState::ButtonPressed(id.into(), gilrs_to_button(button)),
+                ),
+                EventType::ButtonRepeated(button, _) => gamepad_queue.push_back(
+                    GamepadState::ButtonRepeated(id.into(), gilrs_to_button(button)),
+                ),
+                EventType::ButtonReleased(button, _) => gamepad_queue.push_back(
+                    GamepadState::ButtonReleased(id.into(), gilrs_to_button(button)),
+                ),
+                EventType::ButtonChanged(button, value, _) => gamepad_queue.push_back(
+                    GamepadState::ButtonChanged(id.into(), gilrs_to_button(button), value),
+                ),
+                EventType::AxisChanged(axis, value, _) => gamepad_queue.push_back(
+                    GamepadState::AxisValueChanged(id.into(), gilrs_to_axis(axis), value),
+                ),
+                EventType::Connected => gamepad_queue.push_back(GamepadState::Connected(id.into())),
+                EventType::Disconnected => {
+                    gamepad_queue.push_back(GamepadState::Disconnected(id.into()))
+                }
+                EventType::Dropped => gamepad_queue.push_back(GamepadState::Dropped(id.into())),
+            }
         }
 
-        for sys in &pre_support_systems { sys(); }
+        if engine_options.use_rascal {
+            if let Some(path) = get_filename_when_changed() {
+                let current_dir = std::env::current_dir()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string()
+                    + "\\resources/data\\";
+                let change_path = path.to_str().unwrap().replace(&current_dir, "");
+                rebuild_world(&change_path);
+                send_start_event();
+            }
+        }
 
-        update_world();
+        for sys in &pre_support_systems {
+            sys();
+        }
+
+        if engine_options.use_rascal {
+            update_world();
+        }
+
         render_frame(&gl_context, &pipeline);
 
-        for sys in &post_support_systems { sys(); }
+        for sys in &post_support_systems {
+            sys();
+        }
 
-        if should_quit() { done = true; }
+        if should_quit() {
+            done = true;
+        }
     }
 }
 
@@ -120,18 +197,45 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 
     let uniforms = glyph_renderer.get_uniforms();
     unsafe {
-        gl::UniformMatrix4fv(uniforms.projection, 1, false as GLboolean, nalgebra_glm::value_ptr(&glyph_renderer.projection).as_ptr());
+        gl::UniformMatrix4fv(
+            uniforms.projection,
+            1,
+            false as GLboolean,
+            nalgebra_glm::value_ptr(&glyph_renderer.projection).as_ptr(),
+        );
         gl_error_check();
-        gl::UniformMatrix4fv(uniforms.viewport, 1, false as GLboolean, nalgebra_glm::value_ptr(&glyph_renderer.viewport).as_ptr());
+        gl::UniformMatrix4fv(
+            uniforms.viewport,
+            1,
+            false as GLboolean,
+            nalgebra_glm::value_ptr(&glyph_renderer.viewport).as_ptr(),
+        );
         gl_error_check();
-        gl::UniformMatrix4fv(uniforms.camera, 1, false as GLboolean, nalgebra_glm::value_ptr(&glyph_renderer.camera).as_ptr());
+        gl::UniformMatrix4fv(
+            uniforms.camera,
+            1,
+            false as GLboolean,
+            nalgebra_glm::value_ptr(&glyph_renderer.camera).as_ptr(),
+        );
         gl_error_check();
 
-        gl::Uniform2f(uniforms.input_font_bitmap_size, render_options.input_font_bitmap_size.0 as f32, render_options.input_font_bitmap_size.1 as f32);
+        gl::Uniform2f(
+            uniforms.input_font_bitmap_size,
+            render_options.input_font_bitmap_size.0 as f32,
+            render_options.input_font_bitmap_size.1 as f32,
+        );
         gl_error_check();
-        gl::Uniform2f(uniforms.input_font_glyph_size, render_options.input_font_glyph_size.0 as f32, render_options.input_font_glyph_size.1 as f32);
+        gl::Uniform2f(
+            uniforms.input_font_glyph_size,
+            render_options.input_font_glyph_size.0 as f32,
+            render_options.input_font_glyph_size.1 as f32,
+        );
         gl_error_check();
-        gl::Uniform2f(uniforms.output_glyph_scale, render_options.output_glyph_scale.0 as f32, render_options.output_glyph_scale.1 as f32);
+        gl::Uniform2f(
+            uniforms.output_glyph_scale,
+            render_options.output_glyph_scale.0 as f32,
+            render_options.output_glyph_scale.1 as f32,
+        );
         gl_error_check();
         gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
         gl_error_check();
@@ -141,21 +245,18 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 }
 
 #[inline(always)]
-fn render_frame(gl_context: &WindowedContext,
-                pipeline: &GlyphRenderer,) {
-
-    if let screen = engine::SCREEN.read().unwrap() {
-        if screen.is_ready() && should_redraw() {
-            unsafe {
-                gl::ClearColor(0.0, 0.0, 0.0, 1.0);
-                gl::Clear(gl::COLOR_BUFFER_BIT);
-            }
-
-            pipeline.render(screen.glyphs());
-
-            gl_context.swap_buffers().unwrap();
-            reset_should_redraw();
+fn render_frame(gl_context: &WindowedContext, pipeline: &GlyphRenderer) {
+    let screen = engine::SCREEN.read().unwrap();
+    if screen.is_ready() && should_redraw() {
+        unsafe {
+            gl::ClearColor(0.0, 0.0, 0.0, 1.0);
+            gl::Clear(gl::COLOR_BUFFER_BIT);
         }
+
+        pipeline.render(screen.glyphs());
+
+        gl_context.swap_buffers().unwrap();
+        reset_should_redraw();
     }
 
     engine::SCREEN.write().unwrap().reinit_depth();

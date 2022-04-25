@@ -1,6 +1,6 @@
 use std::ffi::CString;
 
-use gl::types::{GLfloat, GLint, GLuint};
+use gl::types::{GLint, GLuint};
 
 use crate::common::gl_error_check;
 
@@ -19,18 +19,18 @@ fn get_uniform_id(program: GLuint, name_str: &str) -> GLint {
 type Uniform = GLint;
 
 pub struct Uniforms {
-    pub projection: GLint,
-    pub viewport: GLint,
-    pub camera: GLint,
-    pub input_font_bitmap_size: GLint,
-    pub input_font_glyph_size: GLint,
-    pub output_glyph_scale: GLint,
-    pub window_size: GLint,
+    pub projection: Uniform,
+    pub viewport: Uniform,
+    pub camera: Uniform,
+    pub input_font_bitmap_size: Uniform,
+    pub input_font_glyph_size: Uniform,
+    pub output_glyph_scale: Uniform,
+    pub window_size: Uniform,
 }
 
 impl Uniforms {
     pub fn fetch_for_program(id: GLuint) -> Uniforms {
-        Uniforms{
+        Uniforms {
             projection: get_uniform_id(id, "u_Projection"),
             viewport: get_uniform_id(id, "u_Viewport"),
             camera: get_uniform_id(id, "u_Camera"),

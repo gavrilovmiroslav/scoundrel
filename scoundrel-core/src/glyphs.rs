@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-use crate::colors::{BLACK, Color, GRAY};
+use crate::colors::{Color, BLACK, GRAY};
 use crate::engine;
-use crate::rascal::interpreter::{rascal_value_as_string, rascal_value_as_sym, RascalValue};
+use crate::rascal::interpreter::{rascal_value_as_sym, RascalValue};
 use crate::rascal::parser::SystemPrioritySize;
+use std::collections::HashMap;
 
 #[derive(Copy, Clone)]
-#[no_mangle]
 #[repr(C)]
 pub struct Glyph {
     pub symbol: u32,
@@ -16,7 +15,7 @@ pub struct Glyph {
 impl Default for Glyph {
     fn default() -> Self {
         Glyph {
-            symbol: '#' as u32,
+            symbol: ' ' as u32,
             foreground: *GRAY,
             background: *BLACK,
         }
@@ -34,47 +33,54 @@ pub fn cls() {
     }
 }
 
-
-pub fn print_field(field: &HashMap<usize, RascalValue>, fore: Color, back: Color, prio: SystemPrioritySize) {
+pub fn print_field(field: &HashMap<usize, RascalValue>, prio: SystemPrioritySize) {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         for (&index, v) in field {
-            if index < 0 { return; }
-            if index >= screen.limit { return; }
+            if index >= screen.limit {
+                return;
+            }
 
             if screen.symbol_depth[index] <= prio {
                 screen.symbol_depth[index] = prio;
-                let mut glyphs = screen.glyphs_mut();
+                let glyphs = screen.glyphs_mut();
                 glyphs[index].symbol = rascal_value_as_sym(v) as u32;
             }
         }
     }
 }
 
-pub fn print_string_colors(position: (u32, u32), text: &str, fore: Color, back: Color, prio: SystemPrioritySize) {
+pub fn print_string_colors(
+    position: (u32, u32),
+    text: &str,
+    fore: Color,
+    back: Color,
+    prio: SystemPrioritySize,
+) {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
         let mut index = screen.get_index_for_position(position).clone() as usize;
 
         for letter in text.chars() {
-            if index < 0 { return; }
-            if index >= screen.limit { return; }
+            if index >= screen.limit {
+                return;
+            }
 
             if screen.symbol_depth[index] <= prio {
                 screen.symbol_depth[index] = prio;
-                let mut glyphs = screen.glyphs_mut();
+                let glyphs = screen.glyphs_mut();
                 glyphs[index].symbol = letter as u32;
             }
 
             if screen.fg_depth[index] <= prio {
                 screen.fg_depth[index] = prio;
-                let mut glyphs = screen.glyphs_mut();
+                let glyphs = screen.glyphs_mut();
                 glyphs[index].foreground = fore;
             }
 
             if screen.bg_depth[index] <= prio {
                 screen.bg_depth[index] = prio;
-                let mut glyphs = screen.glyphs_mut();
+                let glyphs = screen.glyphs_mut();
                 glyphs[index].background = back;
             }
 
@@ -83,22 +89,29 @@ pub fn print_string_colors(position: (u32, u32), text: &str, fore: Color, back: 
     }
 }
 
-pub fn paint_tile(position: (u32, u32), fore: Option<Color>, back: Option<Color>, prio: SystemPrioritySize) {
+pub fn paint_tile(
+    position: (u32, u32),
+    fore: Option<Color>,
+    back: Option<Color>,
+    prio: SystemPrioritySize,
+) {
     let mut screen = engine::SCREEN.write().unwrap();
     if screen.is_ready() {
-        let mut index = screen.get_index_for_position(position).clone() as usize;
-        if index < 0 { return; }
-        if index >= screen.limit { return; }
+        let index = screen.get_index_for_position(position).clone() as usize;
+
+        if index >= screen.limit {
+            return;
+        }
 
         if fore.is_some() && screen.fg_depth[index] <= prio {
             screen.fg_depth[index] = prio;
-            let mut glyphs = screen.glyphs_mut();
+            let glyphs = screen.glyphs_mut();
             glyphs[index].foreground = fore.unwrap();
         }
 
         if back.is_some() && screen.bg_depth[index] <= prio {
             screen.bg_depth[index] = prio;
-            let mut glyphs = screen.glyphs_mut();
+            let glyphs = screen.glyphs_mut();
             glyphs[index].background = back.unwrap();
         }
     }

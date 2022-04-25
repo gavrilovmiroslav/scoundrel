@@ -30,10 +30,6 @@ type ProcId = String;
 
 pub const MAX_ENTRIES_PER_STORAGE: usize = 1024;
 const MAX_COMPONENTS: usize = 1024;
-const AVERAGE_COMPONENT_SIZE: usize = 50;
-const JUST_TO_BE_SAFE_FACTOR: usize = 5;
-const ARENA_SIZE: usize =
-    MAX_ENTRIES_PER_STORAGE * MAX_COMPONENTS * AVERAGE_COMPONENT_SIZE * JUST_TO_BE_SAFE_FACTOR;
 
 pub type BinaryComponent = Vec<u8>;
 
@@ -163,7 +159,7 @@ impl World {
         let events = SYSTEM_DEPENDENCIES.lock().unwrap();
         let systems = REGISTERED_SYSTEMS.lock().unwrap();
         let cached_dependencies = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
-        for (event_name, dependent_systems) in &*events {
+        for (event_name, _dependent_systems) in &*events {
             if *event_name == "Tick" {
                 continue;
             }
@@ -264,7 +260,7 @@ impl World {
             }
 
             let mut system_dependencies = SYSTEM_DEPENDENCIES.lock().unwrap();
-            let mut dependencies = system_dependencies
+            let dependencies = system_dependencies
                 .get_mut(&depends_on_event_queue)
                 .unwrap();
             dependencies.push(sys_with_id.name.clone(), SystemPrioritySize::MAX - priority);
@@ -355,8 +351,9 @@ impl AddComponent<u8> for World {
                 36..39,
                 format!("Component type storage for {} not registered", comp_type),
                 "this really should be a warning later on",
-            ); // TODO!
-            list.show_stdout(&Stylesheet::colored());
+            )
+            .unwrap(); // TODO!
+            list.show_stdout(&Stylesheet::colored()).unwrap();
             return;
         }
 
@@ -367,8 +364,9 @@ impl AddComponent<u8> for World {
                 35..38,
                 format!("Component type bitmap for {} not registered", comp_type),
                 "this really should be a warning later on",
-            ); // TODO!
-            list.show_stdout(&Stylesheet::colored());
+            )
+            .unwrap(); // TODO!
+            list.show_stdout(&Stylesheet::colored()).unwrap();
             return;
         }
 
@@ -382,7 +380,7 @@ impl AddComponent<u8> for World {
             };
 
             unsafe {
-                let mut comp_storage_ptr = self
+                let comp_storage_ptr = self
                     .storage_pointers
                     .get_mut(&comp_type)
                     .unwrap()
@@ -413,7 +411,7 @@ impl AddComponent<RascalValue> for World {
 
 impl TriggerEvent<u8> for World {
     fn trigger_event(&mut self, comp_type: &str, comp_value: Vec<u8>) {
-        if let Some(mut queue) = self.next_event_queues.get_mut(comp_type) {
+        if let Some(queue) = self.next_event_queues.get_mut(comp_type) {
             queue.push_back(comp_value);
         }
     }

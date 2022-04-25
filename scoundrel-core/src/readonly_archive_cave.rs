@@ -1,8 +1,8 @@
-use std::fs::{File, remove_file};
+use std::fs::{remove_file, File};
 use std::path::Path;
 
-use caves::Cave;
 use caves::res::Res;
+use caves::Cave;
 use filearco::v1::FileArco;
 
 pub struct ReadonlyArchiveCave {
@@ -16,11 +16,11 @@ impl Cave for ReadonlyArchiveCave {
         Ok(data)
     }
 
-    fn set(&self, name: &str, data: &[u8]) -> Res {
+    fn set(&self, _name: &str, _data: &[u8]) -> Res {
         panic!("You're attempting to set values in a read-only archive.");
     }
 
-    fn delete(&self, name: &str) -> Res {
+    fn delete(&self, _name: &str) -> Res {
         panic!("You're attempting to delete values from a read-only archive.");
     }
 }

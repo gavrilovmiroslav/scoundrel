@@ -1,5 +1,58 @@
 use serde::*;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum GamepadAxis {
+    LeftStickX,
+    LeftStickY,
+    LeftZ,
+    RightStickX,
+    RightStickY,
+    RightZ,
+    DPadX,
+    DPadY,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum GamepadButton {
+    South,
+    East,
+    North,
+    West,
+    C,
+    Z,
+    LeftTrigger,
+    LeftTrigger2,
+    RightTrigger,
+    RightTrigger2,
+    Select,
+    Start,
+    Mode,
+    LeftThumb,
+    RightThumb,
+    DPadUp,
+    DPadDown,
+    DPadLeft,
+    DPadRight,
+    Unknown,
+}
+
+pub type GamepadID = usize;
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u32)]
+#[derive(Serialize, Deserialize)]
+pub enum GamepadState {
+    ButtonPressed(GamepadID, GamepadButton),
+    ButtonRepeated(GamepadID, GamepadButton),
+    ButtonChanged(GamepadID, GamepadButton, f32),
+    ButtonReleased(GamepadID, GamepadButton),
+    AxisValueChanged(GamepadID, GamepadAxis, f32),
+    Connected(GamepadID),
+    Disconnected(GamepadID),
+    Dropped(GamepadID),
+}
+
 /// Symbolic name for a keyboard key.
 #[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
 #[repr(u32)]
@@ -156,7 +209,7 @@ pub enum KeyState {
     Multiply,
     Mute,
     MyComputer,
-    NavigateForward, // also called "Prior"
+    NavigateForward,  // also called "Prior"
     NavigateBackward, // also called "Next"
     NextTrack,
     NoConvert,
@@ -197,7 +250,6 @@ pub enum KeyState {
     Paste,
     Cut,
 }
-
 
 pub fn key_action_to_name(action: ElementState) -> &'static str {
     match action {
@@ -273,21 +325,6 @@ pub fn keystate_to_name(keystate: KeyState) -> &'static str {
         KeyState::Y => "Y",
         KeyState::Z => "Z",
         KeyState::Escape => "Escape",
-        KeyState::F1 => "F1",
-        KeyState::F2 => "F2",
-        KeyState::F3 => "F3",
-        KeyState::F4 => "F4",
-        KeyState::F5 => "F5",
-        KeyState::F6 => "F6",
-        KeyState::F7 => "F7",
-        KeyState::F8 => "F8",
-        KeyState::F9 => "F9",
-        KeyState::F10 => "F10",
-        KeyState::F11 => "F11",
-        KeyState::F12 => "F12",
-        KeyState::F13 => "F13",
-        KeyState::F14 => "F14",
-        KeyState::F15 => "F15",
         KeyState::Snapshot => "Snapshot",
         KeyState::Scroll => "Scroll",
         KeyState::Pause => "Pause",
@@ -403,7 +440,7 @@ pub struct ModifiersState {
     /// The "logo" key
     ///
     /// This is the "windows" key on PC and "command" key on Mac.
-    pub logo: bool
+    pub logo: bool,
 }
 
 /// Describes the input state of a key.
@@ -429,6 +466,9 @@ pub struct MouseState {
 
 impl MouseState {
     pub fn new(bt: MouseButton, st: ElementState) -> MouseState {
-        MouseState{ button: bt, state: st }
+        MouseState {
+            button: bt,
+            state: st,
+        }
     }
 }

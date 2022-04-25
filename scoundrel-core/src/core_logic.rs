@@ -1,11 +1,11 @@
+use crate::engine;
+use crate::engine::WORLD;
 use std::time::Instant;
 
-use scoundrel_common::engine;
-use scoundrel_common::engine::WORLD;
-use scoundrel_common::glyphs::cls;
-use scoundrel_common::keycodes::{key_action_to_name, keystate_to_name};
-use scoundrel_common::rascal::interpreter::{num, text};
-use scoundrel_common::rascal::world::TriggerEvent;
+use crate::glyphs::cls;
+use crate::keycodes::{key_action_to_name, keystate_to_name};
+use crate::rascal::interpreter::{num, text};
+use crate::rascal::world::TriggerEvent;
 
 pub fn clear_screen() {
     cls();
@@ -15,11 +15,17 @@ pub fn pass_input_events_to_rascal() {
     let mut queue = engine::KEYBOARD_EVENTS.lock().unwrap();
     while let Some((key, action)) = queue.pop_front() {
         let mut world = WORLD.lock().unwrap();
-        world.trigger_event("KeyPress", vec![ text(keystate_to_name(key)), text(key_action_to_name(action)) ]);
+        world.trigger_event(
+            "KeyPress",
+            vec![
+                text(keystate_to_name(key)),
+                text(key_action_to_name(action)),
+            ],
+        );
     }
     drop(queue);
 
-    let mut mouse_cursor = engine::MOUSE_POSITIONS.lock().unwrap();
+    let mouse_cursor = engine::MOUSE_POSITIONS.lock().unwrap();
     let mut world = WORLD.lock().unwrap();
     let (x, y) = (mouse_cursor.x, mouse_cursor.y);
     if (x >= 0 && x < 64) && (x >= 0 && y < 48) {
@@ -40,5 +46,5 @@ pub fn track_fps() {
     }
 
     let mut world = WORLD.lock().unwrap();
-    world.trigger_event("FPS", vec![ num(frame_counter.cached() as i32) ]);
+    world.trigger_event("FPS", vec![num(frame_counter.cached() as i32)]);
 }

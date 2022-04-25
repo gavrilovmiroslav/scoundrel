@@ -5,8 +5,9 @@
     vsync: false,
     presentation: "classic_roguelike_white",
 
+    use_rascal: false,
     scripts: [
         "default.rascal",
         "tutorial.rascal",
-    ]
+    ],
 )

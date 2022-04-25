@@ -1,8 +1,7 @@
 use lazy_static::*;
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 #[derive(Copy, Clone, Debug)]
-#[no_mangle]
 #[repr(C)]
 pub struct Color {
     pub hue: u8,
@@ -19,12 +18,22 @@ impl From<(u8, u8, u8)> for Color {
 
 impl Color {
     pub fn new(h: u8, s: u8, v: u8) -> Self {
-        Color { hue: h, sat: s, val: v, eff: 0 }
+        Color {
+            hue: h,
+            sat: s,
+            val: v,
+            eff: 0,
+        }
     }
 
     pub fn rand() -> Color {
         let mut rng = thread_rng();
-        Color { hue: rng.gen_range(0..255), sat: rng.gen_range(0..255), val: rng.gen_range(0..255), eff: 0 }
+        Color {
+            hue: rng.gen_range(0..255),
+            sat: rng.gen_range(0..255),
+            val: rng.gen_range(0..255),
+            eff: 0,
+        }
     }
 }
 

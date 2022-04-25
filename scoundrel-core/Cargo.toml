@@ -6,6 +6,23 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-scoundrel-common = { path = "../scoundrel-common" }
+structopt = "0.3.26"
+ron = "0.7"
+serde = { version = "1", features = ["derive"] }
+
 rand = "0.8.5"
 lazy_static = "1.4.0"
+
+sparseset = "0.1.0"
+pest = "2.1.3"
+pest_derive = "2.1.0"
+arena-rs = "0.1.1"
+bitmaps = "3.1.0"
+show-my-errors = "0.1.3"
+notify = "4.0.0"
+priority-queue = "1.2.1"
+caves = "0.2.1"
+filearco = "0.1.0"
+bresenham = "0.1.1"
+
+rand_chacha = "0.3.1"

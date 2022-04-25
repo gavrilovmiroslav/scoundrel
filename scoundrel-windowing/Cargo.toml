@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-scoundrel-common = { path = "../scoundrel-common" }
 scoundrel-core = { path = "../scoundrel-core" }
 glutin = "0.20"
 gl = "0.14.0"
@@ -13,3 +12,4 @@ image = "0.23"
 libc = "*"
 rand = "0.8.4"
 static_assertions = "1.1.0"
+gilrs = "0.8.2"

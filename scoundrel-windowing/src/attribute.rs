@@ -1,6 +1,5 @@
-use std::ffi::c_void;
-use std::mem::size_of;
 use gl::types::*;
+use std::ffi::c_void;
 
 #[derive(Clone, Copy)]
 pub struct AttribPosition(pub GLuint);
@@ -11,9 +10,13 @@ impl Into<u32> for AttribPosition {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub enum AttribSize {
-    One, Two, Three, Four,
+    One,
+    Two,
+    Three,
+    Four,
 }
 
 impl AttribSize {
@@ -25,37 +28,36 @@ impl AttribSize {
             AttribSize::Four => 4,
         }
     }
-
-    pub fn as_u32(self) -> u32 {
-        match self {
-            AttribSize::One => 1,
-            AttribSize::Two => 2,
-            AttribSize::Three => 3,
-            AttribSize::Four => 4,
-        }
-    }
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy)]
 pub enum AttribType {
-    Byte, UnsignedByte,
-    HalfFloat, Short, UnsignedShort,
-    Float, Int, UnsignedInt, Int2101010Rev,
-    UnsignedInt2101010Rev, UnsignedInt10F11F11FRev,
+    Byte,
+    UnsignedByte,
+    HalfFloat,
+    Short,
+    UnsignedShort,
+    Float,
+    Int,
+    UnsignedInt,
+    Int2101010Rev,
+    UnsignedInt2101010Rev,
+    UnsignedInt10F11F11FRev,
     Double,
 }
 
 impl AttribType {
     pub fn is_int(&self) -> bool {
         match self {
-            AttribType::Byte |
-            AttribType::UnsignedByte |
-            AttribType::Short |
-            AttribType::UnsignedShort |
-            AttribType::Int |
-            AttribType::UnsignedInt => true,
+            AttribType::Byte
+            | AttribType::UnsignedByte
+            | AttribType::Short
+            | AttribType::UnsignedShort
+            | AttribType::Int
+            | AttribType::UnsignedInt => true,
 
-            _ => false
+            _ => false,
         }
     }
 
@@ -119,8 +121,18 @@ impl BufferMapping {
         }
     }
 
-    pub fn with_attrib(&mut self, name: &str, position: AttribPosition, size: AttribSize, kind: AttribType) -> &mut Self {
-        let attrib = Attribute{ position, size, kind };
+    pub fn with_attrib(
+        &mut self,
+        _name: &str,
+        position: AttribPosition,
+        size: AttribSize,
+        kind: AttribType,
+    ) -> &mut Self {
+        let attrib = Attribute {
+            position,
+            size,
+            kind,
+        };
         self.attributes.push(attrib);
         self
     }
@@ -129,9 +141,10 @@ impl BufferMapping {
         let mut pointer = starting_pointer;
 
         unsafe {
-            let stride = self.attributes.iter().fold(0, |all, x| {
-                all + x.size.as_i32() * x.kind.stride()
-            });
+            let stride = self
+                .attributes
+                .iter()
+                .fold(0, |all, x| all + x.size.as_i32() * x.kind.stride());
 
             for attrib in &self.attributes {
                 let glen: GLenum = attrib.kind.into();
@@ -166,6 +179,3 @@ impl BufferMapping {
         }
     }
 }
-
-
-
