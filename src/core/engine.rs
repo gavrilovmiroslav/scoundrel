@@ -1,5 +1,14 @@
+use crate::core::engine_options::EngineOptions;
+use crate::core::glyphs::Glyph;
+use crate::core::input::{Input, InputState};
+use crate::core::point::Point;
+use crate::core::presentation::Presentation;
+use lazy_static::lazy_static;
+use notify::DebouncedEvent;
+use notify::RecommendedWatcher;
+use notify::{watcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
-use std::collections::VecDeque;
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -12,22 +21,6 @@ use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::Instant;
-
-use crate::core::helpers;
-use lazy_static::lazy_static;
-use notify::{watcher, DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
-
-use crate::core::engine_options::EngineOptions;
-use crate::core::glyphs::Glyph;
-use crate::core::keycodes::GamepadState;
-use crate::core::keycodes::{Key, KeyStatus, MouseState};
-use crate::core::point::Point;
-use crate::core::presentation::Presentation;
-use crate::core::rascal::parser::{parse_rascal, ComponentType, RascalStruct, SystemPrioritySize};
-use crate::core::rascal::world::{send_start_event, World};
-use crate::core::rascal::world::{
-    CACHED_SYSTEMS_BY_PRIORITIES, REGISTERED_SYSTEMS, SYSTEM_DEPENDENCIES,
-};
 
 #[derive(Clone, Default)]
 pub struct FrameCounter {
@@ -55,9 +48,9 @@ impl FrameCounter {
 #[derive(Clone)]
 pub struct Screen {
     pub screen_memory: Option<Vec<Glyph>>,
-    pub symbol_depth: Vec<SystemPrioritySize>,
-    pub fg_depth: Vec<SystemPrioritySize>,
-    pub bg_depth: Vec<SystemPrioritySize>,
+    pub symbol_depth: Vec<u32>,
+    pub fg_depth: Vec<u32>,
+    pub bg_depth: Vec<u32>,
     pub size: (u32, u32),
     pub limit: usize,
 }
@@ -142,16 +135,11 @@ lazy_static! {
     pub static ref STOPWATCH: Arc<Mutex<Instant>> = Arc::new(Mutex::new(Instant::now()));
     pub static ref FRAME_COUNTER: Arc<Mutex<FrameCounter>> =
         Arc::new(Mutex::new(FrameCounter::default()));
-    pub static ref GAMEPAD_EVENTS: Arc<Mutex<VecDeque<GamepadState>>> =
-        Arc::new(Mutex::new(VecDeque::default()));
-    pub static ref KEYBOARD_EVENTS: Arc<Mutex<VecDeque<(Key, KeyStatus)>>> =
-        Arc::new(Mutex::new(VecDeque::default()));
-    pub static ref MOUSE_EVENTS: Arc<Mutex<VecDeque<MouseState>>> =
-        Arc::new(Mutex::new(VecDeque::default()));
-    pub static ref MOUSE_POSITIONS: Arc<Mutex<Point>> = Arc::new(Mutex::new((0, 0).into()));
+    pub static ref INPUT_EVENTS: Arc<Mutex<HashMap<Input, InputState>>> =
+        Arc::new(Mutex::new(HashMap::default()));
+    pub static ref MOUSE_POSITIONS: Arc<Mutex<Point>> = Arc::new(Mutex::new((0i16, 0i16).into()));
     pub static ref SCREEN: Arc<RwLock<Screen>> = Arc::new(RwLock::new(Screen::new()));
     pub static ref SHOULD_REDRAW: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
-    pub static ref WORLD: Arc<Mutex<World>> = Arc::new(Mutex::new(World::default()));
     pub static ref WATCHER: Mutex<Option<RecommendedWatcher>> = Mutex::new(None);
     pub static ref WATCH_RECEIVER: Mutex<Option<Receiver<DebouncedEvent>>> = Mutex::new(None);
 }
@@ -220,7 +208,6 @@ pub fn snoop_for_data_changes() -> Option<DataChange> {
 }
 
 pub fn start_engine(opts: EngineOptions) {
-    let use_rascal = opts.use_rascal;
     *ENGINE_OPTIONS.lock().unwrap() = opts;
 
     let mut presentations = PRESENTATIONS.lock().unwrap();
@@ -263,18 +250,9 @@ pub fn start_engine(opts: EngineOptions) {
             panic!("WATCHER CAN'T WATCH THIS FOLDER!");
         }
     }
-
-    if use_rascal {
-        {
-            let mut world = WORLD.lock().unwrap();
-            world.register_component(RascalStruct::Tag("Main".to_string()));
-        }
-
-        rebuild_world("prelude.rascal");
-    }
 }
 
-pub fn set_should_redraw() {
+pub fn force_redraw() {
     SHOULD_REDRAW.store(true, Ordering::Release)
 }
 
@@ -294,206 +272,12 @@ pub fn force_quit() {
     SHOULD_QUIT.store(true, Ordering::Release);
 }
 
-#[allow(dead_code)]
-fn remove_structure(world: &mut World, structure: &RascalStruct) {
-    match structure {
-        RascalStruct::State(state) => {
-            world.registered_states.remove(&state.name);
-            world.storage_pointers.remove(&state.name);
-            world.storage_bitmaps.remove(&state.name);
-        }
-        RascalStruct::Event(event) => {
-            world.registered_events.remove(&event.name);
-            world.event_queues.remove(&event.name);
-            world.next_event_queues.remove(&event.name);
-        }
-        RascalStruct::Tag(tag) => {
-            world.registered_tags.remove(tag);
-            world.storage_bitmaps.remove(tag);
-        }
-        RascalStruct::System(sys) => {
-            REGISTERED_SYSTEMS.lock().unwrap().remove(&sys.name);
-            SYSTEM_DEPENDENCIES.lock().unwrap().remove(&sys.name);
-            CACHED_SYSTEMS_BY_PRIORITIES
-                .lock()
-                .unwrap()
-                .remove(&sys.name);
-        }
-        RascalStruct::Proc(_name, _members, _block) => {}
-        RascalStruct::Unique(_name, _datatype, _subtype, _val) => {
-            unreachable!()
-        }
-    }
-}
-
-pub fn rebuild_world(source_name: &str) {
-    println!("[========================================= REBUILDING WORLD ({}) =========================================================]", source_name);
-
-    let mut world = WORLD.lock().unwrap();
-
-    if let Ok(data) = world.data.get(source_name) {
-        let src = std::str::from_utf8(data.as_slice());
-        let ast = parse_rascal(src.unwrap());
-        world.clear_entities();
-
-        if world.definitions_in_source.contains_key(source_name) {
-            for (id, typ) in world
-                .definitions_in_source
-                .get(source_name)
-                .unwrap()
-                .clone()
-            {
-                println!("[!] Resetting {}", id);
-                match typ {
-                    ComponentType::State => {
-                        world.component_types.remove(&id);
-                        world.registered_states.remove(&id);
-                        world.storage_bitmaps.remove(&id);
-                        world.storage_pointers.remove(&id);
-                    }
-                    ComponentType::Event => {
-                        world.component_types.remove(&id);
-                        world.registered_events.remove(&id);
-                        world.event_queues.remove(&id);
-                        world.next_event_queues.remove(&id);
-                    }
-                    ComponentType::Tag => {
-                        world.component_types.remove(&id);
-                        world.registered_tags.remove(&id);
-                        world.storage_bitmaps.remove(&id);
-                    }
-                    ComponentType::System => {
-                        REGISTERED_SYSTEMS.lock().unwrap().remove(&id);
-                    }
-                    ComponentType::Unique => {
-                        println!("THIS UNREACHABLE NEEDS TO BE FIXED!");
-                        unreachable!()
-                    }
-                    ComponentType::Proc => {
-                        println!("THIS UNREACHABLE NEEDS TO BE FIXED!");
-                        unreachable!()
-                    }
-                }
-            }
-
-            world.definitions_in_source.remove(source_name);
-        }
-
-        world
-            .definitions_in_source
-            .insert(source_name.to_string(), Vec::new());
-        for structure in ast {
-            println!("Defining {}", structure.get_name());
-            world
-                .definitions_in_source
-                .get_mut(source_name)
-                .unwrap()
-                .push((structure.get_name().to_string(), structure.get_type()));
-
-            if structure.is_component() {
-                world.register_component(structure);
-            } else {
-                world.register_system(structure);
-            }
-        }
-
-        let deps = SYSTEM_DEPENDENCIES.lock().unwrap();
-        let mut cache = CACHED_SYSTEMS_BY_PRIORITIES.lock().unwrap();
-        for comp in deps.keys() {
-            println!(
-                "CACHED EVENT TRACE for {}: \n\t{:?}",
-                comp,
-                deps.get(comp)
-                    .unwrap()
-                    .clone()
-                    .into_sorted_iter()
-                    .map(|(s, _p)| s)
-                    .collect::<Vec<_>>()
-            );
-            cache.insert(
-                comp.clone(),
-                deps.get(comp)
-                    .unwrap()
-                    .clone()
-                    .into_sorted_iter()
-                    .map(|(s, _p)| s)
-                    .collect(),
-            );
-        }
-    } else {
-        println!("Error: script file {} not found.", source_name);
-    }
-    println!("[=========================================================================================================================]");
-}
-
-pub fn update_world() {
-    WORLD.lock().unwrap().run_all_systems();
-}
-
-pub type ThreadState = JoinHandle<()>;
-
-pub type PreSupportSystems = Vec<fn()>;
-pub type PostSupportSystems = Vec<fn()>;
-
-pub struct Engine {
-    pub options: EngineOptions,
-    pub pre_support_systems: PreSupportSystems,
-    pub post_support_systems: PostSupportSystems,
-}
+pub struct Engine {}
 
 impl Engine {
-    pub fn new(options: EngineOptions) -> Engine {
-        start_engine(options.clone());
-
-        Engine {
-            options,
-            pre_support_systems: Vec::new(),
-            post_support_systems: Vec::new(),
-        }
-    }
-
-    pub fn run(&self, main_loop: fn(PreSupportSystems, PostSupportSystems)) {
-        let pre = self.pre_support_systems.clone();
-        let post = self.post_support_systems.clone();
-
-        thread::spawn(move || main_loop(pre, post)).join().unwrap();
+    pub fn run(main_loop: fn()) {
+        thread::spawn(move || main_loop).join().unwrap();
 
         println!("=| Killing main thread");
     }
-}
-
-pub fn start_with_systems(pre: Vec<fn()>, post: Vec<fn()>, event_loop: fn(Vec<fn()>, Vec<fn()>)) {
-    let mut engine = Engine::new(EngineOptions::default());
-
-    if engine.options.use_rascal {
-        for script in engine.options.scripts.clone() {
-            rebuild_world(script.as_str());
-        }
-
-        send_start_event();
-
-        for sys in [
-            helpers::clear_screen,
-            helpers::pass_input_events_to_rascal,
-            helpers::track_fps,
-        ] {
-            engine.pre_support_systems.push(sys);
-        }
-
-        for sys in [
-            // add systems here
-        ] {
-            engine.post_support_systems.push(sys);
-        }
-    }
-
-    for sys in pre {
-        engine.pre_support_systems.push(sys);
-    }
-
-    for sys in post {
-        engine.post_support_systems.push(sys);
-    }
-
-    engine.run(event_loop);
 }

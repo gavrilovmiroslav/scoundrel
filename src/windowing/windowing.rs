@@ -6,16 +6,12 @@ use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
 use glutin::*;
 
-use crate::core::engine::{
-    get_filename_when_changed, rebuild_world, reset_should_redraw, should_quit, should_redraw,
-    update_world,
-};
-use crate::core::keycodes::{GamepadState, Key, MouseState};
-use crate::core::rascal::world::send_start_event;
-use crate::core::{engine, keycodes};
-
+use crate::core::engine;
+use crate::core::engine::{reset_should_redraw, should_redraw, start_engine};
+use crate::core::engine_options::EngineOptions;
+use crate::core::input::{Input, InputState};
 use crate::windowing::common::gl_error_check;
-use crate::windowing::gamepad::{gilrs_to_axis, gilrs_to_button};
+use crate::windowing::gamepad::gilrs_to_button;
 use crate::windowing::glyph_renderer::GlyphRenderer;
 
 #[no_mangle]
@@ -24,62 +20,73 @@ pub static NvOptimusEnablement: u64 = 0x00000001;
 #[no_mangle]
 pub static AmdPowerXpressRequestHighPerformance: u64 = 0x00000001;
 
-fn transmute_keycode(vk: VirtualKeyCode) -> Key {
-    unsafe { std::mem::transmute(vk) }
+pub struct Scoundrel {
+    pub event_loop: EventsLoop,
+    pub gl_context: WindowedContext,
+    pub pipeline: GlyphRenderer,
+    pub gamepad: Gilrs,
+    pub is_done: bool,
 }
 
-fn transmute_element_state(ek: ElementState) -> keycodes::KeyStatus {
-    unsafe { std::mem::transmute(ek) }
+impl Default for Scoundrel {
+    fn default() -> Self {
+        Scoundrel::new(EngineOptions::default())
+    }
 }
 
-fn transmute_mouse(mb: MouseButton, st: ElementState) -> MouseState {
-    MouseState::new(unsafe { std::mem::transmute(mb) }, unsafe {
-        std::mem::transmute(st)
-    })
-}
+impl Scoundrel {
+    pub fn new(opts: EngineOptions) -> Scoundrel {
+        start_engine(opts);
 
-pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: Vec<fn()>) {
-    let mut event_loop = EventsLoop::new();
+        let mut event_loop = EventsLoop::new();
 
-    let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
+        let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
 
-    let window_builder = WindowBuilder::new()
-        .with_title(engine_options.title.as_str())
-        .with_resizable(false)
-        .with_dimensions(LogicalSize::new(
-            engine_options.window_size.0 as f64,
-            engine_options.window_size.1 as f64,
-        ));
+        let window_builder = WindowBuilder::new()
+            .with_title(engine_options.title.as_str())
+            .with_resizable(false)
+            .with_dimensions(LogicalSize::new(
+                engine_options.window_size.0 as f64,
+                engine_options.window_size.1 as f64,
+            ));
 
-    let gl_context = glutin::ContextBuilder::new()
-        .with_gl(GlRequest::Specific(Api::OpenGl, (4, 4)))
-        .with_vsync(false)
-        .build_windowed(window_builder, &event_loop)
-        .unwrap();
+        let gl_context = glutin::ContextBuilder::new()
+            .with_gl(GlRequest::Specific(Api::OpenGl, (4, 4)))
+            .with_vsync(false)
+            .build_windowed(window_builder, &event_loop)
+            .unwrap();
 
-    let pipeline = render_prepare(&gl_context);
+        let pipeline = render_prepare(&gl_context);
+        let gil = Gilrs::new().unwrap();
+        let done = false;
 
-    let mut gil = Gilrs::new().unwrap();
-    for (_id, gamepad) in gil.gamepads() {
-        println!(
-            "{} is {:?} (ff? {})",
-            gamepad.name(),
-            gamepad.power_info(),
-            gamepad.is_ff_supported(),
-        );
+        Scoundrel {
+            event_loop,
+            gl_context,
+            pipeline,
+            gamepad: gil,
+            is_done: done,
+        }
     }
 
-    let mut done = false;
+    pub fn update_inputs(&mut self) {
+        for (_, state) in engine::INPUT_EVENTS.lock().unwrap().iter_mut() {
+            match state {
+                InputState::Released => {
+                    *state = InputState::None;
+                }
+                _ => {}
+            }
+        }
 
-    while !done {
-        event_loop.poll_events(|event| match event {
+        self.event_loop.poll_events(|event| match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
                 engine::force_quit();
 
-                done = true;
+                self.is_done = true;
                 println!("|= Quitting!");
             }
 
@@ -88,92 +95,77 @@ pub fn window_event_loop(pre_support_systems: Vec<fn()>, post_support_systems: V
                 ..
             } => {
                 if let Some(key) = input.virtual_keycode {
-                    engine::KEYBOARD_EVENTS
-                        .lock()
-                        .unwrap()
-                        .push_back((transmute_keycode(key), transmute_element_state(input.state)));
+                    match input.state {
+                        ElementState::Pressed => {
+                            engine::INPUT_EVENTS.lock().unwrap().insert(
+                                Input::Keyboard(unsafe { std::mem::transmute(key) }),
+                                InputState::Pressed,
+                            );
+                        }
+
+                        ElementState::Released => {
+                            engine::INPUT_EVENTS.lock().unwrap().insert(
+                                Input::Keyboard(unsafe { std::mem::transmute(key) }),
+                                InputState::Released,
+                            );
+                        }
+                    };
                 }
             }
 
             Event::WindowEvent {
                 event: WindowEvent::MouseInput { button, state, .. },
                 ..
-            } => {
-                engine::MOUSE_EVENTS
-                    .lock()
-                    .unwrap()
-                    .push_back(transmute_mouse(button, state));
-            }
+            } => match state {
+                ElementState::Pressed => {
+                    engine::INPUT_EVENTS
+                        .lock()
+                        .unwrap()
+                        .insert(Input::Mouse(button), InputState::Pressed);
+                }
+                ElementState::Released => {
+                    engine::INPUT_EVENTS
+                        .lock()
+                        .unwrap()
+                        .insert(Input::Mouse(button), InputState::Released);
+                }
+            },
 
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
             } => {
                 let mut xy = engine::MOUSE_POSITIONS.lock().unwrap();
-                xy.borrow_mut().x = position.x as i32 / 16 as i32;
-                xy.borrow_mut().y = position.y as i32 / 16 as i32;
+                xy.borrow_mut().x = position.x as i16 / 16 as i16;
+                xy.borrow_mut().y = position.y as i16 / 16 as i16;
             }
 
             _ => {}
         });
 
-        while let Some(gilrs::Event { id, event, .. }) = gil.next_event() {
-            let mut gamepad_queue = engine::GAMEPAD_EVENTS.lock().unwrap();
+        while let Some(gilrs::Event { id, event, .. }) = self.gamepad.next_event() {
             match event {
-                EventType::ButtonPressed(button, _) => gamepad_queue.push_back(
-                    GamepadState::ButtonPressed(id.into(), gilrs_to_button(button)),
-                ),
-                EventType::ButtonRepeated(button, _) => gamepad_queue.push_back(
-                    GamepadState::ButtonRepeated(id.into(), gilrs_to_button(button)),
-                ),
-                EventType::ButtonReleased(button, _) => gamepad_queue.push_back(
-                    GamepadState::ButtonReleased(id.into(), gilrs_to_button(button)),
-                ),
-                EventType::ButtonChanged(button, value, _) => gamepad_queue.push_back(
-                    GamepadState::ButtonChanged(id.into(), gilrs_to_button(button), value),
-                ),
-                EventType::AxisChanged(axis, value, _) => gamepad_queue.push_back(
-                    GamepadState::AxisValueChanged(id.into(), gilrs_to_axis(axis), value),
-                ),
-                EventType::Connected => gamepad_queue.push_back(GamepadState::Connected(id.into())),
-                EventType::Disconnected => {
-                    gamepad_queue.push_back(GamepadState::Disconnected(id.into()))
+                EventType::ButtonPressed(button, _) => {
+                    engine::INPUT_EVENTS
+                        .lock()
+                        .unwrap()
+                        .insert(Input::Gamepad(gilrs_to_button(button)), InputState::Pressed);
                 }
-                EventType::Dropped => gamepad_queue.push_back(GamepadState::Dropped(id.into())),
-            }
-        }
 
-        if engine_options.use_rascal {
-            if let Some(path) = get_filename_when_changed() {
-                let current_dir = std::env::current_dir()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_string()
-                    + "\\resources/data\\";
-                let change_path = path.to_str().unwrap().replace(&current_dir, "");
-                rebuild_world(&change_path);
-                send_start_event();
-            }
-        }
+                EventType::ButtonReleased(button, _) => {
+                    engine::INPUT_EVENTS.lock().unwrap().insert(
+                        Input::Gamepad(gilrs_to_button(button)),
+                        InputState::Released,
+                    );
+                }
 
-        for sys in &pre_support_systems {
-            sys();
+                _ => {}
+            };
         }
+    }
 
-        if engine_options.use_rascal {
-            update_world();
-        }
-
-        render_frame(&gl_context, &pipeline);
-
-        for sys in &post_support_systems {
-            sys();
-        }
-
-        if should_quit() {
-            done = true;
-        }
+    pub fn render(&self) {
+        render_frame(&self.gl_context, &self.pipeline);
     }
 }
 

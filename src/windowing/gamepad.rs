@@ -1,19 +1,5 @@
-use crate::core::keycodes::{GamepadAxis, GamepadButton};
+use crate::core::input::{GamepadAxis, GamepadButton};
 use gilrs::{Axis, Button};
-
-pub fn gilrs_to_axis(axis: Axis) -> GamepadAxis {
-    match axis {
-        Axis::LeftStickX => GamepadAxis::LeftStickX,
-        Axis::LeftStickY => GamepadAxis::LeftStickY,
-        Axis::LeftZ => GamepadAxis::LeftZ,
-        Axis::RightStickX => GamepadAxis::RightStickX,
-        Axis::RightStickY => GamepadAxis::RightStickY,
-        Axis::RightZ => GamepadAxis::RightZ,
-        Axis::DPadX => GamepadAxis::DPadX,
-        Axis::DPadY => GamepadAxis::DPadY,
-        Axis::Unknown => GamepadAxis::Unknown,
-    }
-}
 
 pub fn gilrs_to_button(button: Button) -> GamepadButton {
     match button {

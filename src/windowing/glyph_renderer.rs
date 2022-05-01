@@ -6,7 +6,6 @@ use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
 use crate::core::engine;
-use crate::core::engine::WORLD;
 use crate::core::glyphs::Glyph;
 use crate::core::presentation::Presentation;
 
@@ -29,36 +28,25 @@ const FRAGMENT: &str = include_str!("shaders/fragment_shader.glsl");
 
 fn compile_shader(src: &str, ty: GLenum) -> GLuint {
     unsafe {
-        // SAFETY: `ty` is either `gl::VERTEX_SHADER` or `gl::FRAGMENT_SHADER`
         let shader = gl::CreateShader(ty);
         if shader == 0 {
             panic!("gl::CreateShader failed");
         }
 
-        // SAFETY:
-        // `shader` is a shader object created by OpenGL
-        // `count` is one
         let src_ptr: *const _ = &src;
         gl::ShaderSource(shader, 1, src_ptr.cast(), &(src.len() as GLint));
 
-        // SAFETY: `shader` is a shader object created by OpenGL
         gl::CompileShader(shader);
         gl_error_check();
 
-        // Get the compile status
         let mut status = GLint::from(gl::FALSE);
-        // SAFETY: `gl::COMPILE_STATUS` is a valid `pname`
         gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut status);
 
-        // Fail on error
         if status != GLint::from(gl::TRUE) {
             let mut len = 0;
-            // SAFETY: `gl::INFO_LENGTH` is a valid `pname`
             gl::GetShaderiv(shader, gl::INFO_LOG_LENGTH, &mut len);
             let mut buf: Vec<u8> = Vec::with_capacity(len as usize);
-            // SAFETY: `maxLength` is the value of `gl::INFO_LOG_LENGTH`
             gl::GetShaderInfoLog(shader, len, ptr::null_mut(), buf.as_mut_ptr().cast());
-            // SAFETY: the content has been written by `gl::GetShaderInfoLog`
             buf.set_len((len as usize) - 1);
         }
 
@@ -70,42 +58,33 @@ fn compile_program(vertex: &str, fragment: &str) -> GLuint {
     let vs = compile_shader(vertex, gl::VERTEX_SHADER);
     let fs = compile_shader(fragment, gl::FRAGMENT_SHADER);
     unsafe {
-        // SAFETY: can not fail
         let program = gl::CreateProgram();
         if program == 0 {
             panic!("gl::CreateShader failed");
         }
 
-        // SAFETY:
-        // `program` is a valid program object
-        // `vs` and `fs` are both unused valid shader objects
         gl::AttachShader(program, vs);
         gl::AttachShader(program, fs);
 
-        // SAFETY:
-        // `program` is a valid program object and not active
         gl::LinkProgram(program);
         gl_error_check();
 
-        // SAFETY:
-        // `program` is a valid program object
-        // `gl::LINK_STATUS` is a valid `pname`
         let mut status = GLint::from(gl::FALSE);
         gl::GetProgramiv(program, gl::LINK_STATUS, &mut status);
 
         if status != GLint::from(gl::TRUE) {
             let mut len: GLint = 0;
-            // SAFETY: `gl::COMPILE_STATUS` is a valid `pname`
+
             gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut len);
             let mut buf = Vec::with_capacity(len as usize);
-            // SAFETY: `maxLength` is the value of `gl::INFO_LOG_LENGTH`
+
             gl::GetProgramInfoLog(
                 program,
                 len,
                 ptr::null_mut(),
                 buf.as_mut_ptr() as *mut GLchar,
             );
-            // SAFETY: the content has been written by `gl::GetProgramInfoLog`
+
             buf.set_len(len as usize - 1);
             panic!(
                 "{}",
@@ -113,9 +92,6 @@ fn compile_program(vertex: &str, fragment: &str) -> GLuint {
             );
         }
 
-        // SAFETY:
-        // `program` is a valid program object
-        // `fs` and `vs` are both valid shaders and attached to `program`
         gl::DetachShader(program, fs);
         gl::DeleteShader(fs);
         gl::DetachShader(program, vs);
@@ -123,7 +99,6 @@ fn compile_program(vertex: &str, fragment: &str) -> GLuint {
         gl::UseProgram(program);
         gl_error_check();
 
-        // SAFETY: `colorNumber` is zero, which is less than `GL_MAX_DRAW_BUFFERS`
         let color_str = CString::new("color").unwrap();
         gl::BindFragDataLocation(program, 0, color_str.as_ptr());
         program
@@ -141,10 +116,10 @@ pub struct GlyphRenderer {
     pub glyph_buffer_size: usize,
     pub instance_glyphs_vbo: GLuint,
     pub texture: Texture,
-    pub viewport: TMat4<f32>, // TODO: these three could go somewhere else, to be reused
+    pub viewport: TMat4<f32>, // TODO: (low prio) these three could go somewhere else, to be reused
     pub projection: TMat4<f32>,
     pub camera: TMat4<f32>,
-    static_quad_vbo: GLuint, // TODO: move outside so that multiple layers could use it
+    static_quad_vbo: GLuint, // TODO: (low prio) move outside so that multiple layers could use it
 }
 
 impl GlyphRenderer {
@@ -212,8 +187,6 @@ impl GlyphRenderer {
                 (glyph_count_by_width as u32, glyph_count_by_height as u32),
                 glyphs,
             );
-            WORLD.lock().unwrap().size =
-                (glyph_count_by_width as u32, glyph_count_by_height as u32);
 
             gl::BufferData(
                 gl::ARRAY_BUFFER,
