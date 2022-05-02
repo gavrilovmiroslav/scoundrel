@@ -1,6 +1,5 @@
 use crate::core::colors::{Color, BLACK, GRAY, WHITE};
 use crate::core::engine;
-use crate::core::point::Point;
 
 #[derive(Copy, Clone)]
 #[repr(C)]

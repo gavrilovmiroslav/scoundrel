@@ -1,5 +1,5 @@
-use crate::core::input::{GamepadAxis, GamepadButton};
-use gilrs::{Axis, Button};
+use crate::core::input::GamepadButton;
+use gilrs::Button;
 
 pub fn gilrs_to_button(button: Button) -> GamepadButton {
     match button {

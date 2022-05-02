@@ -8,6 +8,7 @@ use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
+#[allow(unused_imports)]
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
@@ -18,7 +19,6 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::RwLock;
 use std::thread;
-use std::thread::JoinHandle;
 use std::time::Duration;
 use std::time::Instant;
 

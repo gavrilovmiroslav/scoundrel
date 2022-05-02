@@ -7,7 +7,7 @@ use glutin::dpi::LogicalSize;
 use glutin::*;
 
 use crate::core::engine;
-use crate::core::engine::{reset_should_redraw, should_redraw, start_engine};
+use crate::core::engine::{reset_should_redraw, should_quit, should_redraw, start_engine};
 use crate::core::engine_options::EngineOptions;
 use crate::core::input::{Input, InputState};
 use crate::windowing::common::gl_error_check;
@@ -25,7 +25,7 @@ pub struct Scoundrel {
     pub gl_context: WindowedContext,
     pub pipeline: GlyphRenderer,
     pub gamepad: Gilrs,
-    pub is_done: bool,
+    is_done: bool,
 }
 
 impl Default for Scoundrel {
@@ -38,7 +38,7 @@ impl Scoundrel {
     pub fn new(opts: EngineOptions) -> Scoundrel {
         start_engine(opts);
 
-        let mut event_loop = EventsLoop::new();
+        let event_loop = EventsLoop::new();
 
         let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
 
@@ -143,7 +143,7 @@ impl Scoundrel {
             _ => {}
         });
 
-        while let Some(gilrs::Event { id, event, .. }) = self.gamepad.next_event() {
+        while let Some(gilrs::Event { event, .. }) = self.gamepad.next_event() {
             match event {
                 EventType::ButtonPressed(button, _) => {
                     engine::INPUT_EVENTS
@@ -166,6 +166,14 @@ impl Scoundrel {
 
     pub fn render(&self) {
         render_frame(&self.gl_context, &self.pipeline);
+    }
+
+    pub fn is_done(&mut self) -> bool {
+        if should_quit() {
+            self.is_done = true;
+        }
+
+        self.is_done
     }
 }
 

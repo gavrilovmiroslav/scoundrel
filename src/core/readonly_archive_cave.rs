@@ -26,6 +26,7 @@ impl Cave for ReadonlyArchiveCave {
 }
 
 impl ReadonlyArchiveCave {
+    #[allow(dead_code)]
     pub fn make_from(dir: &str, output: &str) {
         let data_path = Path::new(dir);
         let output_path = Path::new(output);
@@ -36,6 +37,7 @@ impl ReadonlyArchiveCave {
         FileArco::make(file_data, output).unwrap();
     }
 
+    #[allow(dead_code)]
     pub fn open(path: &'static str) -> ReadonlyArchiveCave {
         let archive = FileArco::new(path).unwrap();
         ReadonlyArchiveCave { archive }
