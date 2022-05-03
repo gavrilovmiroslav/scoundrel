@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy)]
+use std::ops::{Add, AddAssign, Sub, SubAssign};
+
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Point {
     pub x: i16,
     pub y: i16,
@@ -44,4 +46,40 @@ pub fn distance(xy: Point, pq: Point) -> f32 {
     let dx = xy.x as f32 - pq.x as f32;
     let dy = xy.y as f32 - pq.y as f32;
     (dx * dx + dy * dy).sqrt()
+}
+
+impl Add for Point {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            x: self.x + other.x,
+            y: self.y + other.y,
+        }
+    }
+}
+
+impl AddAssign for Point {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl Sub for Point {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        Self {
+            x: self.x - other.x,
+            y: self.y - other.y,
+        }
+    }
+}
+
+impl SubAssign for Point {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
 }

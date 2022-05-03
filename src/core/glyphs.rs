@@ -1,5 +1,5 @@
 use crate::core::colors::{Color, BLACK, GRAY, WHITE};
-use crate::core::engine;
+use crate::core::engine::ENGINE_STATE;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -25,8 +25,8 @@ pub enum GlyphTint {
     BackFore(Color, Color),
 }
 
-pub fn clear() {
-    let mut screen = engine::SCREEN.write().unwrap();
+pub fn clear_screen() {
+    let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
         for glyph in screen.glyphs_mut() {
             glyph.symbol = ' ' as u32;
@@ -51,7 +51,7 @@ pub fn print_string_colors<S: AsRef<str>, P: Into<(u32, u32)>>(
     back: Color,
     depth: u32,
 ) {
-    let mut screen = engine::SCREEN.write().unwrap();
+    let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
         let mut index = screen.get_index_for_position(position.into()).clone() as usize;
 
@@ -89,7 +89,7 @@ pub fn paint_tile<P: Into<(u32, u32)>>(
     back: Option<Color>,
     depth: u32,
 ) {
-    let mut screen = engine::SCREEN.write().unwrap();
+    let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
         let index = screen.get_index_for_position(position.into()).clone() as usize;
 
@@ -112,7 +112,7 @@ pub fn paint_tile<P: Into<(u32, u32)>>(
 }
 
 pub fn paint_all_tiles(fore: Option<Color>, back: Option<Color>) {
-    let mut screen = engine::SCREEN.write().unwrap();
+    let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
         if fore.is_some() {
             let fg = fore.unwrap();

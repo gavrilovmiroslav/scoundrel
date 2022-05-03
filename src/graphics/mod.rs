@@ -5,3 +5,5 @@ pub mod glyph_renderer;
 pub mod texture;
 pub mod uniforms;
 pub mod window;
+
+pub use window::render;

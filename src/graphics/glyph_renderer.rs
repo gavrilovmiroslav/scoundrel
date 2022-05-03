@@ -5,17 +5,16 @@ use gl::types::*;
 use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
-use crate::core::engine;
+use crate::core::engine::ENGINE_STATE;
 use crate::core::glyphs::Glyph;
 use crate::core::presentation::Presentation;
 
-use crate::windowing::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
-use crate::windowing::common::gl_error_check;
-use crate::windowing::texture::Texture;
-use crate::windowing::uniforms::Uniforms;
+use crate::graphics::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
+use crate::graphics::common::gl_error_check;
+use crate::graphics::texture::Texture;
+use crate::graphics::uniforms::Uniforms;
 
 pub const QUAD_VERTEX_TEX_COORDS_COUNT: usize = 24;
-pub const QUAD_MEMORY_SIZE: usize = size_of::<f32>() * QUAD_VERTEX_TEX_COORDS_COUNT;
 pub const QUAD_VERTEX_AND_TEX_COORDS: [f32; QUAD_VERTEX_TEX_COORDS_COUNT] = [
     -0.5, -0.5, 0.0, 0.0, -0.5, 0.5, 0.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, -0.5, 1.0, 0.0, -0.5, -0.5,
     0.0, 0.0, 0.5, 0.5, 1.0, 1.0,
@@ -105,11 +104,6 @@ fn compile_program(vertex: &str, fragment: &str) -> GLuint {
     }
 }
 
-pub enum VertexBufferInitProfile<'a> {
-    Data(&'a [GLfloat]),
-    Size(usize),
-}
-
 pub struct GlyphRenderer {
     pub shader: GLuint,
     pub vao: GLuint,
@@ -176,7 +170,7 @@ impl GlyphRenderer {
             gl::GenBuffers(1, &mut instance_glyphs_vbo);
             gl::BindBuffer(gl::ARRAY_BUFFER, instance_glyphs_vbo);
 
-            let mut screen = engine::SCREEN.write().unwrap();
+            let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
 
             let mut glyphs = Vec::new();
             for _ in 0..buffer_size {

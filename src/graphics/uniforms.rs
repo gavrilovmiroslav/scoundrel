@@ -2,7 +2,7 @@ use std::ffi::CString;
 
 use gl::types::{GLint, GLuint};
 
-use crate::windowing::common::gl_error_check;
+use crate::graphics::common::gl_error_check;
 
 fn get_uniform_id(program: GLuint, name_str: &str) -> GLint {
     let name = CString::new(name_str).unwrap();

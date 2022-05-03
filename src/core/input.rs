@@ -1,9 +1,9 @@
-use crate::core::engine;
 use crate::core::point::Point;
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use crate::core::engine::INPUT_EVENTS;
+use crate::core::engine::ENGINE_STATE;
+use crate::graphics::window::EngineInstance;
 use glutin::MouseButton;
 use multimap::MultiMap;
 use serde::*;
@@ -267,19 +267,23 @@ pub enum InputState {
     Released,
 }
 
+pub fn poll_inputs(instance: &mut EngineInstance) {
+    instance.poll_inputs();
+}
+
 pub fn get_raw_input(input: Input) -> InputState {
-    engine::INPUT_EVENTS
+    ENGINE_STATE
         .lock()
         .unwrap()
+        .input_state
+        .input_events
         .get(&input)
         .unwrap_or(&InputState::None)
         .clone()
 }
 
 pub fn get_mouse_position() -> Point {
-    let point = engine::MOUSE_POSITIONS.lock().unwrap();
-
-    Point::from((point.x, point.y))
+    ENGINE_STATE.lock().unwrap().input_state.mouse_position
 }
 
 pub enum Propagate {
@@ -351,7 +355,7 @@ where
     Action: Eq + Hash + Clone,
 {
     fn bubble_input(&self, action: &Action) -> (bool, Propagate) {
-        let raw_input = INPUT_EVENTS.lock().unwrap();
+        let raw_input = &ENGINE_STATE.lock().unwrap().input_state.input_events;
         if self.mask.contains_key(action) {
             for (input, state) in self.mask.get_vec(action).unwrap_or(&Vec::new()) {
                 if raw_input.get(input).unwrap_or(&InputState::None) == state {

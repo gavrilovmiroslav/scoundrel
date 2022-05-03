@@ -1,53 +1,44 @@
-use gilrs::{EventType, Gilrs};
-use std::borrow::BorrowMut;
-use std::ffi::c_void;
+use crate::core::engine;
+use crate::core::engine::start_engine;
+use crate::core::engine::{EngineOptions, ENGINE_STATE};
+use crate::core::input::{Input, InputState};
+use crate::graphics::common::gl_error_check;
+use crate::graphics::gamepad::gilrs_to_button;
+use crate::graphics::glyph_renderer::GlyphRenderer;
 
+use gilrs::{EventType, Gilrs};
 use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
 use glutin::*;
+use std::ffi::c_void;
 
-use crate::core::engine;
-use crate::core::engine::{reset_should_redraw, should_quit, should_redraw, start_engine};
-use crate::core::engine_options::EngineOptions;
-use crate::core::input::{Input, InputState};
-use crate::windowing::common::gl_error_check;
-use crate::windowing::gamepad::gilrs_to_button;
-use crate::windowing::glyph_renderer::GlyphRenderer;
-
-#[no_mangle]
-pub static NvOptimusEnablement: u64 = 0x00000001;
-
-#[no_mangle]
-pub static AmdPowerXpressRequestHighPerformance: u64 = 0x00000001;
-
-pub struct Scoundrel {
+pub struct EngineInstance {
     pub event_loop: EventsLoop,
     pub gl_context: WindowedContext,
     pub pipeline: GlyphRenderer,
     pub gamepad: Gilrs,
-    is_done: bool,
 }
 
-impl Default for Scoundrel {
+impl Default for EngineInstance {
     fn default() -> Self {
-        Scoundrel::new(EngineOptions::default())
+        let engine = EngineInstance::new(EngineOptions::default());
+        ENGINE_STATE.lock().unwrap().render_state.should_redraw = true;
+        engine
     }
 }
 
-impl Scoundrel {
-    pub fn new(opts: EngineOptions) -> Scoundrel {
-        start_engine(opts);
+impl EngineInstance {
+    fn new(opts: EngineOptions) -> EngineInstance {
+        start_engine(opts.clone());
 
         let event_loop = EventsLoop::new();
 
-        let engine_options = engine::ENGINE_OPTIONS.lock().unwrap().clone();
-
         let window_builder = WindowBuilder::new()
-            .with_title(engine_options.title.as_str())
+            .with_title(opts.title.as_str())
             .with_resizable(false)
             .with_dimensions(LogicalSize::new(
-                engine_options.window_size.0 as f64,
-                engine_options.window_size.1 as f64,
+                opts.window_size.0 as f64,
+                opts.window_size.1 as f64,
             ));
 
         let gl_context = glutin::ContextBuilder::new()
@@ -57,20 +48,19 @@ impl Scoundrel {
             .unwrap();
 
         let pipeline = render_prepare(&gl_context);
-        let gil = Gilrs::new().unwrap();
-        let done = false;
+        let gamepad = Gilrs::new().unwrap();
 
-        Scoundrel {
+        EngineInstance {
             event_loop,
             gl_context,
             pipeline,
-            gamepad: gil,
-            is_done: done,
+            gamepad,
         }
     }
 
-    pub fn update_inputs(&mut self) {
-        for (_, state) in engine::INPUT_EVENTS.lock().unwrap().iter_mut() {
+    pub(crate) fn poll_inputs(&mut self) {
+        let input_state = &mut ENGINE_STATE.lock().unwrap().input_state;
+        for (_, state) in input_state.input_events.iter_mut() {
             match state {
                 InputState::Released => {
                     *state = InputState::None;
@@ -85,8 +75,6 @@ impl Scoundrel {
                 ..
             } => {
                 engine::force_quit();
-
-                self.is_done = true;
                 println!("|= Quitting!");
             }
 
@@ -97,14 +85,14 @@ impl Scoundrel {
                 if let Some(key) = input.virtual_keycode {
                     match input.state {
                         ElementState::Pressed => {
-                            engine::INPUT_EVENTS.lock().unwrap().insert(
+                            input_state.input_events.insert(
                                 Input::Keyboard(unsafe { std::mem::transmute(key) }),
                                 InputState::Pressed,
                             );
                         }
 
                         ElementState::Released => {
-                            engine::INPUT_EVENTS.lock().unwrap().insert(
+                            input_state.input_events.insert(
                                 Input::Keyboard(unsafe { std::mem::transmute(key) }),
                                 InputState::Released,
                             );
@@ -118,15 +106,13 @@ impl Scoundrel {
                 ..
             } => match state {
                 ElementState::Pressed => {
-                    engine::INPUT_EVENTS
-                        .lock()
-                        .unwrap()
+                    input_state
+                        .input_events
                         .insert(Input::Mouse(button), InputState::Pressed);
                 }
                 ElementState::Released => {
-                    engine::INPUT_EVENTS
-                        .lock()
-                        .unwrap()
+                    input_state
+                        .input_events
                         .insert(Input::Mouse(button), InputState::Released);
                 }
             },
@@ -135,9 +121,9 @@ impl Scoundrel {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
             } => {
-                let mut xy = engine::MOUSE_POSITIONS.lock().unwrap();
-                xy.borrow_mut().x = position.x as i16 / 16 as i16;
-                xy.borrow_mut().y = position.y as i16 / 16 as i16;
+                let mut xy = input_state.mouse_position;
+                xy.x = position.x as i16 / 16 as i16;
+                xy.y = position.y as i16 / 16 as i16;
             }
 
             _ => {}
@@ -146,14 +132,13 @@ impl Scoundrel {
         while let Some(gilrs::Event { event, .. }) = self.gamepad.next_event() {
             match event {
                 EventType::ButtonPressed(button, _) => {
-                    engine::INPUT_EVENTS
-                        .lock()
-                        .unwrap()
+                    input_state
+                        .input_events
                         .insert(Input::Gamepad(gilrs_to_button(button)), InputState::Pressed);
                 }
 
                 EventType::ButtonReleased(button, _) => {
-                    engine::INPUT_EVENTS.lock().unwrap().insert(
+                    input_state.input_events.insert(
                         Input::Gamepad(gilrs_to_button(button)),
                         InputState::Released,
                     );
@@ -164,28 +149,30 @@ impl Scoundrel {
         }
     }
 
-    pub fn render(&self) {
+    pub(crate) fn render(&self) {
         render_frame(&self.gl_context, &self.pipeline);
     }
+}
 
-    pub fn is_done(&mut self) -> bool {
-        if should_quit() {
-            self.is_done = true;
-        }
-
-        self.is_done
-    }
+#[allow(dead_code)]
+pub fn render(instance: &EngineInstance) {
+    instance.render();
 }
 
 #[inline(always)]
 fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
     unsafe { gl_context.make_current().unwrap() };
 
-    let presentation = engine::ENGINE_OPTIONS.lock().unwrap().presentation.clone();
-    println!("Preparing to use presentation: {}", presentation);
+    let presentation = {
+        let engine_state = ENGINE_STATE.lock().unwrap();
+
+        let presentation = engine_state.runtime_state.options.presentation.clone();
+        println!("Preparing to use presentation: {}", presentation);
+        presentation
+    };
 
     let render_options = {
-        let presentations = engine::PRESENTATIONS.lock().unwrap();
+        let presentations = &ENGINE_STATE.lock().unwrap().runtime_state.presentations;
         presentations.get(presentation.as_str()).unwrap().clone()
     };
 
@@ -246,9 +233,11 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
 
 #[inline(always)]
 fn render_frame(gl_context: &WindowedContext, pipeline: &GlyphRenderer) {
-    {
-        let screen = engine::SCREEN.read().unwrap();
-        if screen.is_ready() && should_redraw() {
+    let mut engine_state = ENGINE_STATE.lock().unwrap();
+
+    if engine_state.render_state.should_redraw {
+        let screen = &mut engine_state.render_state.screen;
+        if screen.is_ready() {
             unsafe {
                 gl::ClearColor(0.0, 0.0, 0.0, 1.0);
                 gl::Clear(gl::COLOR_BUFFER_BIT);
@@ -257,10 +246,10 @@ fn render_frame(gl_context: &WindowedContext, pipeline: &GlyphRenderer) {
             pipeline.render(screen.glyphs());
 
             gl_context.swap_buffers().unwrap();
-            reset_should_redraw();
         }
+
+        engine_state.render_state.should_redraw = false;
     }
 
-    engine::SCREEN.write().unwrap().reinit_depth();
-    engine::FRAME_COUNTER.lock().unwrap().tick();
+    engine_state.render_state.screen.reinit_depth();
 }

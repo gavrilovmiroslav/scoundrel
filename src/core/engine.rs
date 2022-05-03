@@ -1,4 +1,3 @@
-use crate::core::engine_options::EngineOptions;
 use crate::core::glyphs::Glyph;
 use crate::core::input::{Input, InputState};
 use crate::core::point::Point;
@@ -7,45 +6,58 @@ use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
 use notify::{watcher, RecursiveMode, Watcher};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::collections::HashSet;
+use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::mpsc::{channel, TryRecvError};
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::RwLock;
-use std::thread;
 use std::time::Duration;
-use std::time::Instant;
+
+lazy_static! {
+    pub static ref ENGINE_STATE: Arc<Mutex<EngineState>> =
+        Arc::new(Mutex::new(EngineState::default()));
+}
+
+#[derive(Default)]
+pub struct EngineRuntimeState {
+    pub should_quit: bool,
+    pub options: EngineOptions,
+    pub presentations: HashMap<String, Presentation>,
+}
+
+#[derive(Default)]
+pub struct EngineInputState {
+    pub input_events: HashMap<Input, InputState>,
+    pub mouse_position: Point,
+}
+
+#[derive(Default)]
+pub struct EngineRenderState {
+    pub screen: Screen,
+    pub should_redraw: bool,
+}
+
+#[derive(Default)]
+pub struct EngineLiveSyncState {
+    pub file_watcher: Option<RecommendedWatcher>,
+    pub watch_receiver: Option<Receiver<DebouncedEvent>>,
+}
+
+#[derive(Default)]
+pub struct EngineState {
+    pub runtime_state: EngineRuntimeState,
+    pub input_state: EngineInputState,
+    pub render_state: EngineRenderState,
+    pub live_sync_state: EngineLiveSyncState,
+}
 
 #[derive(Clone, Default)]
-pub struct FrameCounter {
-    active_frame_count: Arc<AtomicU64>,
-    last_cached_count: Arc<AtomicU64>,
-}
-
-impl FrameCounter {
-    pub fn tick(&mut self) {
-        self.active_frame_count.fetch_add(1, Ordering::Acquire);
-    }
-
-    pub fn cache(&mut self) {
-        self.last_cached_count.store(
-            self.active_frame_count.fetch_min(0, Ordering::Relaxed),
-            Ordering::Release,
-        );
-    }
-
-    pub fn cached(&self) -> u64 {
-        self.last_cached_count.load(Ordering::Acquire)
-    }
-}
-
-#[derive(Clone)]
 pub struct Screen {
     pub screen_memory: Option<Vec<Glyph>>,
     pub symbol_depth: Vec<u32>,
@@ -56,17 +68,6 @@ pub struct Screen {
 }
 
 impl Screen {
-    pub fn new() -> Screen {
-        Screen {
-            screen_memory: None,
-            symbol_depth: Vec::new(),
-            fg_depth: Vec::new(),
-            bg_depth: Vec::new(),
-            size: (0, 0),
-            limit: 0,
-        }
-    }
-
     pub fn is_ready(&self) -> bool {
         self.screen_memory.is_some()
     }
@@ -126,24 +127,6 @@ impl Screen {
     }
 }
 
-lazy_static! {
-    pub static ref ENGINE_OPTIONS: Arc<Mutex<EngineOptions>> =
-        Arc::new(Mutex::new(EngineOptions::default()));
-    pub static ref PRESENTATIONS: Arc<Mutex<HashMap<String, Presentation>>> =
-        Arc::new(Mutex::new(HashMap::new()));
-    pub static ref SHOULD_QUIT: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
-    pub static ref STOPWATCH: Arc<Mutex<Instant>> = Arc::new(Mutex::new(Instant::now()));
-    pub static ref FRAME_COUNTER: Arc<Mutex<FrameCounter>> =
-        Arc::new(Mutex::new(FrameCounter::default()));
-    pub static ref INPUT_EVENTS: Arc<Mutex<HashMap<Input, InputState>>> =
-        Arc::new(Mutex::new(HashMap::default()));
-    pub static ref MOUSE_POSITIONS: Arc<Mutex<Point>> = Arc::new(Mutex::new((0i16, 0i16).into()));
-    pub static ref SCREEN: Arc<RwLock<Screen>> = Arc::new(RwLock::new(Screen::new()));
-    pub static ref SHOULD_REDRAW: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
-    pub static ref WATCHER: Mutex<Option<RecommendedWatcher>> = Mutex::new(None);
-    pub static ref WATCH_RECEIVER: Mutex<Option<Receiver<DebouncedEvent>>> = Mutex::new(None);
-}
-
 #[derive(PartialEq, Debug)]
 pub enum ChangeEventError {
     Generic(String),
@@ -189,7 +172,15 @@ pub fn snoop_for_data_changes() -> Option<DataChange> {
     use ChangeEventError::*;
     use DataChange::*;
 
-    match WATCH_RECEIVER.lock().unwrap().as_ref().unwrap().try_recv() {
+    match ENGINE_STATE
+        .lock()
+        .unwrap()
+        .live_sync_state
+        .watch_receiver
+        .as_ref()
+        .unwrap()
+        .try_recv()
+    {
         Ok(E::NoticeWrite(p)) => Some(Change(NoticeWrite(p))),
         Ok(E::NoticeRemove(p)) => Some(Change(NoticeRemove(p))),
         Ok(E::Create(p)) => Some(Change(Create(p))),
@@ -207,10 +198,11 @@ pub fn snoop_for_data_changes() -> Option<DataChange> {
     }
 }
 
-pub fn start_engine(opts: EngineOptions) {
-    *ENGINE_OPTIONS.lock().unwrap() = opts;
+pub(crate) fn start_engine(opts: EngineOptions) {
+    let mut engine_state = ENGINE_STATE.lock().unwrap();
+    engine_state.runtime_state.options = opts;
 
-    let mut presentations = PRESENTATIONS.lock().unwrap();
+    let presentations = &mut engine_state.runtime_state.presentations;
 
     for maybe_file in std::fs::read_dir("resources/data/presentations/").unwrap() {
         if let Ok(file) = maybe_file {
@@ -236,48 +228,87 @@ pub fn start_engine(opts: EngineOptions) {
         panic!("No presentations, quitting!");
     }
 
-    if let Ok(mut file_watcher) = WATCHER.lock() {
-        let (tx, rx) = channel();
-        *file_watcher = watcher(tx, Duration::from_secs(1)).ok();
+    let mut live_sync = &mut engine_state.live_sync_state;
+    let (tx, rx) = channel();
+    live_sync.file_watcher = watcher(tx, Duration::from_secs(1)).ok();
 
-        if let Ok(_) = file_watcher
-            .as_mut()
-            .unwrap()
-            .watch("resources/data", RecursiveMode::Recursive)
-        {
-            *WATCH_RECEIVER.lock().unwrap() = Some(rx);
-        } else {
-            panic!("WATCHER CAN'T WATCH THIS FOLDER!");
-        }
+    if let Ok(_) = live_sync
+        .file_watcher
+        .as_mut()
+        .unwrap()
+        .watch("resources/data", RecursiveMode::Recursive)
+    {
+        live_sync.watch_receiver = Some(rx);
+    } else {
+        panic!("WATCHER CAN'T WATCH THIS FOLDER!");
     }
 }
 
 pub fn force_redraw() {
-    SHOULD_REDRAW.store(true, Ordering::Release)
+    ENGINE_STATE.lock().unwrap().render_state.should_redraw = true;
 }
 
+#[allow(dead_code)]
 pub fn reset_should_redraw() {
-    SHOULD_REDRAW.store(false, Ordering::Release)
+    ENGINE_STATE.lock().unwrap().render_state.should_redraw = false;
 }
 
 pub fn should_redraw() -> bool {
-    SHOULD_REDRAW.load(Ordering::Acquire)
+    ENGINE_STATE.lock().unwrap().render_state.should_redraw
 }
 
 pub fn should_quit() -> bool {
-    SHOULD_QUIT.load(Ordering::Acquire)
+    ENGINE_STATE.lock().unwrap().runtime_state.should_quit
 }
 
 pub fn force_quit() {
-    SHOULD_QUIT.store(true, Ordering::Release);
+    ENGINE_STATE.lock().unwrap().runtime_state.should_quit = true;
 }
 
-pub struct Engine {}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EngineOptions {
+    pub vsync: bool,
+    pub window_size: (u32, u32),
+    pub title: String,
+    pub presentation: String,
+}
 
-impl Engine {
-    pub fn run(main_loop: fn()) {
-        thread::spawn(move || main_loop).join().unwrap();
+impl Default for EngineOptions {
+    fn default() -> Self {
+        match Path::exists(Path::new("resources/data/config.ron")) {
+            true => ron::from_str(
+                std::fs::read_to_string("resources/data/config.ron")
+                    .unwrap()
+                    .as_str(),
+            )
+            .unwrap(),
+            false => {
+                std::fs::create_dir_all("resources/data/").unwrap();
+                std::fs::create_dir_all("resources/data/presentations").unwrap();
+                std::fs::create_dir_all("resources/data/textures").unwrap();
+                fs::write(
+                    "resources/data/config.ron",
+                    include_str!("cache/config.ron"),
+                )
+                .unwrap();
 
-        println!("=| Killing main thread");
+                fs::write(
+                    "resources/data/presentations/8x8glyphs.ron",
+                    include_str!("cache/8x8glyphs.ron"),
+                )
+                .unwrap();
+                fs::write(
+                    "resources/data/textures/8x8glyphs.png",
+                    include_bytes!("cache/8x8glyphs.png"),
+                )
+                .unwrap();
+                ron::from_str(
+                    std::fs::read_to_string("resources/data/config.ron")
+                        .unwrap()
+                        .as_str(),
+                )
+                .unwrap()
+            }
+        }
     }
 }
