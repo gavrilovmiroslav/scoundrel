@@ -1,4 +1,3 @@
-use crate::core::engine;
 use crate::core::engine::start_engine;
 use crate::core::engine::{EngineOptions, ENGINE_STATE};
 use crate::core::input::{Input, InputState};
@@ -60,8 +59,9 @@ impl EngineInstance {
     }
 
     pub(crate) fn poll_inputs(&mut self) {
-        let input_state = &mut ENGINE_STATE.lock().unwrap().input_state;
-        for (_, state) in input_state.input_events.iter_mut() {
+        let engine_state = &mut ENGINE_STATE.lock().unwrap();
+
+        for (_, state) in engine_state.input_state.input_events.iter_mut() {
             match state {
                 InputState::Released => {
                     *state = InputState::None;
@@ -75,7 +75,7 @@ impl EngineInstance {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                engine::force_quit();
+                engine_state.runtime_state.should_quit = true;
                 println!("|= Quitting!");
             }
 
@@ -86,14 +86,14 @@ impl EngineInstance {
                 if let Some(key) = input.virtual_keycode {
                     match input.state {
                         ElementState::Pressed => {
-                            input_state.input_events.insert(
+                            engine_state.input_state.input_events.insert(
                                 Input::Keyboard(unsafe { std::mem::transmute(key) }),
                                 InputState::Pressed,
                             );
                         }
 
                         ElementState::Released => {
-                            input_state.input_events.insert(
+                            engine_state.input_state.input_events.insert(
                                 Input::Keyboard(unsafe { std::mem::transmute(key) }),
                                 InputState::Released,
                             );
@@ -107,12 +107,14 @@ impl EngineInstance {
                 ..
             } => match state {
                 ElementState::Pressed => {
-                    input_state
+                    engine_state
+                        .input_state
                         .input_events
                         .insert(Input::Mouse(button), InputState::Pressed);
                 }
                 ElementState::Released => {
-                    input_state
+                    engine_state
+                        .input_state
                         .input_events
                         .insert(Input::Mouse(button), InputState::Released);
                 }
@@ -122,7 +124,7 @@ impl EngineInstance {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
             } => {
-                let mut xy = input_state.mouse_position;
+                let mut xy = engine_state.input_state.mouse_position;
                 xy.x = position.x as i16 / 16 as i16;
                 xy.y = position.y as i16 / 16 as i16;
             }
@@ -133,13 +135,14 @@ impl EngineInstance {
         while let Some(gilrs::Event { event, .. }) = self.gamepad.next_event() {
             match event {
                 EventType::ButtonPressed(button, _) => {
-                    input_state
+                    engine_state
+                        .input_state
                         .input_events
                         .insert(Input::Gamepad(gilrs_to_button(button)), InputState::Pressed);
                 }
 
                 EventType::ButtonReleased(button, _) => {
-                    input_state.input_events.insert(
+                    engine_state.input_state.input_events.insert(
                         Input::Gamepad(gilrs_to_button(button)),
                         InputState::Released,
                     );

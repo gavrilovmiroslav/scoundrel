@@ -6,8 +6,8 @@ use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
 use crate::core::engine::ENGINE_STATE;
-use crate::core::glyphs::Glyph;
-use crate::core::presentation::Presentation;
+use crate::core::Glyph;
+use crate::core::Presentation;
 
 use crate::graphics::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
 use crate::graphics::common::gl_error_check;
