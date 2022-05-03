@@ -40,6 +40,16 @@ pub fn print_char<P: Into<(u32, u32)>>(position: P, chr: char, depth: u32) {
     print_string_colors(position, chr.to_string(), *WHITE, *BLACK, depth);
 }
 
+pub fn print_char_colors<P: Into<(u32, u32)>>(
+    position: P,
+    chr: char,
+    fore: Color,
+    back: Color,
+    depth: u32,
+) {
+    print_string_colors(position, chr.to_string(), fore, back, depth);
+}
+
 pub fn print_string<S: AsRef<str>, P: Into<(u32, u32)>>(position: P, text: S, depth: u32) {
     print_string_colors(position, text, *WHITE, *BLACK, depth);
 }

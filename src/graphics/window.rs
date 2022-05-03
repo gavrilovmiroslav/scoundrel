@@ -6,6 +6,7 @@ use crate::graphics::common::gl_error_check;
 use crate::graphics::gamepad::gilrs_to_button;
 use crate::graphics::glyph_renderer::GlyphRenderer;
 
+use crate::graphics::types::Renderable;
 use gilrs::{EventType, Gilrs};
 use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
@@ -148,15 +149,17 @@ impl EngineInstance {
             };
         }
     }
+}
 
-    pub(crate) fn render(&self) {
+impl Renderable for EngineInstance {
+    fn render(&self) {
         render_frame(&self.gl_context, &self.pipeline);
     }
 }
 
 #[allow(dead_code)]
-pub fn render(instance: &EngineInstance) {
-    instance.render();
+pub fn render<R: Renderable>(renderable: &R) {
+    renderable.render();
 }
 
 #[inline(always)]
