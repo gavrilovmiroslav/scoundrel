@@ -1,6 +1,6 @@
 [package]
 name = "scoundrel"
-version = "0.3.4"
+version = "0.4.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "An engine for working with ASCII roguelikes."
@@ -12,10 +12,10 @@ crate-type = ["dylib"]
 bench = false
 
 [dependencies]
+scoundrel-macro = { path = "scoundrel-macro" }
 structopt = "0.3.26"
 ron = "0.7"
 serde = { version = "1", features = ["derive"] }
-
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 
@@ -26,7 +26,7 @@ priority-queue = "1.2.1"
 caves = "0.2.1"
 filearco = "0.1.0"
 bresenham = "0.1.1"
-glutin = "0.20"
+glutin = { version = "0.20", features = ["serde"] }
 gl = "0.14.0"
 nalgebra-glm = "0.16.0"
 image = "0.23"

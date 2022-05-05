@@ -9,3 +9,5 @@ pub use crate::core::*;
 pub use crate::graphics::render;
 pub use crate::graphics::types::Renderable;
 pub use crate::graphics::window::EngineInstance;
+
+pub use scoundrel_macro::BindableInputAction;

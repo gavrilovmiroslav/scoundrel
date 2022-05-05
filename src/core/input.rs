@@ -1,11 +1,13 @@
 use crate::core::point::Point;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::rc::Rc;
 
 use crate::core::engine::ENGINE_STATE;
 use crate::graphics::window::EngineInstance;
 use glutin::MouseButton;
 use multimap::MultiMap;
+use ron::de::ErrorCode;
 use serde::*;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -61,7 +63,7 @@ pub enum GamepadState {
     Dropped(GamepadID),
 }
 
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Deserialize)]
 #[repr(u32)]
 pub enum Key {
     Key1,
@@ -238,14 +240,14 @@ pub enum Key {
     Cut,
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Deserialize, Debug)]
 pub enum Input {
     Keyboard(Key),
     Gamepad(GamepadButton),
     Mouse(MouseButton),
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone, Deserialize, Debug)]
 pub enum WhenInput {
     Pressed(Input),
     Released(Input),
@@ -286,6 +288,25 @@ pub fn get_mouse_position() -> Point {
     ENGINE_STATE.lock().unwrap().input_state.mouse_position
 }
 
+// Input Contexts
+
+#[derive(Deserialize, Debug)]
+pub enum ContextDescriptor {
+    Accept(HashMap<String, Vec<WhenInput>>),
+    BlockExcept(Vec<String>),
+}
+
+pub fn get_bindable_input_context(input_file: &str) -> Result<ContextDescriptor, ErrorCode> {
+    let inputs_path = Rc::new(format!("resources/input_bindings/{}.ron", input_file));
+    match std::fs::read_to_string(inputs_path.clone().as_str()) {
+        Ok(input_content) => match ron::from_str::<ContextDescriptor>(input_content.as_str()) {
+            Ok(desc) => Ok(desc),
+            Err(err) => Err(err.code),
+        },
+        Err(_) => Err(ErrorCode::Io(format!("File {} not found.", inputs_path))),
+    }
+}
+
 pub enum Propagate {
     Flow,
     Stop,
@@ -295,11 +316,19 @@ pub trait InputContext<Action> {
     fn bubble_input(&self, action: &Action) -> (bool, Propagate);
 }
 
-pub struct InputStack<'a, Action> {
-    pub input_stacks: Vec<&'a dyn InputContext<Action>>,
+pub struct InputStack<Action> {
+    pub input_stacks: Vec<Rc<dyn InputContext<Action>>>,
 }
 
-impl<'a, Action> InputStack<'a, Action> {
+pub trait PushContext<T> {
+    fn push(&mut self, ic: T);
+}
+
+pub trait BindableInputAction: Clone + Eq + Hash {
+    fn from_str<S: AsRef<str>>(s: S) -> Option<Self>;
+}
+
+impl<Action> InputStack<Action> {
     pub fn new() -> Self {
         InputStack {
             input_stacks: vec![],
@@ -310,19 +339,80 @@ impl<'a, Action> InputStack<'a, Action> {
         self.bubble_input(&action).0
     }
 
-    pub fn push(&mut self, ic: &'a dyn InputContext<Action>) {
-        self.input_stacks.push(ic);
-    }
-
     pub fn pop(&mut self) {
         self.input_stacks.pop();
     }
 }
 
-impl<'a, Action> InputContext<Action> for InputStack<'a, Action> {
+impl<Action> PushContext<ContextDescriptor> for InputStack<Action>
+where
+    Action: 'static + BindableInputAction,
+{
+    fn push(&mut self, ic: ContextDescriptor) {
+        match ic {
+            ContextDescriptor::Accept(ctx) => {
+                let mut context = AcceptingContext::raw();
+                for (s, vec) in ctx {
+                    match Action::from_str(s.clone()) {
+                        Some(act) => {
+                            for input in &vec {
+                                context.mask.insert(act.clone(), input.clone().into());
+                            }
+                        }
+                        None => {
+                            println!(
+                                "Bad binding found: couldn't parse action {} in accepting context",
+                                s
+                            );
+                        }
+                    }
+                }
+                self.input_stacks.push(Rc::new(context));
+            }
+
+            ContextDescriptor::BlockExcept(vec) => {
+                let mut context = BlockingContext::raw();
+                for s in vec {
+                    match Action::from_str(s.clone()) {
+                        Some(act) => {
+                            context.mask.insert(act.clone());
+                        }
+                        None => {
+                            println!(
+                                "Bad binding found: couldn't parse action {} in blocking context",
+                                s
+                            );
+                        }
+                    }
+                }
+                self.input_stacks.push(Rc::new(context));
+            }
+        }
+    }
+}
+
+impl<Action> PushContext<AcceptingContext<Action>> for InputStack<Action>
+where
+    Action: Eq + Hash + Clone + 'static,
+{
+    fn push(&mut self, ic: AcceptingContext<Action>) {
+        self.input_stacks.push(Rc::new(ic));
+    }
+}
+
+impl<Action> PushContext<BlockingContext<Action>> for InputStack<Action>
+where
+    Action: Eq + Hash + Clone + 'static,
+{
+    fn push(&mut self, ic: BlockingContext<Action>) {
+        self.input_stacks.push(Rc::new(ic));
+    }
+}
+
+impl<Action> InputContext<Action> for InputStack<Action> {
     fn bubble_input(&self, action: &Action) -> (bool, Propagate) {
-        fn bubble_rec<'a, Action>(
-            stack: &Vec<&'a dyn InputContext<Action>>,
+        fn bubble_rec<Action>(
+            stack: &Vec<Rc<dyn InputContext<Action>>>,
             n: usize,
             action: &Action,
         ) -> (bool, Propagate) {
@@ -371,6 +461,12 @@ impl<Action> AcceptingContext<Action>
 where
     Action: Eq + Hash + Clone,
 {
+    fn raw() -> AcceptingContext<Action> {
+        AcceptingContext {
+            mask: MultiMap::default(),
+        }
+    }
+
     fn new() -> AcceptingContextBuilder<Action> {
         AcceptingContextBuilder {
             context: MultiMap::default(),
@@ -389,7 +485,7 @@ pub struct AcceptingContextBuilder<Action>
 where
     Action: Eq + Hash + Clone,
 {
-    context: MultiMap<Action, (Input, InputState)>,
+    pub(crate) context: MultiMap<Action, (Input, InputState)>,
 }
 
 impl<Action> AcceptingContextBuilder<Action>
@@ -413,7 +509,7 @@ pub struct BlockingContext<Action>
 where
     Action: Eq + Hash + Clone,
 {
-    mask: HashSet<Action>,
+    pub(crate) mask: HashSet<Action>,
 }
 
 impl<Action> InputContext<Action> for BlockingContext<Action>
@@ -433,6 +529,12 @@ impl<Action> BlockingContext<Action>
 where
     Action: Eq + Hash + Clone,
 {
+    fn raw() -> BlockingContext<Action> {
+        BlockingContext {
+            mask: HashSet::default(),
+        }
+    }
+
     fn new() -> BlockingContextBuilder<Action> {
         BlockingContextBuilder {
             context: HashSet::new(),
