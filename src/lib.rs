@@ -1,5 +1,6 @@
 mod core;
 mod graphics;
+pub mod map;
 
 pub use crate::core::engine::{force_quit, force_redraw, should_quit, should_redraw};
 pub use crate::core::engine::{get_filename_when_changed, snoop_for_data_changes};

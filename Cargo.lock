@@ -1593,7 +1593,7 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "scoundrel"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bresenham",
  "caves",
@@ -1619,6 +1619,8 @@ dependencies = [
 [[package]]
 name = "scoundrel-macro"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41f76752ff7d9c99ac9919b22dd252d08bf6f29823027abd08cb6890967ce037"
 dependencies = [
  "quote 1.0.18",
  "syn",

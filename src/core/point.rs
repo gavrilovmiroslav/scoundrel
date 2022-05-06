@@ -1,6 +1,6 @@
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub struct Point {
     pub x: i16,
     pub y: i16,
@@ -39,6 +39,21 @@ impl From<Point> for (u32, u32) {
 impl From<Point> for (i16, i16) {
     fn from(p: Point) -> Self {
         (p.x, p.y)
+    }
+}
+
+impl From<bresenham::Point> for Point {
+    fn from(p: bresenham::Point) -> Self {
+        Point {
+            x: p.0 as i16,
+            y: p.1 as i16,
+        }
+    }
+}
+
+impl Into<bresenham::Point> for Point {
+    fn into(self) -> bresenham::Point {
+        (self.x as isize, self.y as isize)
     }
 }
 
