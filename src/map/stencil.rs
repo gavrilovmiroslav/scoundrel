@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 pub type RasterIter = Vec<Point>;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Bool {
     Union,
     Diff,
@@ -15,7 +15,7 @@ pub trait Rasterize {
     fn rasterize(&self, origin: Point) -> RasterIter;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Stencil {
     Empty,
     Line {
@@ -42,7 +42,7 @@ pub enum Stencil {
     },
 }
 
-type StencilImpl = Box<Stencil>;
+pub type StencilImpl = Box<Stencil>;
 
 pub fn empty() -> StencilImpl {
     Box::new(Stencil::Empty)
@@ -68,6 +68,17 @@ pub fn circle<P: Into<Point>>(c: P, r: u16) -> StencilImpl {
         center: c.into(),
         radius: r,
     })
+}
+
+pub fn center(s: &StencilImpl) -> Point {
+    match s.as_ref() {
+        &Stencil::Rectangle { xy, w, h } => xy + (w / 2, h / 2).into(),
+        &Stencil::Circle { center, .. } => center,
+        &Stencil::Line { a, b } => (a + b) / 2,
+        Stencil::Resize { target, .. } => center(target),
+        Stencil::Boolean { lhs, rhs, .. } => (center(lhs) + center(rhs)) / 2,
+        _ => Point::from((0, 0)),
+    }
 }
 
 pub fn union(a: &StencilImpl, b: &StencilImpl) -> StencilImpl {
@@ -108,6 +119,11 @@ pub fn shrink(t: &StencilImpl, n: u16) -> StencilImpl {
     })
 }
 
+pub fn walls(room: &StencilImpl) -> StencilImpl {
+    let non_walls = shrink(room, 1);
+    diff(room, &non_walls)
+}
+
 pub fn dup(t: &StencilImpl) -> StencilImpl {
     Box::clone(&t)
 }
@@ -127,7 +143,7 @@ impl Rasterize for Stencil {
                     for y in 0..*h {
                         vec.push(Point::from((
                             (xy.x + x as i16 + origin.x) as i16,
-                            (xy.x + y as i16 + origin.y) as i16,
+                            (xy.y + y as i16 + origin.y) as i16,
                         )));
                     }
                 }
@@ -187,7 +203,7 @@ impl Rasterize for Stencil {
                             let norm = amount.abs() as u16;
                             *w <= norm || *h <= norm
                         } else {
-                            true
+                            false
                         };
 
                         if bad {
@@ -205,7 +221,7 @@ impl Rasterize for Stencil {
                             let norm = amount.abs() as u16;
                             *radius <= norm
                         } else {
-                            true
+                            false
                         };
 
                         if bad {
@@ -234,4 +250,26 @@ pub fn paint_stencil(stencil: &StencilImpl, sym: char, depth: u32) {
     for tile in stencil.rasterize(Point::from((0, 0))) {
         print_char(tile, sym, depth);
     }
+}
+
+pub fn spread_fill<T, P: Fn(&Point) -> bool, F: FnMut(&Point) -> T>(start: Point, p: P, mut f: F) {
+    let mut done = vec![];
+
+    fn spread_fill_rec<T, P: Fn(&Point) -> bool, F: FnMut(&Point) -> T>(
+        pt: &Point,
+        p: &P,
+        f: &mut F,
+        done: &mut Vec<Point>,
+    ) {
+        if !done.contains(&pt) && p(pt) {
+            done.push(pt.clone());
+            f(pt);
+
+            for next_pt in pt.neighbors() {
+                spread_fill_rec(&next_pt, p, f, done);
+            }
+        }
+    }
+
+    spread_fill_rec(&start, &p, &mut f, &mut done)
 }

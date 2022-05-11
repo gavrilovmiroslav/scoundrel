@@ -1,5 +1,4 @@
 use lazy_static::*;
-use rand::{thread_rng, Rng};
 
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
@@ -27,11 +26,10 @@ impl Color {
     }
 
     pub fn rand() -> Color {
-        let mut rng = thread_rng();
         Color {
-            hue: rng.gen_range(0..255),
-            sat: rng.gen_range(0..255),
-            val: rng.gen_range(0..255),
+            hue: fastrand::u8(0..255),
+            sat: fastrand::u8(0..255),
+            val: fastrand::u8(0..255),
             eff: 0,
         }
     }

@@ -1,23 +1,18 @@
 use crate::core::engine::start_engine;
 use crate::core::engine::{EngineOptions, ENGINE_STATE};
 use crate::core::input::{Input, InputState};
+use crate::engine::EngineInstance;
 use crate::graphics::common::gl_error_check;
 use crate::graphics::gamepad::gilrs_to_button;
 use crate::graphics::glyph_renderer::GlyphRenderer;
-
 use crate::graphics::types::Renderable;
+use crate::Point;
 use gilrs::{EventType, Gilrs};
 use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
 use glutin::*;
+use shipyard::World;
 use std::ffi::c_void;
-
-pub struct EngineInstance {
-    pub event_loop: EventsLoop,
-    pub gl_context: WindowedContext,
-    pub pipeline: GlyphRenderer,
-    pub gamepad: Gilrs,
-}
 
 impl Default for EngineInstance {
     fn default() -> Self {
@@ -47,14 +42,17 @@ impl EngineInstance {
             .build_windowed(window_builder, &event_loop)
             .unwrap();
 
-        let pipeline = render_prepare(&gl_context);
+        let (window_size, pipeline) = render_prepare(&gl_context);
         let gamepad = Gilrs::new().unwrap();
+
+        ENGINE_STATE.lock().unwrap().render_state.screen_size = window_size;
 
         EngineInstance {
             event_loop,
             gl_context,
             pipeline,
             gamepad,
+            world: World::default(),
         }
     }
 
@@ -155,18 +153,23 @@ impl EngineInstance {
 }
 
 impl Renderable for EngineInstance {
-    fn render(&self) {
+    fn render(&self, _: Point) {
         render_frame(&self.gl_context, &self.pipeline);
     }
 }
 
 #[allow(dead_code)]
 pub fn render<R: Renderable>(renderable: &R) {
-    renderable.render();
+    renderable.render((0, 0).into());
+}
+
+#[allow(dead_code)]
+pub fn render_at<R: Renderable, P: Into<Point>>(renderable: &R, origin: P) {
+    renderable.render(origin.into());
 }
 
 #[inline(always)]
-fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
+fn render_prepare(gl_context: &WindowedContext) -> ((u32, u32), GlyphRenderer) {
     unsafe { gl_context.make_current().unwrap() };
 
     let presentation = {
@@ -186,7 +189,7 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
     gl_error_check();
 
     let size = gl_context.window().get_inner_size().unwrap();
-    let glyph_renderer = GlyphRenderer::new(size, &render_options);
+    let (window_size, glyph_renderer) = GlyphRenderer::new(size, &render_options);
 
     let uniforms = glyph_renderer.get_uniforms();
     unsafe {
@@ -234,7 +237,7 @@ fn render_prepare(gl_context: &WindowedContext) -> GlyphRenderer {
         gl_error_check();
     }
 
-    glyph_renderer
+    (window_size, glyph_renderer)
 }
 
 #[inline(always)]

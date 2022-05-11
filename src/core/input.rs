@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 
 use crate::core::engine::ENGINE_STATE;
-use crate::graphics::window::EngineInstance;
+use crate::engine::EngineInstance;
 use glutin::MouseButton;
 use multimap::MultiMap;
 use ron::de::ErrorCode;
@@ -448,7 +448,8 @@ where
         let raw_input = &ENGINE_STATE.lock().unwrap().input_state.input_events;
         if self.mask.contains_key(action) {
             for (input, state) in self.mask.get_vec(action).unwrap_or(&Vec::new()) {
-                if raw_input.get(input).unwrap_or(&InputState::None) == state {
+                let p = raw_input.get(input).unwrap_or(&InputState::None);
+                if p == state {
                     return (true, Propagate::Stop);
                 }
             }

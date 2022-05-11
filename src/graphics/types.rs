@@ -1,3 +1,5 @@
+use crate::Point;
+
 pub trait Renderable {
-    fn render(&self);
+    fn render(&self, origin: Point);
 }

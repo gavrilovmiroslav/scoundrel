@@ -1,12 +1,16 @@
-use crate::core::glyphs::Glyph;
+use crate::core::glyphs::NativeGlyph;
 use crate::core::input::{Input, InputState};
 use crate::core::point::Point;
 use crate::core::presentation::Presentation;
+use crate::graphics::glyph_renderer::GlyphRenderer;
+use gilrs::Gilrs;
+use glutin::{EventsLoop, WindowedContext};
 use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
 use notify::{watcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
+use shipyard::World;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::collections::HashSet;
@@ -41,6 +45,7 @@ pub struct EngineInputState {
 pub struct EngineRenderState {
     pub screen: Screen,
     pub should_redraw: bool,
+    pub screen_size: (u32, u32),
 }
 
 #[derive(Default)]
@@ -59,7 +64,7 @@ pub struct EngineState {
 
 #[derive(Clone, Default)]
 pub struct Screen {
-    pub screen_memory: Option<Vec<Glyph>>,
+    pub screen_memory: Option<Vec<NativeGlyph>>,
     pub symbol_depth: Vec<u32>,
     pub fg_depth: Vec<u32>,
     pub bg_depth: Vec<u32>,
@@ -67,20 +72,28 @@ pub struct Screen {
     pub limit: usize,
 }
 
+pub struct EngineInstance {
+    pub event_loop: EventsLoop,
+    pub gl_context: WindowedContext,
+    pub pipeline: GlyphRenderer,
+    pub gamepad: Gilrs,
+    pub world: World,
+}
+
 impl Screen {
     pub fn is_ready(&self) -> bool {
         self.screen_memory.is_some()
     }
 
-    pub fn glyphs_mut(&mut self) -> &mut Vec<Glyph> {
+    pub fn glyphs_mut(&mut self) -> &mut Vec<NativeGlyph> {
         self.screen_memory.as_mut().unwrap()
     }
 
-    pub fn glyphs(&self) -> &Vec<Glyph> {
+    pub fn glyphs(&self) -> &Vec<NativeGlyph> {
         self.screen_memory.as_ref().unwrap()
     }
 
-    pub fn set_memory(&mut self, size: (u32, u32), memory: Vec<Glyph>) {
+    pub fn set_memory(&mut self, size: (u32, u32), memory: Vec<NativeGlyph>) {
         self.size = size;
         self.limit = (size.0 * size.1) as usize;
 
@@ -114,7 +127,7 @@ impl Screen {
         }
     }
 
-    pub fn get_memory(&self) -> *const Glyph {
+    pub fn get_memory(&self) -> *const NativeGlyph {
         self.screen_memory.as_ref().unwrap().as_ptr()
     }
 

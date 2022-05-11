@@ -3,15 +3,15 @@ use crate::core::engine::ENGINE_STATE;
 
 #[derive(Copy, Clone)]
 #[repr(C)]
-pub struct Glyph {
+pub struct NativeGlyph {
     pub symbol: u32,
     pub foreground: Color,
     pub background: Color,
 }
 
-impl Default for Glyph {
+impl Default for NativeGlyph {
     fn default() -> Self {
-        Glyph {
+        NativeGlyph {
             symbol: ' ' as u32,
             foreground: *GRAY,
             background: *BLACK,
@@ -19,10 +19,24 @@ impl Default for Glyph {
     }
 }
 
+#[derive(Clone, Copy)]
 pub enum GlyphTint {
+    None,
     Fore(Color),
     Back(Color),
     BackFore(Color, Color),
+}
+
+impl Default for GlyphTint {
+    fn default() -> Self {
+        GlyphTint::None
+    }
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct Glyph {
+    pub symbol: Option<char>,
+    pub tint: GlyphTint,
 }
 
 pub fn clear_screen() {
@@ -61,11 +75,23 @@ pub fn print_string_colors<S: AsRef<str>, P: Into<(u32, u32)>>(
     back: Color,
     depth: u32,
 ) {
+    let window_size = ENGINE_STATE.lock().unwrap().render_state.screen_size;
     let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
-        let mut index = screen.get_index_for_position(position.into()).clone() as usize;
+        let mut p = position.into();
+        if p.0 >= window_size.0 {
+            return;
+        }
+
+        let mut index = screen.get_index_for_position(p).clone() as usize;
 
         for letter in text.as_ref().chars() {
+            if p.0 >= window_size.0 {
+                return;
+            }
+
+            p.0 += 1;
+
             if index >= screen.limit {
                 return;
             }
@@ -99,9 +125,22 @@ pub fn paint_tile<P: Into<(u32, u32)>>(
     back: Option<Color>,
     depth: u32,
 ) {
+    let window_size = ENGINE_STATE
+        .lock()
+        .unwrap()
+        .runtime_state
+        .options
+        .window_size
+        .clone();
+
     let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
-        let index = screen.get_index_for_position(position.into()).clone() as usize;
+        let p = position.into();
+        let index = screen.get_index_for_position(p).clone() as usize;
+
+        if p.0 >= window_size.0 {
+            return;
+        }
 
         if index >= screen.limit {
             return;

@@ -6,7 +6,7 @@ use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
 use crate::core::engine::ENGINE_STATE;
-use crate::core::Glyph;
+use crate::core::NativeGlyph;
 use crate::core::Presentation;
 
 use crate::graphics::attribute::{AttribPosition, AttribSize, AttribType, BufferMapping};
@@ -20,7 +20,7 @@ pub const QUAD_VERTEX_AND_TEX_COORDS: [f32; QUAD_VERTEX_TEX_COORDS_COUNT] = [
     0.0, 0.0, 0.5, 0.5, 1.0, 1.0,
 ];
 
-pub const GLYPH_SIZE: usize = size_of::<Glyph>();
+pub const GLYPH_SIZE: usize = size_of::<NativeGlyph>();
 
 const VERTEX: &str = include_str!("shaders/vertex_shader.glsl");
 const FRAGMENT: &str = include_str!("shaders/fragment_shader.glsl");
@@ -117,15 +117,15 @@ pub struct GlyphRenderer {
 }
 
 impl GlyphRenderer {
-    pub fn new(window_size: LogicalSize, render_options: &Presentation) -> GlyphRenderer {
+    pub fn new(window_size: LogicalSize, pres: &Presentation) -> ((u32, u32), GlyphRenderer) {
         let id = compile_program(VERTEX, FRAGMENT);
         let mut vao = 0;
         let mut static_quad_vbo = 0;
         let mut instance_glyphs_vbo = 0;
 
         let scale = (
-            render_options.input_font_glyph_size.0 * render_options.output_glyph_scale.0,
-            render_options.input_font_glyph_size.1 * render_options.output_glyph_scale.1,
+            pres.input_font_glyph_size.0 * pres.output_glyph_scale.0,
+            pres.input_font_glyph_size.1 * pres.output_glyph_scale.1,
         );
 
         let glyph_count_by_width = window_size.width as i32 / scale.0 as i32;
@@ -174,7 +174,7 @@ impl GlyphRenderer {
 
             let mut glyphs = Vec::new();
             for _ in 0..buffer_size {
-                glyphs.push(Glyph::default())
+                glyphs.push(NativeGlyph::default())
             }
 
             screen.set_memory(
@@ -184,7 +184,7 @@ impl GlyphRenderer {
 
             gl::BufferData(
                 gl::ARRAY_BUFFER,
-                (screen.len() * std::mem::size_of::<Glyph>()) as GLsizeiptr,
+                (screen.len() * std::mem::size_of::<NativeGlyph>()) as GLsizeiptr,
                 screen.get_memory().cast(),
                 gl::STREAM_DRAW,
             );
@@ -218,7 +218,7 @@ impl GlyphRenderer {
 
             gl::Viewport(0, 0, window_size.width as _, window_size.height as _);
 
-            let texture = Texture::load(&render_options).unwrap();
+            let texture = Texture::load(&pres).unwrap();
             texture.bind();
 
             use nalgebra_glm::{look_at, ortho, scaling, translation, vec3};
@@ -247,7 +247,7 @@ impl GlyphRenderer {
             (texture, projection, viewport, camera)
         };
 
-        GlyphRenderer {
+        let renderer = GlyphRenderer {
             shader: id,
             vao,
             static_quad_vbo,
@@ -257,7 +257,9 @@ impl GlyphRenderer {
             projection,
             viewport,
             camera,
-        }
+        };
+
+        (pres.window_size_in_glyphs, renderer)
     }
 
     fn bind(&self) {
@@ -274,7 +276,7 @@ impl GlyphRenderer {
         };
     }
 
-    pub fn render(&self, glyphs: &Vec<Glyph>) {
+    pub fn render(&self, glyphs: &Vec<NativeGlyph>) {
         self.bind();
         unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, self.instance_glyphs_vbo);
