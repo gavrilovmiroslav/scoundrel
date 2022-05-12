@@ -70,6 +70,10 @@ pub fn circle<P: Into<Point>>(c: P, r: u16) -> StencilImpl {
     })
 }
 
+pub fn center_indexed_room(s: &StencilImpl) -> (Point, StencilImpl) {
+    (center(s), s.clone())
+}
+
 pub fn center(s: &StencilImpl) -> Point {
     match s.as_ref() {
         &Stencil::Rectangle { xy, w, h } => xy + (w / 2, h / 2).into(),
@@ -105,6 +109,14 @@ pub fn intersect(a: &StencilImpl, b: &StencilImpl) -> StencilImpl {
     })
 }
 
+pub fn intersection_point(a: &StencilImpl, b: &StencilImpl) -> Point {
+    intersect(a, b)
+        .rasterize((0, 0).into())
+        .first()
+        .unwrap()
+        .clone()
+}
+
 pub fn grow(t: &StencilImpl, n: u16) -> StencilImpl {
     Box::new(Stencil::Resize {
         amount: n as i16,
@@ -122,6 +134,16 @@ pub fn shrink(t: &StencilImpl, n: u16) -> StencilImpl {
 pub fn walls(room: &StencilImpl) -> StencilImpl {
     let non_walls = shrink(room, 1);
     diff(room, &non_walls)
+}
+
+pub fn corner(a: Point, b: Point, dir: bool) -> StencilImpl {
+    let corner = if dir {
+        Point::from((b.x, a.y))
+    } else {
+        Point::from((a.x, b.y))
+    };
+
+    union(&line(a, corner), &line(corner, b))
 }
 
 pub fn dup(t: &StencilImpl) -> StencilImpl {

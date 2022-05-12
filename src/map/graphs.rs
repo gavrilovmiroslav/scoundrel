@@ -1,72 +1,69 @@
-use crate::distance;
-use crate::map::{center, StencilImpl};
+use crate::{distance, Point};
 use petgraph::algo::min_spanning_tree;
 use petgraph::data::FromElements;
-use petgraph::graph::NodeIndex;
 use petgraph::Graph;
-use std::collections::HashMap;
-use std::vec::IntoIter;
+use std::collections::HashSet;
 
-pub struct MapGraph(
-    pub Graph<StencilImpl, f32>,
-    pub HashMap<StencilImpl, NodeIndex>,
-);
+pub fn min_span_tree(pts: &[Point]) -> Vec<(Point, Point)> {
+    let mut g: Graph<Point, f32> = Graph::new();
+    let nodes = pts
+        .iter()
+        .map(|pt| g.add_node(pt.clone()))
+        .collect::<Vec<_>>();
 
-impl MapGraph {
-    pub fn new() -> MapGraph {
-        MapGraph {
-            0: Default::default(),
-            1: Default::default(),
-        }
-    }
-
-    pub fn add_node(&mut self, node: StencilImpl) {
-        let ni = self.0.add_node(node.clone());
-        self.1.insert(node, ni);
-    }
-
-    pub fn fill_graph(&mut self) {
-        for (i1, node) in &self.1 {
-            for (i2, other) in &self.1 {
-                if node != other {
-                    self.0
-                        .add_edge(*node, *other, distance(center(i1), center(i2)));
-                }
+    for node in &nodes {
+        for other in &nodes {
+            if node != other {
+                let r1 = g.node_weight(*node).unwrap();
+                let r2 = g.node_weight(*other).unwrap();
+                let d = distance(*r1, *r2);
+                g.add_edge(*node, *other, d);
             }
         }
     }
 
-    pub fn get_min_tree(&mut self) -> MapTree {
-        self.fill_graph();
-        MapTree {
-            0: Graph::<StencilImpl, f32>::from_elements(min_spanning_tree(&self.0)),
+    let ming = Graph::<Point, f32>::from_elements(min_spanning_tree(&g));
+    let mut vec = Vec::new();
+
+    let edges = ming.edge_indices().into_iter();
+    for edge in edges {
+        let w = ming.edge_weight(edge).unwrap();
+        if let Some((a, b)) = ming.edge_endpoints(edge) {
+            vec.push((
+                ming.node_weight(a).unwrap().clone(),
+                ming.node_weight(b).unwrap().clone(),
+            ));
         }
     }
+
+    vec
 }
 
-pub struct MapTree(pub Graph<StencilImpl, f32>);
+pub fn planar_map(pts: &[Point]) -> Vec<(Point, Point)> {
+    let del = delaunator::triangulate(
+        pts.iter()
+            .map(|p| delaunator::Point {
+                x: p.x as f64,
+                y: p.y as f64,
+            })
+            .collect::<Vec<_>>()
+            .as_slice(),
+    );
 
-impl MapTree {}
+    let mut edges = HashSet::new();
+    let mut it = del.triangles.iter();
 
-impl IntoIterator for MapTree {
-    type Item = (StencilImpl, StencilImpl, f32);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        let mut vec = Vec::new();
-
-        let edges = self.0.edge_indices().into_iter();
-        for edge in edges {
-            let w = self.0.edge_weight(edge).unwrap();
-            if let Some((a, b)) = self.0.edge_endpoints(edge) {
-                vec.push((
-                    self.0.node_weight(a).unwrap().clone(),
-                    self.0.node_weight(b).unwrap().clone(),
-                    *w,
-                ));
-            }
-        }
-
-        vec.into_iter()
+    for _ in 0..del.len() {
+        let a = *it.next().unwrap();
+        let b = *it.next().unwrap();
+        let c = *it.next().unwrap();
+        edges.insert((a.min(b), a.max(b)));
+        edges.insert((a.min(c), a.max(c)));
+        edges.insert((b.min(c), b.max(c)));
     }
+
+    edges
+        .into_iter()
+        .map(|(i, j)| (pts[i], pts[j]))
+        .collect::<Vec<_>>()
 }
