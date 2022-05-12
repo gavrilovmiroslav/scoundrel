@@ -33,10 +33,23 @@ impl Color {
             eff: 0,
         }
     }
-}
 
-lazy_static! {
-    pub static ref WHITE: Color = Color::new(0, 0, 255);
-    pub static ref GRAY: Color = Color::new(0, 0, 128);
-    pub static ref BLACK: Color = Color::new(0, 0, 0);
+    pub const WHITE: Color = Color {
+        hue: 0,
+        sat: 0,
+        val: 255,
+        eff: 0,
+    };
+    pub const GRAY: Color = Color {
+        hue: 0,
+        sat: 0,
+        val: 128,
+        eff: 0,
+    };
+    pub const BLACK: Color = Color {
+        hue: 0,
+        sat: 0,
+        val: 0,
+        eff: 0,
+    };
 }

@@ -1,8 +1,7 @@
 use crate::map::types::*;
 use crate::map::{Rasterize, Stencil};
-use crate::{paint_tile, print_char, Color, Glyph, GlyphTint, Point, Renderable, BLACK, GRAY};
+use crate::{Glyph, Point, Renderable};
 use multimap::MultiMap;
-use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct Domain<T: Clone + Copy> {

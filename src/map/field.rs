@@ -1,6 +1,6 @@
 use crate::map::types::*;
 use crate::map::{Rasterize, Stencil};
-use crate::{paint_tile, print_char, Color, Glyph, GlyphTint, Point, Renderable, BLACK, GRAY};
+use crate::{paint_tile, print_char, Color, Glyph, GlyphTint, Point, Renderable};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -124,7 +124,7 @@ impl Renderable for Field<i8> {
                         u16::max(20 + 23 * v.abs() as u16, 255) as u8,
                         255,
                     )),
-                    Some(*BLACK),
+                    Some(Color::BLACK),
                     1,
                 );
             }
@@ -138,7 +138,12 @@ impl Renderable for Field<u8> {
             let p = *k + origin;
             if p.is_non_negative() {
                 print_char(p, ('0' as u8 + *v) as char, 1);
-                paint_tile(p, Some(Color::new(0, 20 + 23 * *v, 255)), Some(*BLACK), 1);
+                paint_tile(
+                    p,
+                    Some(Color::new(0, 20 + 23 * *v, 255)),
+                    Some(Color::BLACK),
+                    1,
+                );
             }
         }
     }

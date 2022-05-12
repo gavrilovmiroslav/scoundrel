@@ -1,4 +1,4 @@
-use crate::core::colors::{Color, BLACK, GRAY, WHITE};
+use crate::core::colors::Color;
 use crate::core::engine::ENGINE_STATE;
 
 #[derive(Copy, Clone)]
@@ -13,8 +13,8 @@ impl Default for NativeGlyph {
     fn default() -> Self {
         NativeGlyph {
             symbol: ' ' as u32,
-            foreground: *GRAY,
-            background: *BLACK,
+            foreground: Color::GRAY,
+            background: Color::BLACK,
         }
     }
 }
@@ -39,19 +39,26 @@ pub struct Glyph {
     pub tint: GlyphTint,
 }
 
+impl Glyph {
+    pub const FLOOR: Glyph = Glyph {
+        symbol: Some('.'),
+        tint: GlyphTint::Fore(Color::WHITE),
+    };
+}
+
 pub fn clear_screen() {
     let screen = &mut ENGINE_STATE.lock().unwrap().render_state.screen;
     if screen.is_ready() {
         for glyph in screen.glyphs_mut() {
             glyph.symbol = ' ' as u32;
-            glyph.foreground = *GRAY;
-            glyph.background = *BLACK;
+            glyph.foreground = Color::GRAY;
+            glyph.background = Color::BLACK;
         }
     }
 }
 
 pub fn print_char<P: Into<(u32, u32)>>(position: P, chr: char, depth: u32) {
-    print_string_colors(position, chr.to_string(), *WHITE, *BLACK, depth);
+    print_string_colors(position, chr.to_string(), Color::WHITE, Color::BLACK, depth);
 }
 
 pub fn print_char_colors<P: Into<(u32, u32)>>(
@@ -65,7 +72,7 @@ pub fn print_char_colors<P: Into<(u32, u32)>>(
 }
 
 pub fn print_string<S: AsRef<str>, P: Into<(u32, u32)>>(position: P, text: S, depth: u32) {
-    print_string_colors(position, text, *WHITE, *BLACK, depth);
+    print_string_colors(position, text, Color::WHITE, Color::BLACK, depth);
 }
 
 pub fn print_string_colors<S: AsRef<str>, P: Into<(u32, u32)>>(

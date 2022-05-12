@@ -3,6 +3,7 @@ use crate::core::input::{Input, InputState};
 use crate::core::point::Point;
 use crate::core::presentation::Presentation;
 use crate::graphics::glyph_renderer::GlyphRenderer;
+use crate::rand;
 use gilrs::Gilrs;
 use glutin::{EventsLoop, WindowedContext};
 use lazy_static::lazy_static;
@@ -212,6 +213,10 @@ pub fn snoop_for_data_changes() -> Option<DataChange> {
 }
 
 pub(crate) fn start_engine(opts: EngineOptions) {
+    if opts.random_seed.is_some() {
+        rand::seed(opts.random_seed.unwrap());
+    }
+
     let mut engine_state = ENGINE_STATE.lock().unwrap();
     engine_state.runtime_state.options = opts;
 
@@ -284,6 +289,7 @@ pub struct EngineOptions {
     pub window_size: (u32, u32),
     pub title: String,
     pub presentation: String,
+    pub random_seed: Option<u64>,
 }
 
 impl Default for EngineOptions {
