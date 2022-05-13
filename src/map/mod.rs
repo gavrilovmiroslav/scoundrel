@@ -1,3 +1,4 @@
+pub mod corridors;
 mod domain;
 mod field;
 mod graphs;

@@ -55,9 +55,9 @@ pub fn line<P: Into<Point>, Q: Into<Point>>(p: P, q: Q) -> StencilImpl {
     })
 }
 
-pub fn rect<P: Into<Point>>(xy: P, w: u16, h: u16) -> StencilImpl {
+pub fn rect(x: i16, y: i16, w: u16, h: u16) -> StencilImpl {
     Box::new(Stencil::Rectangle {
-        xy: xy.into(),
+        xy: (x, y).into(),
         w,
         h,
     })
@@ -113,7 +113,7 @@ pub fn intersection_point(a: &StencilImpl, b: &StencilImpl) -> Point {
     intersect(a, b)
         .rasterize((0, 0).into())
         .first()
-        .unwrap()
+        .expect(format!("Empty intersection of stencils {:?} and {:?}", a, b).as_str())
         .clone()
 }
 

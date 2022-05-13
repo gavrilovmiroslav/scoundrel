@@ -52,4 +52,10 @@ impl Color {
         val: 0,
         eff: 0,
     };
+    pub const GREEN: Color = Color {
+        hue: 64,
+        sat: 255,
+        val: 255,
+        eff: 0,
+    };
 }
