@@ -44,6 +44,16 @@ impl Glyph {
         symbol: Some('.'),
         tint: GlyphTint::Fore(Color::WHITE),
     };
+
+    pub const HERO: Glyph = Glyph {
+        symbol: Some('@'),
+        tint: GlyphTint::Fore(Color::WHITE),
+    };
+
+    pub const WALL: Glyph = Glyph {
+        symbol: Some('#'),
+        tint: GlyphTint::Fore(Color::GRAY),
+    };
 }
 
 pub fn clear_screen() {
@@ -59,6 +69,20 @@ pub fn clear_screen() {
 
 pub fn print_char<P: Into<(u32, u32)>>(position: P, chr: char, depth: u32) {
     print_string_colors(position, chr.to_string(), Color::WHITE, Color::BLACK, depth);
+}
+
+pub fn print_glyph<P: Into<(u32, u32)>>(position: P, glyph: Glyph, depth: u32) {
+    let pt = position.into();
+    if glyph.symbol.is_some() {
+        print_char(pt, glyph.symbol.unwrap(), depth);
+    }
+
+    match glyph.tint {
+        GlyphTint::None => {}
+        GlyphTint::Fore(f) => paint_tile(pt, Some(f), None, depth),
+        GlyphTint::Back(b) => paint_tile(pt, None, Some(b), depth),
+        GlyphTint::BackFore(b, f) => paint_tile(pt, Some(f), Some(b), depth),
+    }
 }
 
 pub fn print_char_colors<P: Into<(u32, u32)>>(

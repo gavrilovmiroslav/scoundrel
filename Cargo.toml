@@ -17,7 +17,7 @@ structopt = "0.3.26"
 ron = "0.7"
 serde = { version = "1", features = ["derive"] }
 fastrand = "1.7.0"
-shipyard = "0.5.0"
+hecs = { version = "0.7.6" }
 lazy_static = "1.4.0"
 multimap = "0.8.3"
 notify = "4.0.0"

@@ -6,12 +6,17 @@ use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::rand;
 use gilrs::Gilrs;
 use glutin::{EventsLoop, WindowedContext};
+use hecs::Component;
+use hecs::{
+    DynamicBundle, Entity, Query, QueryBorrow, QueryItem, QueryMut, QueryOne, Ref, RefMut, World,
+};
 use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
 use notify::{watcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
-use shipyard::World;
+use std::any::TypeId;
+use std::borrow::Borrow;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::collections::HashSet;
@@ -73,12 +78,60 @@ pub struct Screen {
     pub limit: usize,
 }
 
+#[derive(Default)]
+pub struct Storage {
+    world: World,
+    uniques: HashMap<TypeId, EntityId>,
+}
+
+pub type EntityId = Entity;
+
+pub trait WorldStorage {
+    fn spawn<C: DynamicBundle>(&mut self, e: C) -> EntityId;
+
+    fn query<C: Query + Send>(&self) -> QueryBorrow<C>;
+    fn query_mut<C: Query>(&mut self) -> QueryMut<C>;
+
+    fn despawn(&mut self, entity: EntityId);
+    fn despawn_all<C: Query>(&mut self);
+}
+
+impl WorldStorage for Storage {
+    fn spawn<C: DynamicBundle>(&mut self, e: C) -> EntityId {
+        self.world.spawn(e)
+    }
+
+    fn query<C: Query + Send>(&self) -> QueryBorrow<C> {
+        self.world.query::<C>()
+    }
+
+    fn query_mut<C: Query>(&mut self) -> QueryMut<C> {
+        self.world.query_mut::<C>()
+    }
+
+    fn despawn(&mut self, entity: EntityId) {
+        self.world.despawn(entity);
+    }
+
+    fn despawn_all<C: Query>(&mut self) {
+        let mut to_remove = Vec::new();
+        for (id, _) in &mut self.world.query::<C>() {
+            to_remove.push(id);
+        }
+
+        for entity in to_remove {
+            self.world.despawn(entity).unwrap();
+        }
+    }
+}
+
 pub struct EngineInstance {
     pub event_loop: EventsLoop,
     pub gl_context: WindowedContext,
     pub pipeline: GlyphRenderer,
     pub gamepad: Gilrs,
-    pub world: World,
+    pub static_storage: Storage,
+    pub dynamic_storage: Storage,
 }
 
 impl Screen {

@@ -1,4 +1,5 @@
 mod core;
+pub mod gameplay;
 mod graphics;
 pub mod map;
 pub mod rand;
@@ -11,9 +12,5 @@ pub use crate::core::input::poll_inputs;
 pub use crate::core::*;
 pub use crate::graphics::render;
 pub use crate::graphics::types::Renderable;
-pub use scoundrel_macro::BindableInputAction;
-
-pub use shipyard::iter::*;
-pub use shipyard::*;
-
 pub use petgraph::*;
+pub use scoundrel_macro::BindableInputAction;

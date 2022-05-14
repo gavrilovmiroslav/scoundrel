@@ -3,7 +3,7 @@ use crate::map::{Rasterize, Stencil};
 use crate::{paint_tile, print_char, Color, Glyph, GlyphTint, Point, Renderable};
 use std::collections::HashMap;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Field<T: Clone + Copy> {
     pub values: HashMap<Point, T>,
 }

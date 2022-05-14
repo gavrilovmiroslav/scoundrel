@@ -11,6 +11,10 @@ impl Point {
         self.x >= 0 && self.y >= 0
     }
 
+    pub fn is_zero(&self) -> bool {
+        self.x == 0 && self.y == 0
+    }
+
     pub fn adjacent(&self) -> [Point; 8] {
         [
             Point::from((self.x - 1, self.y)),
