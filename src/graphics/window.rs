@@ -11,9 +11,7 @@ use gilrs::{EventType, Gilrs};
 use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
 use glutin::*;
-use hecs::World;
 use std::ffi::c_void;
-use std::sync::Mutex;
 
 impl Default for EngineInstance {
     fn default() -> Self {

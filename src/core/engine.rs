@@ -6,17 +6,13 @@ use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::rand;
 use gilrs::Gilrs;
 use glutin::{EventsLoop, WindowedContext};
-use hecs::Component;
-use hecs::{
-    DynamicBundle, Entity, Query, QueryBorrow, QueryItem, QueryMut, QueryOne, Ref, RefMut, World,
-};
+use hecs::{DynamicBundle, Entity, Query, QueryBorrow, QueryMut, World};
 use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
 use notify::{watcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
-use std::borrow::Borrow;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::collections::HashSet;
@@ -110,7 +106,9 @@ impl WorldStorage for Storage {
     }
 
     fn despawn(&mut self, entity: EntityId) {
-        self.world.despawn(entity);
+        self.world
+            .despawn(entity)
+            .expect("Despawning entity failed");
     }
 
     fn despawn_all<C: Query>(&mut self) {
@@ -120,7 +118,9 @@ impl WorldStorage for Storage {
         }
 
         for entity in to_remove {
-            self.world.despawn(entity).unwrap();
+            self.world
+                .despawn(entity)
+                .expect("Despawning entity failed");
         }
     }
 }

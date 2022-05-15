@@ -1,10 +1,9 @@
 use crate::engine::ENGINE_STATE;
-use crate::map::{center, corner};
+use crate::map::center;
 use crate::map::{intersection_point, walls};
 use crate::map::{line, StencilImpl};
 use crate::map::{BrushSetter, Field};
-use crate::{distance, rand, Glyph, Point};
-use petgraph::Graph;
+use crate::{distance, Glyph, Point};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::default::Default;

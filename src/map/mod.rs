@@ -6,7 +6,6 @@ mod map;
 mod stencil;
 mod types;
 
-pub use domain::*;
 pub use field::*;
 pub use graphs::*;
 pub use map::*;

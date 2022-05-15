@@ -1,5 +1,3 @@
-use lazy_static::*;
-
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct Color {

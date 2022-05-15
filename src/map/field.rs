@@ -18,6 +18,10 @@ impl<T: Clone + Copy> Field<T> {
     pub fn contains(&self, p: &Point) -> bool {
         self.values.contains_key(p)
     }
+
+    pub fn points(&self) -> Vec<Point> {
+        self.values.keys().cloned().collect::<Vec<_>>()
+    }
 }
 
 impl<T: Clone + Copy> BrushSetter<Point, T> for Field<T> {
