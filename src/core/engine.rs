@@ -6,7 +6,7 @@ use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::rand;
 use gilrs::Gilrs;
 use glutin::{EventsLoop, WindowedContext};
-use hecs::{DynamicBundle, Entity, Query, QueryBorrow, QueryMut, World};
+use hecs::{DynamicBundle, Entity, Query, QueryBorrow, QueryMut, QueryOne, World};
 use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
@@ -85,8 +85,8 @@ pub type EntityId = Entity;
 pub trait WorldStorage {
     fn spawn<C: DynamicBundle>(&mut self, e: C) -> EntityId;
 
+    fn get<C: Query + Send>(&self, e: EntityId) -> QueryOne<C>;
     fn query<C: Query + Send>(&self) -> QueryBorrow<C>;
-    fn query_mut<C: Query>(&mut self) -> QueryMut<C>;
 
     fn despawn(&mut self, entity: EntityId);
     fn despawn_all<C: Query>(&mut self);
@@ -97,12 +97,9 @@ impl WorldStorage for Storage {
         self.world.spawn(e)
     }
 
+    fn get<C: Query + Send>(&self, e: EntityId) -> QueryOne<C> { self.world.query_one::<C>(e).expect("Querying failed.") }
     fn query<C: Query + Send>(&self) -> QueryBorrow<C> {
         self.world.query::<C>()
-    }
-
-    fn query_mut<C: Query>(&mut self) -> QueryMut<C> {
-        self.world.query_mut::<C>()
     }
 
     fn despawn(&mut self, entity: EntityId) {
@@ -266,8 +263,8 @@ pub fn snoop_for_data_changes() -> Option<DataChange> {
 }
 
 pub(crate) fn start_engine(opts: EngineOptions) {
-    if opts.random_seed.is_some() {
-        rand::seed(opts.random_seed.unwrap());
+    if opts.seed.is_some() {
+        rand::seed(opts.seed.unwrap());
     }
 
     let mut engine_state = ENGINE_STATE.lock().unwrap();
@@ -342,7 +339,7 @@ pub struct EngineOptions {
     pub window_size: (u32, u32),
     pub title: String,
     pub presentation: String,
-    pub random_seed: Option<u64>,
+    pub seed: Option<u64>,
 }
 
 impl Default for EngineOptions {

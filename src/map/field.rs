@@ -32,7 +32,7 @@ impl<T: Clone + Copy> BrushSetter<Point, T> for Field<T> {
 
 impl<T: Clone + Copy> BrushSetter<Box<Stencil>, T> for Field<T> {
     fn set(&mut self, brush: &Box<Stencil>, value: T) {
-        for tile in brush.rasterize(Point::from((0, 0))) {
+        for tile in brush.rasterize() {
             self.values.insert(tile, value);
         }
     }
@@ -40,7 +40,7 @@ impl<T: Clone + Copy> BrushSetter<Box<Stencil>, T> for Field<T> {
 
 impl<T: Clone + Copy> BrushSetter<Stencil, T> for Field<T> {
     fn set(&mut self, brush: &Stencil, value: T) {
-        for tile in brush.rasterize(Point::from((0, 0))) {
+        for tile in brush.rasterize() {
             self.values.insert(tile, value);
         }
     }
@@ -53,9 +53,9 @@ impl<P: Into<Point> + Clone, T: Clone + Copy> BrushMaybeGetter<P, T> for Field<T
     }
 }
 
-impl<P: Into<Point> + Clone, T: Clone + Copy + Default> BrushGetter<P, T> for Field<T> {
-    fn get(&self, p: P) -> T {
-        let res = self.values.get(&p.into());
+impl<T: Clone + Copy + Default> BrushGetter<Point, T> for Field<T> {
+    fn get(&self, p: &Point) -> T {
+        let res = self.values.get(p);
         res.map(T::clone).unwrap_or_default()
     }
 }
@@ -65,7 +65,7 @@ impl<T: Clone + Copy> BrushOverlaps<Stencil> for Field<T> {
         match b {
             Stencil::Empty => false,
             other => {
-                for p in other.rasterize((0, 0).into()) {
+                for p in other.rasterize() {
                     if self.values.contains_key(&p) {
                         return true;
                     }
@@ -82,7 +82,7 @@ impl<T: Clone + Copy> BrushOverlapsOffset<Stencil> for Field<T> {
         match b {
             Stencil::Empty => false,
             other => {
-                for p in other.rasterize(offset.into()) {
+                for p in other.rasterize() {
                     if self.values.contains_key(&p) {
                         return true;
                     }
@@ -95,7 +95,7 @@ impl<T: Clone + Copy> BrushOverlapsOffset<Stencil> for Field<T> {
 }
 
 impl Renderable for Field<Glyph> {
-    fn render(&self, origin: Point) {
+    fn render(&self) {
         for (k, v) in &self.values {
             if let Some(chr) = v.symbol {
                 let colors = match v.tint {
@@ -105,7 +105,7 @@ impl Renderable for Field<Glyph> {
                     GlyphTint::BackFore(bg, fg) => (Some(fg), Some(bg)),
                 };
 
-                let p = *k + origin;
+                let p = *k;
                 if p.is_non_negative() {
                     print_char(p, chr, 1);
                     paint_tile(p, colors.0, colors.1, 1);
@@ -116,9 +116,9 @@ impl Renderable for Field<Glyph> {
 }
 
 impl Renderable for Field<i8> {
-    fn render(&self, origin: Point) {
+    fn render(&self) {
         for (k, v) in &self.values {
-            let p = *k + origin;
+            let p = *k;
             if p.is_non_negative() {
                 print_char(p, ('0' as u8 + v.abs() as u8) as char, 1);
                 paint_tile(
@@ -137,9 +137,9 @@ impl Renderable for Field<i8> {
 }
 
 impl Renderable for Field<u8> {
-    fn render(&self, origin: Point) {
+    fn render(&self) {
         for (k, v) in &self.values {
-            let p = *k + origin;
+            let p = *k;
             if p.is_non_negative() {
                 print_char(p, ('0' as u8 + *v) as char, 1);
                 paint_tile(

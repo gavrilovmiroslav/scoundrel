@@ -12,7 +12,7 @@ pub enum Bool {
 }
 
 pub trait Rasterize {
-    fn rasterize(&self, origin: Point) -> RasterIter;
+    fn rasterize(&self) -> RasterIter;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -111,7 +111,7 @@ pub fn intersect(a: &StencilImpl, b: &StencilImpl) -> StencilImpl {
 
 pub fn intersection_point(a: &StencilImpl, b: &StencilImpl) -> Point {
     intersect(a, b)
-        .rasterize((0, 0).into())
+        .rasterize()
         .first()
         .expect(format!("Empty intersection of stencils {:?} and {:?}", a, b).as_str())
         .clone()
@@ -151,7 +151,7 @@ pub fn dup(t: &StencilImpl) -> StencilImpl {
 }
 
 impl Rasterize for Stencil {
-    fn rasterize(&self, origin: Point) -> RasterIter {
+    fn rasterize(&self) -> RasterIter {
         match self {
             Stencil::Empty => vec![],
 
@@ -164,8 +164,8 @@ impl Rasterize for Stencil {
                 for x in 0..*w {
                     for y in 0..*h {
                         vec.push(Point::from((
-                            (xy.x + x as i16 + origin.x) as i16,
-                            (xy.y + y as i16 + origin.y) as i16,
+                            (xy.x + x as i16) as i16,
+                            (xy.y + y as i16) as i16,
                         )));
                     }
                 }
@@ -179,8 +179,8 @@ impl Rasterize for Stencil {
                     for y in -r..r {
                         if x * x + y * y <= r * r {
                             vec.push(Point::from((
-                                (center.x + x + origin.x) as i16,
-                                (center.y + y + origin.y) as i16,
+                                (center.x + x) as i16,
+                                (center.y + y) as i16,
                             )));
                         }
                     }
@@ -193,8 +193,8 @@ impl Rasterize for Stencil {
                 lhs,
                 rhs,
             } => {
-                let ls: HashSet<_> = HashSet::from_iter(lhs.rasterize(origin));
-                let rs: HashSet<_> = HashSet::from_iter(rhs.rasterize(origin));
+                let ls: HashSet<_> = HashSet::from_iter(lhs.rasterize());
+                let rs: HashSet<_> = HashSet::from_iter(rhs.rasterize());
                 ls.union(&rs).map(Point::clone).collect()
             }
 
@@ -203,8 +203,8 @@ impl Rasterize for Stencil {
                 lhs,
                 rhs,
             } => {
-                let ls: HashSet<_> = HashSet::from_iter(lhs.rasterize(origin));
-                let rs: HashSet<_> = HashSet::from_iter(rhs.rasterize(origin));
+                let ls: HashSet<_> = HashSet::from_iter(lhs.rasterize());
+                let rs: HashSet<_> = HashSet::from_iter(rhs.rasterize());
                 ls.difference(&rs).map(Point::clone).collect()
             }
 
@@ -213,8 +213,8 @@ impl Rasterize for Stencil {
                 lhs,
                 rhs,
             } => {
-                let ls: HashSet<_> = HashSet::from_iter(lhs.rasterize(origin));
-                let rs: HashSet<_> = HashSet::from_iter(rhs.rasterize(origin));
+                let ls: HashSet<_> = HashSet::from_iter(lhs.rasterize());
+                let rs: HashSet<_> = HashSet::from_iter(rhs.rasterize());
                 ls.intersection(&rs).map(Point::clone).collect()
             }
 
@@ -259,7 +259,7 @@ impl Rasterize for Stencil {
                 };
 
                 if changed.is_some() {
-                    changed.unwrap().rasterize(origin)
+                    changed.unwrap().rasterize()
                 } else {
                     vec![]
                 }
@@ -269,7 +269,7 @@ impl Rasterize for Stencil {
 }
 
 pub fn paint_stencil(stencil: &StencilImpl, sym: char, depth: u32) {
-    for tile in stencil.rasterize(Point::from((0, 0))) {
+    for tile in stencil.rasterize() {
         print_char(tile, sym, depth);
     }
 }

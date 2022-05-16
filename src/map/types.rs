@@ -9,11 +9,11 @@ pub trait BrushMaybeGetter<P, T> {
 }
 
 pub trait BrushGetter<P, T> {
-    fn get(&self, p: P) -> T;
+    fn get(&self, p: &P) -> T;
 }
 
 pub trait BrushAllGetter<P, T> {
-    fn get(&self, p: P) -> Vec<T>;
+    fn get(&self, p: &P) -> Vec<T>;
 }
 
 pub trait BrushOverlaps<Brush> {

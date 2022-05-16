@@ -1,6 +1,7 @@
 use crate::{Glyph, GlyphTint, Point};
 
-pub struct Positioned(Point);
+#[derive(Debug)]
+pub struct Positioned(pub Point);
 
 impl Into<Point> for Positioned {
     fn into(self) -> Point {
@@ -32,7 +33,7 @@ impl Positioned {
     }
 }
 
-pub struct Visible(Glyph);
+pub struct Visible(pub Glyph);
 
 impl Visible {
     pub fn new(g: Glyph) -> Self {

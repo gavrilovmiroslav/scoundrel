@@ -28,6 +28,20 @@ impl Point {
         ]
     }
 
+    pub fn horizontal_neighbors(&self) -> [Point; 2] {
+        [
+            Point::from((self.x - 1, self.y)),
+            Point::from((self.x + 1, self.y)),
+        ]
+    }
+
+    pub fn vertical_neighbors(&self) -> [Point; 2] {
+        [
+            Point::from((self.x, self.y - 1)),
+            Point::from((self.x, self.y + 1)),
+        ]
+    }
+
     pub fn neighbors(&self) -> [Point; 4] {
         [
             Point::from((self.x - 1, self.y)),

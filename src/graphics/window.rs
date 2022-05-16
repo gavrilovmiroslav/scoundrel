@@ -153,19 +153,14 @@ impl EngineInstance {
 }
 
 impl Renderable for EngineInstance {
-    fn render(&self, _: Point) {
+    fn render(&self) {
         render_frame(&self.gl_context, &self.pipeline);
     }
 }
 
 #[allow(dead_code)]
 pub fn render<R: Renderable>(renderable: &R) {
-    renderable.render((0, 0).into());
-}
-
-#[allow(dead_code)]
-pub fn render_at<R: Renderable, P: Into<Point>>(renderable: &R, origin: P) {
-    renderable.render(origin.into());
+    renderable.render();
 }
 
 #[inline(always)]

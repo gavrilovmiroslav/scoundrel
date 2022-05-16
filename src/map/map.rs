@@ -1,16 +1,52 @@
 use crate::engine::ENGINE_STATE;
-use crate::map::center;
+use crate::map::{BrushGetter, center};
 use crate::map::{intersection_point, walls};
 use crate::map::{line, StencilImpl};
 use crate::map::{BrushSetter, Field};
-use crate::{distance, Glyph, Point};
+use crate::{Color, distance, Glyph, Point, print_char_colors, Renderable};
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::default::Default;
+use crate::map::fov;
+use crate::paint_tile;
+use crate::print_glyph;
+
+pub struct FOVDescriptor {
+    pub minimal_visible_color_value: u8,
+    pub render_seen_history: bool,
+    pub use_distance_falloff: bool,
+}
+
+impl Default for FOVDescriptor {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl FOVDescriptor {
+    pub const SIMPLE: FOVDescriptor = Self {
+        minimal_visible_color_value: 0,
+        render_seen_history: false,
+        use_distance_falloff: false,
+    };
+
+    pub const DEFAULT: FOVDescriptor = Self {
+        minimal_visible_color_value: 40,
+        render_seen_history: true,
+        use_distance_falloff: true,
+    };
+
+    pub const SIMPLE_MEMORY: FOVDescriptor = Self {
+        minimal_visible_color_value: 40,
+        render_seen_history: true,
+        use_distance_falloff: false,
+    };
+}
 
 pub struct MapLevelComponent {
     pub size: (u32, u32),
     pub walkable: Field<bool>,
+    pub seen: Field<Glyph>,
     pub drawn: Field<Glyph>,
     pub rooms: HashMap<Point, StencilImpl>,
     pub centers: Vec<Point>,
@@ -29,11 +65,22 @@ impl MapLevelComponent {
         MapLevelComponent {
             size,
             walkable: Default::default(),
+            seen: Default::default(),
             drawn: Default::default(),
             rooms: Default::default(),
             centers: Default::default(),
             connected: Default::default(),
         }
+    }
+
+    pub fn mark_seen(&mut self, pts: &Vec<(Point, bool)>) {
+        for pt in pts.iter().map(|(p, _)| *p).collect::<Vec<_>>() {
+            self.seen.set(&pt, *self.drawn.values.get(&pt).unwrap_or(&Glyph::WALL));
+        }
+    }
+
+    pub fn get_fov(&self, pt: &Point, distance: u16) -> Vec<(Point, bool)> {
+        fov(*pt, distance, &self.walkable)
     }
 
     pub fn stamp_walkable(&mut self, stencil: &StencilImpl) {
@@ -89,5 +136,60 @@ impl MapLevelComponent {
         let db = intersection_point(&wb, &full_line);
 
         (da, db, distance(da, db))
+    }
+}
+
+pub struct FOVRenderingPass<'a> {
+    pub map: &'a MapLevelComponent,
+    pub origin: &'a Point,
+    pub fov_descriptor: &'a FOVDescriptor,
+    pub fov: &'a Vec<(Point, bool)>,
+    pub max_distance: u16,
+}
+
+pub struct FOVRenderer<'a> {
+    pub render_seen: &'a dyn Fn(Point, Glyph),
+    pub render_fov: &'a dyn Fn(Point, bool),
+}
+
+impl<'a> Renderable for (FOVRenderingPass<'a>, FOVRenderer<'a>) {
+    fn render(&self) {
+        if self.0.fov_descriptor.render_seen_history {
+            for (p, g) in &self.0.map.seen.values {
+                (self.1.render_seen)(*p, *g);
+            }
+        }
+
+        for (p, state) in self.0.fov {
+            (self.1.render_fov)(*p, *state);
+        }
+    }
+}
+
+impl<'a> Renderable for FOVRenderingPass<'a> {
+    fn render(&self) {
+        if self.fov_descriptor.render_seen_history {
+            for (p, g) in &self.map.seen.values {
+                print_char_colors(*p, g.symbol.unwrap(),
+                                  Color::new(0, 0, self.fov_descriptor.minimal_visible_color_value),
+                                  Color::BLACK, 4);
+            }
+        }
+
+        for (p, state) in self.fov {
+            let glyph = if !state { Glyph::WALL } else { Glyph::FLOOR };
+
+            let val = if self.fov_descriptor.use_distance_falloff {
+                let m = self.max_distance as f32;
+                let d = distance(*self.origin, *p).clamp(0.0, m);
+                let f = 255 - (d / m * 255.0) as u8;
+                f.max(self.fov_descriptor.minimal_visible_color_value)
+            } else {
+                255
+            };
+
+            print_glyph(*p, glyph, 5);
+            paint_tile(*p, Some(Color::new(0, 0, val)), None, 5);
+        }
     }
 }
