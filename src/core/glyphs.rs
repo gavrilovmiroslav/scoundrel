@@ -1,7 +1,8 @@
 use crate::core::colors::Color;
 use crate::core::engine::ENGINE_STATE;
+use serde::*;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize)]
 #[repr(C)]
 pub struct NativeGlyph {
     pub symbol: u32,
@@ -19,7 +20,7 @@ impl Default for NativeGlyph {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum GlyphTint {
     None,
     Fore(Color),
@@ -33,7 +34,7 @@ impl Default for GlyphTint {
     }
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize)]
 pub struct Glyph {
     pub symbol: Option<char>,
     pub tint: GlyphTint,

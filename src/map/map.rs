@@ -1,5 +1,5 @@
 use crate::engine::ENGINE_STATE;
-use crate::map::{BrushGetter, center};
+use crate::map::{center};
 use crate::map::{intersection_point, walls};
 use crate::map::{line, StencilImpl};
 use crate::map::{BrushSetter, Field};
@@ -10,6 +10,9 @@ use std::default::Default;
 use crate::map::fov;
 use crate::paint_tile;
 use crate::print_glyph;
+use serde::*;
+use crate::gameplay::FieldOfView;
+
 
 pub struct FOVDescriptor {
     pub minimal_visible_color_value: u8,
@@ -43,7 +46,8 @@ impl FOVDescriptor {
     };
 }
 
-pub struct MapLevelComponent {
+#[derive(Serialize, Deserialize, Clone)]
+pub struct MapLevel {
     pub size: (u32, u32),
     pub walkable: Field<bool>,
     pub seen: Field<Glyph>,
@@ -53,16 +57,18 @@ pub struct MapLevelComponent {
     pub connected: HashSet<(Point, Point)>,
 }
 
-impl Default for MapLevelComponent {
-    fn default() -> MapLevelComponent {
+
+
+impl Default for MapLevel {
+    fn default() -> MapLevel {
         let screen_size = ENGINE_STATE.lock().unwrap().render_state.screen_size;
-        MapLevelComponent::new(screen_size)
+        MapLevel::new(screen_size)
     }
 }
 
-impl MapLevelComponent {
-    pub fn new(size: (u32, u32)) -> MapLevelComponent {
-        MapLevelComponent {
+impl MapLevel {
+    pub fn new(size: (u32, u32)) -> MapLevel {
+        MapLevel {
             size,
             walkable: Default::default(),
             seen: Default::default(),
@@ -73,14 +79,16 @@ impl MapLevelComponent {
         }
     }
 
-    pub fn mark_seen(&mut self, pts: &Vec<(Point, bool)>) {
-        for pt in pts.iter().map(|(p, _)| *p).collect::<Vec<_>>() {
-            self.seen.set(&pt, *self.drawn.values.get(&pt).unwrap_or(&Glyph::WALL));
+    pub fn mark_seen(&mut self, fov: &FieldOfView) {
+        for (pt, _) in &fov.0 {
+            self.seen.set(pt, *self.drawn.values.get(pt).unwrap_or(&Glyph::WALL));
         }
     }
 
-    pub fn get_fov(&self, pt: &Point, distance: u16) -> Vec<(Point, bool)> {
-        fov(*pt, distance, &self.walkable)
+    pub fn fov(&mut self, pt: &Point, distance: u16) -> FieldOfView {
+        let f = fov(*pt, distance, &self.walkable);
+        self.mark_seen(&f);
+        f
     }
 
     pub fn stamp_walkable(&mut self, stencil: &StencilImpl) {
@@ -140,10 +148,10 @@ impl MapLevelComponent {
 }
 
 pub struct FOVRenderingPass<'a> {
-    pub map: &'a MapLevelComponent,
+    pub map: &'a MapLevel,
     pub origin: &'a Point,
     pub fov_descriptor: &'a FOVDescriptor,
-    pub fov: &'a Vec<(Point, bool)>,
+    pub fov: &'a FieldOfView,
     pub max_distance: u16,
 }
 
@@ -160,7 +168,7 @@ impl<'a> Renderable for (FOVRenderingPass<'a>, FOVRenderer<'a>) {
             }
         }
 
-        for (p, state) in self.0.fov {
+        for (p, state) in &self.0.fov.0 {
             (self.1.render_fov)(*p, *state);
         }
     }
@@ -176,7 +184,7 @@ impl<'a> Renderable for FOVRenderingPass<'a> {
             }
         }
 
-        for (p, state) in self.fov {
+        for (p, state) in &self.fov.0 {
             let glyph = if !state { Glyph::WALL } else { Glyph::FLOOR };
 
             let val = if self.fov_descriptor.use_distance_falloff {

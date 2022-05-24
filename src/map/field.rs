@@ -2,8 +2,10 @@ use crate::map::types::*;
 use crate::map::{Rasterize, Stencil};
 use crate::{paint_tile, print_char, Color, Glyph, GlyphTint, Point, Renderable};
 use std::collections::HashMap;
+use serde::*;
 
 #[derive(Default, Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct Field<T: Clone + Copy> {
     pub values: HashMap<Point, T>,
 }
@@ -62,23 +64,6 @@ impl<T: Clone + Copy + Default> BrushGetter<Point, T> for Field<T> {
 
 impl<T: Clone + Copy> BrushOverlaps<Stencil> for Field<T> {
     fn overlaps(&self, b: &Stencil) -> bool {
-        match b {
-            Stencil::Empty => false,
-            other => {
-                for p in other.rasterize() {
-                    if self.values.contains_key(&p) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-        }
-    }
-}
-
-impl<T: Clone + Copy> BrushOverlapsOffset<Stencil> for Field<T> {
-    fn overlaps_offset<P: Into<Point>>(&self, b: &Stencil, offset: P) -> bool {
         match b {
             Stencil::Empty => false,
             other => {

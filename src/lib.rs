@@ -12,5 +12,4 @@ pub use crate::core::input::poll_inputs;
 pub use crate::core::*;
 pub use crate::graphics::render;
 pub use crate::graphics::types::Renderable;
-pub use petgraph::*;
 pub use scoundrel_macro::BindableInputAction;

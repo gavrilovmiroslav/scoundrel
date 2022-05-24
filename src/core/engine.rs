@@ -6,17 +6,15 @@ use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::rand;
 use gilrs::Gilrs;
 use glutin::{EventsLoop, WindowedContext};
-use hecs::{DynamicBundle, Entity, Query, QueryBorrow, QueryMut, QueryOne, World};
 use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
 use notify::{watcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
-use std::any::TypeId;
 use std::collections::HashMap;
 #[allow(unused_imports)]
 use std::collections::HashSet;
-use std::fs;
+use std::{fs};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::mpsc::Receiver;
@@ -74,61 +72,11 @@ pub struct Screen {
     pub limit: usize,
 }
 
-#[derive(Default)]
-pub struct Storage {
-    world: World,
-    uniques: HashMap<TypeId, EntityId>,
-}
-
-pub type EntityId = Entity;
-
-pub trait WorldStorage {
-    fn spawn<C: DynamicBundle>(&mut self, e: C) -> EntityId;
-
-    fn get<C: Query + Send>(&self, e: EntityId) -> QueryOne<C>;
-    fn query<C: Query + Send>(&self) -> QueryBorrow<C>;
-
-    fn despawn(&mut self, entity: EntityId);
-    fn despawn_all<C: Query>(&mut self);
-}
-
-impl WorldStorage for Storage {
-    fn spawn<C: DynamicBundle>(&mut self, e: C) -> EntityId {
-        self.world.spawn(e)
-    }
-
-    fn get<C: Query + Send>(&self, e: EntityId) -> QueryOne<C> { self.world.query_one::<C>(e).expect("Querying failed.") }
-    fn query<C: Query + Send>(&self) -> QueryBorrow<C> {
-        self.world.query::<C>()
-    }
-
-    fn despawn(&mut self, entity: EntityId) {
-        self.world
-            .despawn(entity)
-            .expect("Despawning entity failed");
-    }
-
-    fn despawn_all<C: Query>(&mut self) {
-        let mut to_remove = Vec::new();
-        for (id, _) in &mut self.world.query::<C>() {
-            to_remove.push(id);
-        }
-
-        for entity in to_remove {
-            self.world
-                .despawn(entity)
-                .expect("Despawning entity failed");
-        }
-    }
-}
-
 pub struct EngineInstance {
     pub event_loop: EventsLoop,
     pub gl_context: WindowedContext,
     pub pipeline: GlyphRenderer,
     pub gamepad: Gilrs,
-    pub static_storage: Storage,
-    pub dynamic_storage: Storage,
 }
 
 impl Screen {

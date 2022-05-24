@@ -1,10 +1,13 @@
 use crate::{print_char, Point};
 use bresenham::Bresenham;
 use std::collections::HashSet;
+use serde::*;
+
 
 pub type RasterIter = Vec<Point>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize)]
 pub enum Bool {
     Union,
     Diff,
@@ -16,6 +19,7 @@ pub trait Rasterize {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize)]
 pub enum Stencil {
     Empty,
     Line {

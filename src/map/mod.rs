@@ -6,6 +6,7 @@ mod map;
 mod shadow_casting;
 mod stencil;
 mod types;
+mod graph_internals;
 
 pub use field::*;
 pub use fov::*;

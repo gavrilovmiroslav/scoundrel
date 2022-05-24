@@ -1,6 +1,7 @@
 use std::ops::{Add, AddAssign, Div, Sub, SubAssign};
+use serde::*;
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Point {
     pub x: i16,
     pub y: i16,

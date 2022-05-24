@@ -1,12 +1,11 @@
 use crate::core::engine::start_engine;
 use crate::core::engine::{EngineOptions, ENGINE_STATE};
 use crate::core::input::{Input, InputState};
-use crate::engine::{EngineInstance, Storage};
+use crate::engine::{EngineInstance};
 use crate::graphics::common::gl_error_check;
 use crate::graphics::gamepad::gilrs_to_button;
 use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::graphics::types::Renderable;
-use crate::Point;
 use gilrs::{EventType, Gilrs};
 use gl::types::GLboolean;
 use glutin::dpi::LogicalSize;
@@ -51,8 +50,6 @@ impl EngineInstance {
             gl_context,
             pipeline,
             gamepad,
-            static_storage: Storage::default(),
-            dynamic_storage: Storage::default(),
         }
     }
 

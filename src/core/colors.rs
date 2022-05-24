@@ -1,4 +1,6 @@
-#[derive(Copy, Clone, Debug)]
+use serde::*;
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub struct Color {
     pub hue: u8,

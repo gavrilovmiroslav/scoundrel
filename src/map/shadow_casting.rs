@@ -1,12 +1,12 @@
+use std::collections::HashMap;
 use std::ops::Range;
-use nalgebra_glm::Qua;
-use petgraph::matrix_graph::Zero;
 use crate::Point;
 
 pub trait Shadowcaster {
-    fn compute(origin: Point, max_depth: u16, is_blocking: &impl Fn(&Point) -> bool, mark: &impl Fn(&Point, bool));
+    fn compute(origin: Point, max_depth: u16, is_blocking: &impl Fn(&Point) -> bool, mark: &mut HashMap<Point, bool>);
 }
 
+#[allow(dead_code)]
 pub fn round_towards_zero(n: f32) -> i16 {
     (n.signum() * (n.abs() - 0.5).ceil()) as i16
 }
@@ -119,21 +119,21 @@ impl SymmetricShadowcast {
         }
     }
 
-    pub fn reveal_reoriented(tile: &Point, quad: &Quadrant, mark: &impl Fn(&Point, bool)) {
+    pub fn reveal_reoriented(tile: &Point, quad: &Quadrant, mark: &mut HashMap<Point, bool>) {
         if let Some(pt) = quad.transform(tile) {
-            mark(&pt, true)
+            mark.insert(pt, true);
         }
     }
 
-    pub fn conceal_reoriented(tile: &Point, quad: &Quadrant, mark: &impl Fn(&Point, bool)) {
+    pub fn conceal_reoriented(tile: &Point, quad: &Quadrant, mark: &mut HashMap<Point, bool>) {
         if let Some(pt) = quad.transform(tile) {
-            mark(&pt, false)
+            mark.insert(pt, false);
         }
     }
 
     pub fn scan(row: Row, max_depth: u16, quad: &Quadrant,
                 is_blocking: &impl Fn(&Point) -> bool,
-                mark: &impl Fn(&Point, bool)) {
+                mark: &mut HashMap<Point, bool>) {
 
         let mut rows = Vec::new();
         rows.push(row);
@@ -149,21 +149,21 @@ impl SymmetricShadowcast {
                 if Self::is_blocking_reorient(&tile, quad, &is_blocking) ||
                     Self::is_symmetric(&row, &tile) {
 
-                    Self::reveal_reoriented(&tile, quad, &mark);
+                    Self::reveal_reoriented(&tile, quad, mark);
                 }
 
                 if let Some(prev) = prev_tile {
                     if Self::is_blocking_reorient(&prev, quad, &is_blocking) &&
                         Self::is_walkable_reorient(&tile, quad, &is_blocking) {
 
-                        Self::conceal_reoriented(&prev, quad, &mark);
+                        Self::conceal_reoriented(&prev, quad, mark);
                         row.start_slope = Self::slope(&tile);
                     }
 
                     if Self::is_walkable_reorient(&prev, quad, &is_blocking) &&
                         Self::is_blocking_reorient(&tile, quad, &is_blocking) {
 
-                        Self::conceal_reoriented(&tile, quad, &mark);
+                        Self::conceal_reoriented(&tile, quad, mark);
 
                         let mut next_row = row.next();
                         next_row.end_slope = Self::slope(&tile);
@@ -182,8 +182,8 @@ impl SymmetricShadowcast {
 }
 
 impl Shadowcaster for SymmetricShadowcast {
-    fn compute(origin: Point, max_depth: u16, is_blocking: &impl Fn(&Point) -> bool, mark: &impl Fn(&Point, bool)) {
-        mark(&origin, true);
+    fn compute(origin: Point, max_depth: u16, is_blocking: &impl Fn(&Point) -> bool, mark: &mut HashMap<Point, bool>) {
+        mark.insert(origin, true);
 
         for dir in QuadrantDirection::all() {
             let quad = Quadrant::new(dir, origin);

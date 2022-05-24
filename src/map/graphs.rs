@@ -15,7 +15,6 @@ pub fn minimum_spanning_tree(graph: Graph) -> HashSet<Edge> {
 
     let edges = min_span.edge_indices().into_iter();
     for edge in edges {
-        let w = min_span.edge_weight(edge).unwrap();
         if let Some((a, b)) = min_span.edge_endpoints(edge) {
             return_set.insert((
                 min_span.node_weight(a).unwrap().clone(),
@@ -114,7 +113,7 @@ pub struct CorridorStampDistribution<'a> {
     pub ignore_already_connected: bool,
 }
 
-pub fn stamp_rooms(distrib: RoomStampDistribution, level: &mut MapLevelComponent) -> usize {
+pub fn stamp_rooms(distrib: RoomStampDistribution, level: &mut MapLevel) -> usize {
     let mut successful = 0;
 
     for _ in 1..distrib.max_count {
@@ -140,7 +139,7 @@ pub fn stamp_rooms(distrib: RoomStampDistribution, level: &mut MapLevelComponent
 pub fn stamp_corridors(
     distrib: CorridorStampDistribution,
     pts: &HashSet<Edge>,
-    level: &mut MapLevelComponent,
+    level: &mut MapLevel,
 ) {
     let compare_probability = if distrib.probability.0 == 100 {
         None

@@ -1,4 +1,3 @@
-use crate::Point;
 
 pub trait BrushSetter<Brush, T> {
     fn set(&mut self, brush: &Brush, value: T);
@@ -18,8 +17,4 @@ pub trait BrushAllGetter<P, T> {
 
 pub trait BrushOverlaps<Brush> {
     fn overlaps(&self, b: &Brush) -> bool;
-}
-
-pub trait BrushOverlapsOffset<Brush> {
-    fn overlaps_offset<P: Into<Point>>(&self, b: &Brush, offset: P) -> bool;
 }
