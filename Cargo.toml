@@ -11,11 +11,8 @@ repository = "http://github.com/gavrilovmiroslav/scoundrel"
 crate-type = ["dylib"]
 bench = false
 
-[dependencies.glfw]
-git = "https://github.com/bjz/glfw-rs.git"
-default-features = false
-
 [dependencies]
+glfw = { version = "0.44.0", features = [], default-features = false }
 gl_loader = "0.1.2"
 scoundrel-macro = "0.4.0"
 structopt = "0.3.26"

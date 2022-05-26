@@ -472,7 +472,8 @@ dependencies = [
 [[package]]
 name = "glfw"
 version = "0.44.0"
-source = "git+https://github.com/bjz/glfw-rs.git#84747b799565e23c162e47a8e4690b346aa5014d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "103c29fa9d30c5371187895a10948d4f54b4111450328b4e439133d88243c5e3"
 dependencies = [
  "bitflags",
  "objc",
