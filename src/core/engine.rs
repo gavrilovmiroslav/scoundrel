@@ -5,7 +5,6 @@ use crate::core::presentation::Presentation;
 use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::rand;
 use gilrs::Gilrs;
-use glutin::{EventsLoop, WindowedContext};
 use lazy_static::lazy_static;
 use notify::DebouncedEvent;
 use notify::RecommendedWatcher;
@@ -22,6 +21,7 @@ use std::sync::mpsc::{channel, TryRecvError};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::Duration;
+use glfw::{Glfw, Window, WindowEvent};
 
 lazy_static! {
     pub static ref ENGINE_STATE: Arc<Mutex<EngineState>> =
@@ -73,10 +73,11 @@ pub struct Screen {
 }
 
 pub struct EngineInstance {
-    pub event_loop: EventsLoop,
-    pub gl_context: WindowedContext,
+    pub glfw: Glfw,
     pub pipeline: GlyphRenderer,
     pub gamepad: Gilrs,
+    pub events: Receiver<(f64, WindowEvent)>,
+    pub window: Window,
 }
 
 impl Screen {

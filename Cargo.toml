@@ -1,6 +1,6 @@
 [package]
 name = "scoundrel"
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "An engine for working with ASCII roguelikes."
@@ -11,7 +11,12 @@ repository = "http://github.com/gavrilovmiroslav/scoundrel"
 crate-type = ["dylib"]
 bench = false
 
+[dependencies.glfw]
+git = "https://github.com/bjz/glfw-rs.git"
+default-features = false
+
 [dependencies]
+gl_loader = "0.1.2"
 scoundrel-macro = "0.4.0"
 structopt = "0.3.26"
 ron = "0.7"
@@ -24,7 +29,6 @@ priority-queue = "1.2.1"
 caves = "0.2.1"
 filearco = "0.1.0"
 bresenham = "0.1.1"
-glutin = { version = "0.20", features = ["serde"] }
 gl = "0.14.0"
 nalgebra-glm = "0.16.0"
 image = "0.23"

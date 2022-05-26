@@ -8,9 +8,7 @@ use crate::graphics::glyph_renderer::GlyphRenderer;
 use crate::graphics::types::Renderable;
 use gilrs::{EventType, Gilrs};
 use gl::types::GLboolean;
-use glutin::dpi::LogicalSize;
-use glutin::*;
-use std::ffi::c_void;
+use glfw::{Action, Context, Window, WindowEvent};
 
 impl Default for EngineInstance {
     fn default() -> Self {
@@ -24,30 +22,28 @@ impl EngineInstance {
     fn new(opts: EngineOptions) -> EngineInstance {
         start_engine(opts.clone());
 
-        let event_loop = EventsLoop::new();
+        let glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
+        let (mut window, events) =
+            glfw.create_window(opts.window_size.0, opts.window_size.1,
+                               opts.title.as_str(), glfw::WindowMode::Windowed)
+                .expect("Failed to create GLFW window.");
 
-        let window_builder = WindowBuilder::new()
-            .with_title(opts.title.as_str())
-            .with_resizable(false)
-            .with_dimensions(LogicalSize::new(
-                opts.window_size.0 as f64,
-                opts.window_size.1 as f64,
-            ));
+        window.make_current();
 
-        let gl_context = glutin::ContextBuilder::new()
-            .with_gl(GlRequest::Specific(Api::OpenGl, (4, 4)))
-            .with_vsync(false)
-            .build_windowed(window_builder, &event_loop)
-            .unwrap();
+        gl_loader::init_gl();
+        gl::load_with(|symbol| gl_loader::get_proc_address(symbol) as *const _);
 
-        let (window_size, pipeline) = render_prepare(&gl_context);
+        window.set_all_polling(true);
+
+        let (window_size, pipeline) = render_prepare(&window);
         let gamepad = Gilrs::new().unwrap();
 
         ENGINE_STATE.lock().unwrap().render_state.screen_size = window_size;
 
         EngineInstance {
-            event_loop,
-            gl_context,
+            glfw,
+            events,
+            window,
             pipeline,
             gamepad,
         }
@@ -65,67 +61,59 @@ impl EngineInstance {
             }
         }
 
-        self.event_loop.poll_events(|event| match event {
-            Event::WindowEvent {
-                event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                engine_state.runtime_state.should_quit = true;
-                println!("|= Quitting!");
-            }
+        self.glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&self.events) {
+            match event {
+                WindowEvent::Close => {
+                    engine_state.runtime_state.should_quit = true;
+                    println!("|= Quitting!");
+                }
 
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput { input, .. },
-                ..
-            } => {
-                if let Some(key) = input.virtual_keycode {
-                    match input.state {
-                        ElementState::Pressed => {
+                WindowEvent::Key(key, _scancode, action, _modifiers) => {
+                    match action {
+                        Action::Press => {
                             engine_state.input_state.input_events.insert(
                                 Input::Keyboard(unsafe { std::mem::transmute(key) }),
                                 InputState::Pressed,
                             );
                         }
-
-                        ElementState::Released => {
+                        Action::Release => {
                             engine_state.input_state.input_events.insert(
                                 Input::Keyboard(unsafe { std::mem::transmute(key) }),
                                 InputState::Released,
                             );
                         }
-                    };
+                        Action::Repeat => {}
+                    }
                 }
+
+                WindowEvent::MouseButton(button, action, _modifiers) => {
+                    match action {
+                        Action::Press => {
+                            engine_state
+                                .input_state
+                                .input_events
+                                .insert(Input::Mouse(button.into()), InputState::Pressed);
+                        }
+                        Action::Release => {
+                            engine_state
+                                .input_state
+                                .input_events
+                                .insert(Input::Mouse(button.into()), InputState::Released);
+                        }
+                        Action::Repeat => {}
+                    }
+                }
+
+                WindowEvent::CursorPos(x, y) => {
+                    let mut xy = engine_state.input_state.mouse_position;
+                    xy.x = x as i16 / 16 as i16; // TODO
+                    xy.y = y as i16 / 16 as i16; // TODO
+                }
+
+                _ => {}
             }
-
-            Event::WindowEvent {
-                event: WindowEvent::MouseInput { button, state, .. },
-                ..
-            } => match state {
-                ElementState::Pressed => {
-                    engine_state
-                        .input_state
-                        .input_events
-                        .insert(Input::Mouse(button), InputState::Pressed);
-                }
-                ElementState::Released => {
-                    engine_state
-                        .input_state
-                        .input_events
-                        .insert(Input::Mouse(button), InputState::Released);
-                }
-            },
-
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { position, .. },
-                ..
-            } => {
-                let mut xy = engine_state.input_state.mouse_position;
-                xy.x = position.x as i16 / 16 as i16;
-                xy.y = position.y as i16 / 16 as i16;
-            }
-
-            _ => {}
-        });
+        }
 
         while let Some(gilrs::Event { event, .. }) = self.gamepad.next_event() {
             match event {
@@ -147,11 +135,9 @@ impl EngineInstance {
             };
         }
     }
-}
 
-impl Renderable for EngineInstance {
-    fn render(&self) {
-        render_frame(&self.gl_context, &self.pipeline);
+    pub fn render(&mut self) {
+        render_frame(&self.pipeline, &mut self.window);
     }
 }
 
@@ -161,9 +147,7 @@ pub fn render<R: Renderable>(renderable: &R) {
 }
 
 #[inline(always)]
-fn render_prepare(gl_context: &WindowedContext) -> ((u32, u32), GlyphRenderer) {
-    unsafe { gl_context.make_current().unwrap() };
-
+fn render_prepare(window: &Window) -> ((u32, u32), GlyphRenderer) {
     let presentation = {
         let engine_state = ENGINE_STATE.lock().unwrap();
 
@@ -177,10 +161,7 @@ fn render_prepare(gl_context: &WindowedContext) -> ((u32, u32), GlyphRenderer) {
         presentations.get(presentation.as_str()).unwrap().clone()
     };
 
-    gl::load_with(|symbol| gl_context.get_proc_address(symbol) as *const c_void);
-    gl_error_check();
-
-    let size = gl_context.window().get_inner_size().unwrap();
+    let size = (window.get_size().0 as u32, window.get_size().1 as u32);
     let (window_size, glyph_renderer) = GlyphRenderer::new(size, &render_options);
 
     let uniforms = glyph_renderer.get_uniforms();
@@ -225,7 +206,7 @@ fn render_prepare(gl_context: &WindowedContext) -> ((u32, u32), GlyphRenderer) {
             render_options.output_glyph_scale.1 as f32,
         );
         gl_error_check();
-        gl::Uniform2f(uniforms.window_size, size.width as f32, size.height as f32);
+        gl::Uniform2f(uniforms.window_size, size.0 as f32, size.1 as f32);
         gl_error_check();
     }
 
@@ -233,7 +214,7 @@ fn render_prepare(gl_context: &WindowedContext) -> ((u32, u32), GlyphRenderer) {
 }
 
 #[inline(always)]
-fn render_frame(gl_context: &WindowedContext, pipeline: &GlyphRenderer) {
+fn render_frame(pipeline: &GlyphRenderer, window: &mut Window) {
     let mut engine_state = ENGINE_STATE.lock().unwrap();
 
     if engine_state.render_state.should_redraw {
@@ -245,8 +226,7 @@ fn render_frame(gl_context: &WindowedContext, pipeline: &GlyphRenderer) {
             }
 
             pipeline.render(screen.glyphs());
-
-            gl_context.swap_buffers().unwrap();
+            window.swap_buffers();
         }
 
         engine_state.render_state.should_redraw = false;

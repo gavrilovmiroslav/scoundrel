@@ -2,7 +2,6 @@ use std::mem::size_of;
 use std::{ffi::CString, mem, ptr, str};
 
 use gl::types::*;
-use glutin::dpi::LogicalSize;
 use nalgebra_glm::TMat4;
 
 use crate::core::engine::ENGINE_STATE;
@@ -117,7 +116,7 @@ pub struct GlyphRenderer {
 }
 
 impl GlyphRenderer {
-    pub fn new(window_size: LogicalSize, pres: &Presentation) -> ((u32, u32), GlyphRenderer) {
+    pub fn new(window_size: (u32, u32), pres: &Presentation) -> ((u32, u32), GlyphRenderer) {
         let id = compile_program(VERTEX, FRAGMENT);
         let mut vao = 0;
         let mut static_quad_vbo = 0;
@@ -128,8 +127,8 @@ impl GlyphRenderer {
             pres.input_font_glyph_size.1 * pres.output_glyph_scale.1,
         );
 
-        let glyph_count_by_width = window_size.width as i32 / scale.0 as i32;
-        let glyph_count_by_height = window_size.height as i32 / scale.1 as i32;
+        let glyph_count_by_width = window_size.0 as i32 / scale.0 as i32;
+        let glyph_count_by_height = window_size.1 as i32 / scale.1 as i32;
 
         let buffer_size = glyph_count_by_width as usize * glyph_count_by_height as usize;
         let glyph_buffer_size = GLYPH_SIZE * buffer_size;
@@ -216,7 +215,7 @@ impl GlyphRenderer {
             gl::UseProgram(id);
             gl::BindVertexArray(vao);
 
-            gl::Viewport(0, 0, window_size.width as _, window_size.height as _);
+            gl::Viewport(0, 0, window_size.0 as _, window_size.1 as _);
 
             let texture = Texture::load(&pres).unwrap();
             texture.bind();
@@ -224,8 +223,8 @@ impl GlyphRenderer {
             use nalgebra_glm::{look_at, ortho, scaling, translation, vec3};
             let projection = ortho(
                 0.0f32,
-                window_size.width as f32,
-                window_size.height as f32,
+                window_size.0 as f32,
+                window_size.1 as f32,
                 0.0f32,
                 0.0f32,
                 100.0f32,
