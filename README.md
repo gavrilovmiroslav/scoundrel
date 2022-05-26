@@ -2,7 +2,7 @@
 > A roguelike engine with devious intent!
 
 [![crates.io](https://img.shields.io/crates/v/scoundrel.svg)](https://crates.io/crates/scoundrel)
-[![docs](https://docs.rs/scoundrel/badge.svg)](http://docs.rs/mpd/)
+[![docs](https://docs.rs/scoundrel/badge.svg)](http://docs.rs/scoundrel/)
 
 # Features
 
